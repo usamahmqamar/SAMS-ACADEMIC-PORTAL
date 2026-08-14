@@ -1,0 +1,6 @@
+{
+  "name": "School Academic Management System",
+  "description": "A comprehensive central management ERP for academic stages featuring a dynamic School Operations Dashboard, time controller scrubbers, event readiness tracking, and automated fee campaigns.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

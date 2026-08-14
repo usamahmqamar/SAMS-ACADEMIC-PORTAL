@@ -1,0 +1,607 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;900&family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+/* -------------------------------------------------------------
+   VIBRANT PALETTE DESIGN THEMING & LAYOUT PATTERNS
+   ------------------------------------------------------------- */
+
+/* Base overrides */
+body, #school-erp-parent {
+  font-family: 'Outfit', sans-serif !important;
+  background-color: #f8fafc !important; /* bg-slate-50 style */
+  color: #334155 !important;
+}
+
+/* Refined display typography pairing */
+h1, h2, h3, h4, .font-bold.tracking-tight {
+  font-family: 'Space Grotesk', sans-serif !important;
+  letter-spacing: -0.02em !important;
+}
+
+/* Hyper-rounded elements across interactive containers */
+.rounded-xl {
+  border-radius: 1.25rem !important;
+}
+
+.rounded-2xl {
+  border-radius: 2rem !important;
+}
+
+.rounded-3xl {
+  border-radius: 2.5rem !important;
+}
+
+/* Header style polish */
+#erp-main-header {
+  height: 5rem !important; /* h-20 mapping */
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  padding-left: 2rem !important;
+  padding-right: 2rem !important;
+}
+
+#erp-main-header h1 {
+  font-size: 1.25rem !important; /* text-xl */
+  font-weight: 900 !important; /* font-black */
+  color: #0f172a !important;
+}
+
+#erp-main-header p {
+  font-size: 0.75rem !important; /* text-xs */
+  font-weight: 600 !important;
+  color: #64748b !important;
+}
+
+#erp-main-header .bg-indigo-600 {
+  width: 3rem !important;
+  height: 3rem !important;
+  background-color: #4f46e5 !important;
+  border-radius: 1rem !important; /* rounded-2xl style */
+  box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.22) !important;
+}
+
+/* Clear, vibrant active states in Sidebar Navigation */
+#erp-sidebar {
+  width: 18.5rem !important; /* Expanded to 296px for breathing room */
+  background-color: #ffffff !important;
+  border-right: 1px solid #e2e8f0 !important;
+  padding: 0.75rem !important; /* Reduced padding for extra cell space */
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+#erp-sidebar.collapsed {
+  width: 5rem !important; /* w-20 equivalent */
+  padding: 0.75rem 0.5rem !important;
+}
+
+#erp-sidebar p.text-slate-500 {
+  font-size: 0.75rem !important;
+  font-weight: 800 !important;
+  color: #1e293b !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.1em !important;
+}
+
+#erp-sidebar button {
+  border-radius: 1rem !important; /* rounded-2xl style */
+  font-weight: 700 !important;
+  font-size: 0.875rem !important; /* text-sm */
+  padding: 0.75rem 1rem !important;
+  color: #0f172a !important; /* Darkened from #64748b to #0f172a (Slate-900) */
+  background-color: transparent !important;
+  box-shadow: none !important;
+  margin-bottom: 0.35rem !important;
+  transition: all 0.2s ease !important;
+}
+
+#erp-sidebar button:hover {
+  background-color: #f8fafc !important;
+  color: #000000 !important;
+}
+
+#erp-sidebar button svg {
+  color: #334155 !important; /* Darkened from #64748b to #334155 (Slate-700) */
+}
+
+/* Force active state colors to Indigo Highlight theme with high contrast dark font */
+#erp-sidebar button.bg-indigo-600 {
+  background-color: #f5f3ff !important;
+  color: #1e1b4b !important; /* Darkened to Indigo-950 for elite readability */
+}
+
+#erp-sidebar button.bg-indigo-600 span {
+  color: #1e1b4b !important;
+  font-weight: 900 !important;
+}
+
+#erp-sidebar button.bg-indigo-600 svg {
+  color: #1e1b4b !important;
+  stroke-width: 2.5px !important;
+}
+
+/* Sidebar Info Sync Card Refinement */
+#erp-sidebar .bg-slate-800\/60 {
+  background-color: #4f46e5 !important; /* Vibrant Indigo background */
+  border: none !important;
+  border-radius: 1.5rem !important; /* rounded-3xl equivalent */
+  color: #ffffff !important;
+  padding: 1.25rem !important;
+  box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.25) !important;
+}
+
+#erp-sidebar .bg-slate-800\/60 span,
+#erp-sidebar .bg-slate-800\/60 .text-indigo-300 {
+  color: #ffffff !important;
+  font-size: 0.75rem !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+}
+
+#erp-sidebar .bg-slate-800\/60 p {
+  color: rgba(255, 255, 255, 0.85) !important;
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+  font-weight: 500 !important;
+  margin-top: 0.25rem !important;
+  margin-bottom: 0.75rem !important;
+}
+
+#erp-sidebar .bg-slate-850 {
+  border-top: 1px solid #e2e8f0 !important;
+}
+
+#erp-sidebar .text-indigo-400 {
+  color: #4338ca !important;
+  font-weight: 700 !important;
+}
+
+#erp-sidebar .text-amber-400 {
+  color: #b45309 !important;
+  font-weight: 700 !important;
+}
+
+#erp-sidebar .text-rose-400 {
+  color: #be123c !important;
+  font-weight: 700 !important;
+}
+
+#erp-sidebar .bg-slate-800 {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important; /* Darkened to ultra-contrast Slate-900 */
+  font-weight: 700 !important;
+}
+
+/* Sidebar Typography contrast optimization for amazing light mode legibility */
+:not(.dark) #erp-sidebar .text-slate-400 {
+  color: #475569 !important; /* Darker slate instead of faint light grey */
+}
+:not(.dark) #erp-sidebar .text-slate-500 {
+  color: #334155 !important;
+}
+:not(.dark) #erp-sidebar .text-slate-700 {
+  color: #0f172a !important; /* Rich dark slate-900 */
+}
+:not(.dark) #erp-sidebar .text-slate-800 {
+  color: #020617 !important; /* Rich deep slate-950 */
+}
+:not(.dark) #erp-sidebar .text-slate-650,
+:not(.dark) #erp-sidebar .text-slate-600 {
+  color: #1e293b !important; /* Slate-800 */
+}
+
+#erp-sidebar button#btn-reset-db {
+  background-color: #ffffff !important;
+  color: #4f46e5 !important;
+  border-radius: 0.75rem !important;
+  padding: 0.5rem 1rem !important;
+  font-size: 0.75rem !important;
+  font-weight: 950 !important;
+  text-transform: uppercase !important;
+  text-decoration: none !important;
+  width: 100% !important;
+  display: block !important;
+  text-align: center !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Statistics cards list row */
+.grid-cols-1 .bg-white.p-5 {
+  border-radius: 2.25rem !important; /* rounded-[2.5rem] style */
+  border-color: #f1f5f9 !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02) !important;
+}
+
+.grid-cols-1 .bg-white.p-5 p.text-slate-500 {
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  color: #94a3b8 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+}
+
+.grid-cols-1 .bg-white.p-5 .text-2xl {
+  font-size: 1.875rem !important; /* text-3xl mapped */
+  font-weight: 900 !important; /* font-black mapped */
+  color: #0f172a !important;
+}
+
+/* Overview Main Breakdown Container */
+.grid-cols-1 .lg\:col-span-2.bg-white {
+  border-radius: 2.5rem !important; /* rounded-[3rem] */
+  padding: 2rem !important;
+  border: 1px solid #f1f5f9 !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.02) !important;
+}
+
+.grid-cols-1 .lg\:col-span-2.bg-white h3 {
+  font-size: 1.25rem !important;
+  font-weight: 950 !important;
+}
+
+/* Amber, Sky, Indigo layout boxes inside Academic division sections */
+.p-4.rounded-xl.border.border-indigo-100 {
+  background-color: #f5f3ff !important; /* bg-indigo-50 */
+  border: 1px solid #ddd6fe !important; /* border-indigo-150 */
+  border-radius: 1.75rem !important; /* rounded-[2rem] style */
+  padding: 1.5rem !important;
+}
+.p-4.rounded-xl.border.border-indigo-100 h4 {
+  color: #4338ca !important;
+  font-weight: 900 !important;
+}
+
+.p-4.rounded-xl.border.border-amber-100 {
+  background-color: #fef3c7 !important; /* bg-amber-50 */
+  border: 1px solid #fde68a !important; /* border-amber-100 */
+  border-radius: 1.75rem !important; /* rounded-[2rem] style */
+  padding: 1.5rem !important;
+}
+.p-4.rounded-xl.border.border-amber-100 h4 {
+  color: #78350f !important;
+  font-weight: 900 !important;
+}
+
+.p-4.rounded-xl.border.border-rose-100 {
+  background-color: #e0f2fe !important; /* bg-sky-50 representation mapping */
+  border: 1px solid #bae6fd !important; /* border-sky-100 */
+  border-radius: 1.75rem !important; /* rounded-[2rem] style */
+  padding: 1.5rem !important;
+}
+.p-4.rounded-xl.border.border-rose-100 h4 {
+  color: #0369a1 !important;
+  font-weight: 900 !important;
+}
+
+/* Bulletin / Alerts Card Layout */
+.bg-slate-950 {
+  background-color: #0f172a !important; /* text-white bg-slate-900 representation */
+  border-radius: 2.5rem !important; /* rounded-[3rem] */
+  padding: 2rem !important;
+  box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.22) !important;
+}
+
+.bg-slate-950 h3 {
+  color: #ffffff !important;
+  font-weight: 900 !important;
+}
+
+.bg-slate-950 .bg-slate-900 {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  border-radius: 1.25rem !important; /* rounded-2xl equivalent */
+  padding: 1rem !important;
+}
+
+/* Table Directory Container cards */
+.bg-white.shadow-md.rounded-2xl {
+  border-radius: 2.5rem !important; /* rounded-[3rem] equivalent */
+  border: 1px solid #f1f5f9 !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.02) !important;
+  padding: 1.25rem !important;
+}
+
+/* Drawer Dialog style */
+#student-folder-drawer {
+  border-radius: 2.5rem !important; /* rounded-[3rem] style */
+  border-color: #e0e7ff !important;
+  box-shadow: 0 15px 30px -5px rgba(79, 70, 229, 0.09) !important;
+  background-color: #ffffff !important;
+  padding: 2rem !important;
+}
+
+#student-folder-drawer .bg-slate-50 {
+  background-color: #f8fafc !important;
+  border-radius: 1.75rem !important; /* rounded-[2rem] style */
+  border-color: #f1f5f9 !important;
+  padding: 1.5rem !important;
+}
+
+/* General Input layout elements */
+input, select, textarea {
+  border-radius: 0.75rem !important;
+  border-color: #e2e8f0 !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: #4f46e5 !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12) !important;
+  outline: none !important;
+}
+
+/* Actions Button High-Fidelity details */
+button, .cursor-pointer {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Dynamic Action buttons to Vibrant Indigo theme styling */
+.bg-indigo-600:not(#erp-sidebar *):not(#erp-main-header *):not(.animate-spin) {
+  background-color: #4f46e5 !important;
+  border-radius: 0.75rem !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.18) !important;
+}
+.bg-indigo-600:not(#erp-sidebar *):not(#erp-main-header *):not(.animate-spin):hover {
+  background-color: #4338ca !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Standard scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* -------------------------------------------------------------
+   EXECUTIVE HEALTH SCORE REPORT PRINT LAYOUTS
+   ------------------------------------------------------------- */
+@media print {
+  /* Hide interactive navigation, simulation levers, sidebar and header */
+  #erp-main-header,
+  #erp-sidebar,
+  .bg-amber-400,
+  button,
+  input[type="range"],
+  .cursor-pointer,
+  #nav-btn-health,
+  #nav-btn-calendar,
+  #academic-calendar-tabs,
+  #academic-calendar-groups {
+    display: none !important;
+  }
+
+  /* Make the active workspace layout span 100% of paper width */
+  #school-erp-parent,
+  #school-erp-parent > div,
+  #erp-view-health,
+  #erp-view-calendar,
+  #school-health-root,
+  main {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Force background colors and graphical elements to print reliably */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Section grouping and page break prevention */
+  h1, h2, h3, h4 {
+    color: #0f172a !important;
+    page-break-after: avoid;
+  }
+
+  .grid {
+    display: grid !important;
+    gap: 1.5rem !important;
+  }
+
+  /* Treat dashboard cards with high-contrast borders instead of interactive drop-shadows */
+  .bg-white, .bg-slate-50 {
+    background: #ffffff !important;
+    border: 1.5px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+  }
+
+  /* Preserve full color contrast on core summary widget and composite indicator */
+  .bg-gradient-to-br {
+    background: #0f172a !important;
+    color: #ffffff !important;
+    border-radius: 1rem !important;
+    padding: 1.5rem !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* -------------------------------------------------------------
+   DARK MODE OVERRIDES
+   ------------------------------------------------------------- */
+.dark body, .dark #school-erp-parent {
+  background-color: #090d16 !important;
+  color: #cbd5e1 !important;
+}
+
+.dark #erp-main-header {
+  background-color: #0f172a !important;
+  border-bottom: 1px solid #1e293b !important;
+}
+
+.dark #erp-main-header h1 {
+  color: #f8fafc !important;
+}
+
+.dark #erp-main-header p {
+  color: #94a3b8 !important;
+}
+
+.dark #erp-sidebar {
+  background-color: #0f172a !important;
+  border-right: 1px solid #1e293b !important;
+}
+
+.dark #erp-sidebar p.text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+.dark #erp-sidebar button {
+  color: #94a3b8 !important;
+}
+
+.dark #erp-sidebar button:hover {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+.dark #erp-sidebar button:hover svg {
+  color: #f8fafc !important;
+}
+
+.dark #erp-sidebar button svg {
+  color: #94a3b8 !important;
+}
+
+.dark #erp-sidebar button.bg-indigo-600 {
+  background-color: #1e1b4b !important;
+  color: #818cf8 !important;
+}
+
+.dark #erp-sidebar button.bg-indigo-600 span {
+  color: #a5b4fc !important;
+}
+
+.dark #erp-sidebar button.bg-indigo-600 svg {
+  color: #a5b4fc !important;
+}
+
+.dark #erp-sidebar .bg-slate-800\/60 {
+  background-color: #312e81 !important;
+  box-shadow: 0 10px 15px -3px rgba(49, 46, 129, 0.3) !important;
+}
+
+.dark #erp-sidebar .bg-slate-850 {
+  border-top: 1px solid #1e293b !important;
+}
+
+.dark #erp-sidebar button#btn-reset-db {
+  background-color: #1e293b !important;
+  color: #818cf8 !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Form controls */
+.dark input, .dark select, .dark textarea {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+.dark input:focus, .dark select:focus, .dark textarea:focus {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25) !important;
+}
+
+/* Generic container and table card overrides */
+.dark .bg-white {
+  background-color: #111827 !important;
+  border-color: #1f2937 !important;
+}
+
+.dark .bg-white.shadow-md.rounded-2xl {
+  background-color: #111827 !important;
+  border-color: #1f2937 !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3) !important;
+}
+
+.dark .text-slate-800 {
+  color: #e2e8f0 !important;
+}
+
+.dark .text-slate-900 {
+  color: #f8fafc !important;
+}
+
+.dark .text-slate-950 {
+  color: #ffffff !important;
+}
+
+/* Academic Stage Boxes */
+.dark .p-4.rounded-xl.border.border-indigo-100 {
+  background-color: #1e1b4b !important;
+  border-color: #312e81 !important;
+}
+
+.dark .p-4.rounded-xl.border.border-indigo-100 h4 {
+  color: #a5b4fc !important;
+}
+
+.dark .p-4.rounded-xl.border.border-amber-100 {
+  background-color: #451a03 !important;
+  border-color: #78350f !important;
+}
+
+.dark .p-4.rounded-xl.border.border-amber-100 h4 {
+  color: #fcd34d !important;
+}
+
+.dark .p-4.rounded-xl.border.border-rose-100 {
+  background-color: #0c4a6e !important;
+  border-color: #0369a1 !important;
+}
+
+.dark .p-4.rounded-xl.border.border-rose-100 h4 {
+  color: #7dd3fc !important;
+}
+
+/* Bulletin card layout */
+.dark .bg-slate-950 {
+  background-color: #111827 !important;
+  border: 1px solid #1f2937 !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark .bg-slate-950 h3 {
+  color: #f8fafc !important;
+}
+
+.dark .bg-slate-950 .bg-slate-900 {
+  background-color: #1f2937 !important;
+  border-color: #374151 !important;
+}
+
+/* Drawer Dialog style */
+.dark #student-folder-drawer {
+  background-color: #111827 !important;
+  border-color: #1f2937 !important;
+  box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.5) !important;
+}
+
+.dark #student-folder-drawer .bg-slate-50 {
+  background-color: #1f2937 !important;
+  border-color: #374151 !important;
+}
+

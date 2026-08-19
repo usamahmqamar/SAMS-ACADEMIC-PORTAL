@@ -1439,22 +1439,52 @@ export default function OperationsDashboard({ activeBranch }: { activeBranch: 'G
                       onClick={() => setSelectedTask(tsk)}
                       className="bg-white hover:bg-slate-50 border border-slate-200 p-3.5 rounded-xl shadow-2xs transition-all hover:-translate-y-0.5 cursor-pointer flex items-start gap-3"
                     >
-                      <div className={`p-1.5 rounded-lg shrink-0 ${tsk.status === 'In Progress' ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600'}`}>
+                      <div className={`p-1.5 rounded-lg shrink-0 ${
+                        tsk.taskType === 'teaching_record' ? 'bg-blue-50 text-blue-600' :
+                        tsk.taskType === 'lesson_plan' ? 'bg-teal-50 text-teal-600' :
+                        tsk.status === 'In Progress' ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600'
+                      }`}>
                         <Clock className="w-4 h-4" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-center">
-                          <span className="bg-slate-100 text-slate-600 text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase">
-                            {tsk.status}
+                        <div className="flex justify-between items-center gap-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="bg-slate-100 text-slate-600 text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase">
+                              {tsk.status}
+                            </span>
+                            {tsk.taskType && tsk.taskType !== 'general' && (
+                              <span className="bg-indigo-50 text-indigo-700 text-[8px] font-extrabold px-1.5 py-0.5 rounded uppercase border border-indigo-100">
+                                {tsk.taskType.replace('_', ' ')}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-bold shrink-0">
+                            Due {tsk.dueDate} {tsk.dueTime ? `@ ${tsk.dueTime}` : ''}
                           </span>
-                          <span className="text-[10px] text-slate-400 font-bold">Due {tsk.dueDate}</span>
                         </div>
                         <h5 className="font-bold text-xs text-slate-800 mt-1 truncate">{tsk.title}</h5>
                         <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">{tsk.description}</p>
-                        <p className="text-[10px] text-slate-400 mt-2 flex items-center gap-1 font-medium">
-                          <User className="w-3 h-3 text-slate-300" />
-                          <span>Assignee: {tsk.assignedUser}</span>
-                        </p>
+                        
+                        {tsk.reminderNotice && (
+                          <p className="text-[10px] text-amber-700 bg-amber-50/80 p-1.5 rounded-lg border border-amber-150 mt-1.5 line-clamp-1 font-medium">
+                            🔔 {tsk.reminderNotice}
+                          </p>
+                        )}
+
+                        <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400 font-medium">
+                          <span className="flex items-center gap-1">
+                            <User className="w-3 h-3 text-slate-300" />
+                            <span>Assignee: {tsk.assignedUser}</span>
+                          </span>
+                          {tsk.submissionStatus && (
+                            <span className={`text-[9px] font-bold ${
+                              tsk.submissionStatus === 'Submitted On Time' ? 'text-emerald-600' :
+                              tsk.submissionStatus === 'Submitted Late' ? 'text-amber-600' : 'text-slate-400'
+                            }`}>
+                              {tsk.submissionStatus}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))
@@ -2560,22 +2590,66 @@ export default function OperationsDashboard({ activeBranch }: { activeBranch: 'G
                     <DynamicLucideIcon name="X" className="w-5 h-5" />
                   </button>
 
-                  <span className="bg-purple-50 text-purple-700 text-[10px] font-extrabold px-3 py-1 rounded-full border border-purple-100 uppercase tracking-widest inline-block">
-                    Operational Task
-                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="bg-purple-50 text-purple-700 text-[10px] font-extrabold px-3 py-1 rounded-full border border-purple-100 uppercase tracking-widest inline-block">
+                      {selectedTask.taskType && selectedTask.taskType !== 'general' ? selectedTask.taskType.replace('_', ' ') : 'Operational Task'}
+                    </span>
+                    {selectedTask.submissionStatus && (
+                      <span className={`text-[10px] font-extrabold px-3 py-1 rounded-full border uppercase tracking-widest ${
+                        selectedTask.submissionStatus === 'Submitted On Time' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                        selectedTask.submissionStatus === 'Submitted Late' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                        'bg-rose-50 text-rose-700 border-rose-200'
+                      }`}>
+                        {selectedTask.submissionStatus}
+                      </span>
+                    )}
+                  </div>
                   
-                  <h3 className="text-lg font-bold text-slate-900 mt-4">{selectedTask.title}</h3>
-                  <div className="flex gap-2 items-center mt-2">
+                  <h3 className="text-lg font-bold text-slate-900 mt-3">{selectedTask.title}</h3>
+                  <div className="flex flex-wrap gap-2 items-center mt-2">
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
                       selectedTask.status === 'Completed' ? 'bg-emerald-100 text-emerald-800' :
                       selectedTask.status === 'Overdue' ? 'bg-rose-100 text-rose-800 animate-pulse' : 'bg-amber-100 text-amber-800'
                     }`}>
                       {selectedTask.status}
                     </span>
-                    <span className="text-xs text-slate-400 font-medium">Due Date: {selectedTask.dueDate}</span>
+                    <span className="text-xs text-slate-500 font-medium">
+                      📅 Due: {selectedTask.dueDate} {selectedTask.dueTime ? `@ ${selectedTask.dueTime}` : ''}
+                    </span>
+                    {selectedTask.daysLate ? (
+                      <span className="text-[10px] font-mono text-rose-600 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded font-bold">
+                        {selectedTask.daysLate} days late
+                      </span>
+                    ) : null}
                   </div>
 
-                  <div className="mt-4 p-4 bg-slate-50 rounded-2xl border border-slate-200/50">
+                  {selectedTask.reminderNotice && (
+                    <div className="mt-3 p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
+                      <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold text-[10px] uppercase text-amber-700 tracking-wider">Automated Reminder</p>
+                        <p className="mt-0.5 font-medium">{selectedTask.reminderNotice}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedTask.submissionDate && (
+                    <div className="mt-3 p-3 bg-slate-50 rounded-xl border border-slate-200/80 text-xs flex justify-between items-center">
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Submission Timestamp</p>
+                        <p className="font-semibold text-slate-800 font-mono mt-0.5">
+                          {selectedTask.submissionDate} {selectedTask.submissionTime ? `@ ${selectedTask.submissionTime}` : ''}
+                        </p>
+                      </div>
+                      <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${
+                        selectedTask.submissionStatus === 'Submitted On Time' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {selectedTask.submissionStatus === 'Submitted On Time' ? 'On Time' : 'Late'}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="mt-3 p-4 bg-slate-50 rounded-2xl border border-slate-200/50">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Task Guidelines</p>
                     <p className="text-sm text-slate-700 mt-1.5 leading-relaxed">{selectedTask.description}</p>
                   </div>

@@ -75,7 +75,7 @@ export const ROLE_VISIBILITY: Record<string, {
       // staff
       'staff_directory', 'staff_profiles', 'staff_payroll', 'staff_reviews', 'staff_docs',
       // academics
-      'academics_classes', 'academics_subjects', 'academics_islamia', 'academics_timetable', 'academics_curriculum',
+      'academics_classes', 'academics_subjects', 'academics_islamia', 'academics_timetable', 'academics_teaching_records', 'academics_curriculum',
       // attendance
       'attendance_reports', 'attendance_analytics',
       // results
@@ -105,7 +105,7 @@ export const ROLE_VISIBILITY: Record<string, {
       // staff
       'staff_directory', 'staff_profiles', 'staff_payroll', 'staff_leave', 'staff_reviews', 'staff_docs', 'staff_id',
       // academics
-      'academics_sections', 'academics_classes', 'academics_subjects', 'academics_islamia', 'academics_timetable', 'academics_lessons', 'academics_scheme', 'academics_curriculum',
+      'academics_sections', 'academics_classes', 'academics_subjects', 'academics_islamia', 'academics_timetable', 'academics_lessons', 'academics_teaching_records', 'academics_scheme', 'academics_curriculum',
       // attendance
       'attendance_student', 'attendance_staff', 'attendance_reports', 'attendance_analytics',
       // results
@@ -130,7 +130,7 @@ export const ROLE_VISIBILITY: Record<string, {
       'students_directory',
       'admissions_hub',
       'staff_directory', 'staff_profiles', 'staff_payroll', 'staff_leave', 'staff_reviews', 'staff_docs', 'staff_id',
-      'academics_sections', 'academics_classes', 'academics_subjects', 'academics_islamia', 'academics_timetable', 'academics_lessons', 'academics_scheme', 'academics_curriculum',
+      'academics_sections', 'academics_classes', 'academics_subjects', 'academics_islamia', 'academics_timetable', 'academics_lessons', 'academics_teaching_records', 'academics_scheme', 'academics_curriculum',
       'attendance_student', 'attendance_staff', 'attendance_reports', 'attendance_analytics',
       'results_ca', 'results_exams', 'results_entry', 'results_ranking', 'results_cards', 'results_analysis', 'results_publishing',
       'financial_settings_main', 'financial_heads', 'financial_templates', 'financial_overrides', 'financial_optional', 'financial_discounts', 'financial_scholarships', 'financial_billing', 'financial_family', 'financial_payments', 'financial_expenses', 'financial_reports', 'financial_analytics',
@@ -148,7 +148,7 @@ export const ROLE_VISIBILITY: Record<string, {
       'students_directory',
       'admissions_hub',
       'staff_directory', 'staff_profiles', 'staff_leave', 'staff_reviews', 'staff_docs', 'staff_id',
-      'academics_sections', 'academics_classes', 'academics_subjects', 'academics_islamia', 'academics_timetable', 'academics_lessons', 'academics_scheme', 'academics_curriculum',
+      'academics_sections', 'academics_classes', 'academics_subjects', 'academics_islamia', 'academics_timetable', 'academics_lessons', 'academics_teaching_records', 'academics_scheme', 'academics_curriculum',
       'attendance_student', 'attendance_staff', 'attendance_reports', 'attendance_analytics',
       'results_ca', 'results_exams', 'results_entry', 'results_ranking', 'results_cards', 'results_analysis', 'results_publishing',
       'ops_calendar', 'ops_timeline', 'ops_events', 'ops_tasks', 'ops_deadlines', 'ops_acad_readiness', 'ops_dashboard',
@@ -172,7 +172,7 @@ export const ROLE_VISIBILITY: Record<string, {
     submenus: [
       'dashboard_academic', 'dashboard_notif',
       'students_directory',
-      'academics_sections', 'academics_classes', 'academics_subjects', 'academics_islamia', 'academics_timetable', 'academics_lessons', 'academics_scheme',
+      'academics_sections', 'academics_classes', 'academics_subjects', 'academics_islamia', 'academics_timetable', 'academics_lessons', 'academics_teaching_records', 'academics_scheme',
       'attendance_student', 'attendance_reports',
       'results_ca', 'results_exams', 'results_entry', 'results_cards', 'results_analysis',
       'ops_calendar', 'ops_events', 'ops_tasks', 'ops_deadlines', 'ops_acad_readiness',
@@ -233,7 +233,8 @@ export const SAMS_MODULES: PrimaryModule[] = [
     icon: Users,
     displayOrder: 2,
     submenu: [
-      { id: 'students_directory', name: 'Student Directory', description: 'Interactive student search, status sheets, and ledger links', mappedTab: 'students' }
+      { id: 'students_directory', name: 'Student Directory', description: 'Interactive student search, status sheets, and ledger links', mappedTab: 'students' },
+      { id: 'students_coverage', name: 'Book & Work Coverage', description: 'Audit individual student exercise book completion and remedial support flags', mappedTab: 'students' }
     ]
   },
   {
@@ -275,6 +276,7 @@ export const SAMS_MODULES: PrimaryModule[] = [
       { id: 'academics_islamia', name: 'Islamia Programme', description: 'Track special Arabic, Quran, and Hadith learning blocks', mappedTab: 'classes' },
       { id: 'academics_timetable', name: 'Timetable', description: 'Interactive calendar view of period allocations', mappedTab: 'scheduler' },
       { id: 'academics_lessons', name: 'Lesson Plans', description: 'Teachers weekly lesson outlines, review stages, and progress', mappedTab: 'classes' },
+      { id: 'academics_teaching_records', name: 'Teaching Records', description: 'Log what was actually taught in class, board notes, book work, and evidence', mappedTab: 'classes' },
       { id: 'academics_scheme', name: 'Scheme of Work', description: 'Term-level academic milestones and syllabus progress boards', mappedTab: 'classes' },
       { id: 'academics_curriculum', name: 'Curriculum', description: 'Configure state and national syllabus alignment directives', mappedTab: 'classes' }
     ]

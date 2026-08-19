@@ -24,7 +24,8 @@ import {
   DollarSign,
   Users,
   LayoutDashboard,
-  CheckSquare
+  CheckSquare,
+  CheckCircle2
 } from 'lucide-react';
 import * as Lucide from 'lucide-react';
 
@@ -88,6 +89,20 @@ export interface EventTask {
   assignedUser: string;
   dueDate: string;
   status: 'Pending' | 'In Progress' | 'Completed' | 'Overdue';
+  dueTime?: string;
+  taskType?: 'teaching_record' | 'lesson_plan' | 'curriculum_progress' | 'scheme_review' | 'general';
+  week?: number;
+  subject?: string;
+  classId?: string;
+  term?: string;
+  branch?: string;
+  assignedRole?: string;
+  submissionDate?: string;
+  submissionTime?: string;
+  submissionStatus?: 'Submitted On Time' | 'Submitted Late' | 'Not Submitted' | 'Pending';
+  daysLate?: number;
+  linkedTeachingRecordId?: string;
+  reminderNotice?: string;
 }
 
 export interface EventAssignment {
@@ -239,7 +254,16 @@ export default function AcademicCalendar({
     description: '',
     assignedUser: '',
     dueDate: '',
-    status: 'Pending' as 'Pending' | 'In Progress' | 'Completed' | 'Overdue'
+    status: 'Pending' as 'Pending' | 'In Progress' | 'Completed' | 'Overdue',
+    dueTime: '17:00',
+    taskType: 'general' as 'teaching_record' | 'lesson_plan' | 'curriculum_progress' | 'scheme_review' | 'general',
+    week: 1,
+    assignedRole: 'Teacher',
+    reminderNotice: '',
+    submissionStatus: 'Pending' as 'Submitted On Time' | 'Submitted Late' | 'Not Submitted' | 'Pending',
+    submissionDate: '',
+    submissionTime: '',
+    daysLate: 0
   });
 
   // Event Tasks Filter states
@@ -2678,17 +2702,101 @@ export default function AcademicCalendar({
           overdue: filteredTasks.filter(t => t.status === 'Overdue').length,
         };
 
-        const handleAddTaskClick = () => {
+        const handleAddTaskClick = (presetType?: 'teaching_record' | 'lesson_plan' | 'curriculum_progress' | 'scheme_review') => {
           setEditingTask(null);
           setValidationError(null);
-          setTaskForm({
-            eventId: events[0]?.id || '',
-            title: '',
-            description: '',
-            assignedUser: '',
-            dueDate: '',
-            status: 'Pending'
-          });
+          
+          if (presetType === 'teaching_record') {
+            setTaskForm({
+              eventId: events[0]?.id || 'evt-1',
+              title: 'Weekly Teaching Record',
+              description: 'Log classroom instruction topics, board work layout, student notebook instructions, and book work coverage counts.',
+              assignedUser: 'All Teachers',
+              dueDate: '2026-07-10',
+              status: 'In Progress',
+              dueTime: '17:00',
+              taskType: 'teaching_record',
+              week: 1,
+              assignedRole: 'Teacher',
+              reminderNotice: 'Due Friday at 5:00 PM. Please attach photos of classroom board and notebook samples.',
+              submissionStatus: 'Pending',
+              submissionDate: '',
+              submissionTime: '',
+              daysLate: 0
+            });
+          } else if (presetType === 'lesson_plan') {
+            setTaskForm({
+              eventId: events[0]?.id || 'evt-1',
+              title: 'Weekly Lesson Plan',
+              description: 'Submit structured weekly lesson plans, behavioral objectives, learning aids, and assessment strategies.',
+              assignedUser: 'All Teachers',
+              dueDate: '2026-07-06',
+              status: 'Pending',
+              dueTime: '08:00',
+              taskType: 'lesson_plan',
+              week: 2,
+              assignedRole: 'Teacher',
+              reminderNotice: 'Due Monday at 8:00 AM before first period assembly.',
+              submissionStatus: 'Pending',
+              submissionDate: '',
+              submissionTime: '',
+              daysLate: 0
+            });
+          } else if (presetType === 'curriculum_progress') {
+            setTaskForm({
+              eventId: events[0]?.id || 'evt-1',
+              title: 'Monthly Curriculum Progress',
+              description: 'Audit syllabus milestones coverage vs. scheme of work for the entire month across all assigned grades.',
+              assignedUser: 'All Teachers',
+              dueDate: '2026-07-31',
+              status: 'Pending',
+              dueTime: '16:00',
+              taskType: 'curriculum_progress',
+              week: 4,
+              assignedRole: 'Teacher',
+              reminderNotice: 'Due at the end of the month. Compare planned topics vs taught topics.',
+              submissionStatus: 'Pending',
+              submissionDate: '',
+              submissionTime: '',
+              daysLate: 0
+            });
+          } else if (presetType === 'scheme_review') {
+            setTaskForm({
+              eventId: events[0]?.id || 'evt-1',
+              title: 'Scheme of Work Review',
+              description: 'Departmental Scheme of Work progress audit, curriculum pace check, and remedial adjustment review.',
+              assignedUser: 'All Teachers',
+              dueDate: '2026-07-17',
+              status: 'Pending',
+              dueTime: '15:00',
+              taskType: 'scheme_review',
+              week: 4,
+              assignedRole: 'Teacher',
+              reminderNotice: 'Due Week 4 Friday. Review milestone pacing and student work coverage.',
+              submissionStatus: 'Pending',
+              submissionDate: '',
+              submissionTime: '',
+              daysLate: 0
+            });
+          } else {
+            setTaskForm({
+              eventId: events[0]?.id || '',
+              title: '',
+              description: '',
+              assignedUser: '',
+              dueDate: '',
+              status: 'Pending',
+              dueTime: '17:00',
+              taskType: 'general',
+              week: 1,
+              assignedRole: 'Teacher',
+              reminderNotice: '',
+              submissionStatus: 'Pending',
+              submissionDate: '',
+              submissionTime: '',
+              daysLate: 0
+            });
+          }
           setTaskModalOpen(true);
         };
 
@@ -2701,30 +2809,69 @@ export default function AcademicCalendar({
             description: task.description,
             assignedUser: task.assignedUser,
             dueDate: task.dueDate,
-            status: task.status
+            status: task.status,
+            dueTime: task.dueTime || '17:00',
+            taskType: task.taskType || 'general',
+            week: task.week || 1,
+            assignedRole: task.assignedRole || 'Teacher',
+            reminderNotice: task.reminderNotice || '',
+            submissionStatus: task.submissionStatus || 'Pending',
+            submissionDate: task.submissionDate || '',
+            submissionTime: task.submissionTime || '',
+            daysLate: task.daysLate || 0
           });
           setTaskModalOpen(true);
         };
 
         return (
           <div id="subtab-event-tasks" className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div>
                 <h3 className="font-extrabold text-slate-950 text-base leading-tight">
-                  Event Task Management
+                  Event Task &amp; Teaching Deadlines Management
                 </h3>
                 <p className="text-[11px] text-slate-500">
-                  Granular operational action items assigned to specific events, including subject prep, submissions, and pay campaigns.
+                  Operational action items and teaching deadlines synced across Teacher Dashboard, Calendar, and Operations Timeline.
                 </p>
               </div>
 
-              <button
-                onClick={handleAddTaskClick}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center space-x-1.5 self-start sm:self-auto cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Create New Task</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => handleAddTaskClick('teaching_record')}
+                  className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-[11px] font-bold transition-all cursor-pointer flex items-center space-x-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Weekly Record (Fri)</span>
+                </button>
+                <button
+                  onClick={() => handleAddTaskClick('lesson_plan')}
+                  className="px-3 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 rounded-xl text-[11px] font-bold transition-all cursor-pointer flex items-center space-x-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Lesson Plan (Mon)</span>
+                </button>
+                <button
+                  onClick={() => handleAddTaskClick('curriculum_progress')}
+                  className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-[11px] font-bold transition-all cursor-pointer flex items-center space-x-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Monthly Progress</span>
+                </button>
+                <button
+                  onClick={() => handleAddTaskClick('scheme_review')}
+                  className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-[11px] font-bold transition-all cursor-pointer flex items-center space-x-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Scheme Review</span>
+                </button>
+                <button
+                  onClick={() => handleAddTaskClick()}
+                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center space-x-1.5 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Custom Task</span>
+                </button>
+              </div>
             </div>
 
             {/* KPI METRICS STRIP */}
@@ -2814,17 +2961,35 @@ export default function AcademicCalendar({
                 const colors = getTaskStatusColor(task.status);
                 const UserIcon = (Lucide as any).User || Lucide.Calendar;
 
+                const getTaskTypeBadge = (type?: string) => {
+                  switch (type) {
+                    case 'teaching_record':
+                      return <span className="bg-blue-100 text-blue-800 border border-blue-200 text-[9px] font-extrabold px-2 py-0.5 rounded-md uppercase">Teaching Record (Fri)</span>;
+                    case 'lesson_plan':
+                      return <span className="bg-teal-100 text-teal-800 border border-teal-200 text-[9px] font-extrabold px-2 py-0.5 rounded-md uppercase">Lesson Plan (Mon)</span>;
+                    case 'curriculum_progress':
+                      return <span className="bg-purple-100 text-purple-800 border border-purple-200 text-[9px] font-extrabold px-2 py-0.5 rounded-md uppercase">Curriculum Progress</span>;
+                    case 'scheme_review':
+                      return <span className="bg-amber-100 text-amber-800 border border-amber-200 text-[9px] font-extrabold px-2 py-0.5 rounded-md uppercase">Scheme Review</span>;
+                    default:
+                      return null;
+                  }
+                };
+
                 return (
                   <div 
                     key={task.id} 
                     className="bg-white rounded-xl border border-slate-200 p-4 shadow-3xs flex flex-col justify-between space-y-4 hover:border-slate-350 hover:shadow-2xs transition-all"
                   >
-                    <div className="space-y-2">
-                      <div className="flex items-start justify-between">
-                        <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full ${colors.badge} flex items-center space-x-1`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />
-                          <span>{task.status}</span>
-                        </span>
+                    <div className="space-y-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full ${colors.badge} flex items-center space-x-1`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />
+                            <span>{task.status}</span>
+                          </span>
+                          {getTaskTypeBadge(task.taskType)}
+                        </div>
                         
                         <div className="flex items-center space-x-1 shrink-0">
                           <button
@@ -2850,6 +3015,41 @@ export default function AcademicCalendar({
                           {task.description || "No specific guidelines provided."}
                         </p>
                       </div>
+
+                      {/* Reminder Notice */}
+                      {task.reminderNotice && (
+                        <div className="bg-amber-50 border border-amber-200/80 rounded-lg p-2 flex items-start space-x-1.5 text-[10px] text-amber-800 font-medium">
+                          <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                          <span>{task.reminderNotice}</span>
+                        </div>
+                      )}
+
+                      {/* Submission Tracking Status */}
+                      {task.submissionStatus && task.submissionStatus !== 'Pending' && (
+                        <div className={`p-2 rounded-lg border text-[10px] font-semibold flex items-center justify-between ${
+                          task.submissionStatus === 'Submitted On Time' 
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                            : 'bg-amber-50 text-amber-800 border-amber-200'
+                        }`}>
+                          <div className="flex items-center space-x-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>{task.submissionStatus}</span>
+                          </div>
+                          {task.submissionDate && (
+                            <span className="text-[9px] font-mono text-slate-500">
+                              {task.submissionDate} {task.submissionTime ? `@ ${task.submissionTime}` : ''}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {task.status === 'Overdue' && (
+                        <div className="bg-rose-50 border border-rose-200 text-rose-800 p-2 rounded-lg text-[10px] font-bold flex items-center space-x-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                          <span>Not Submitted • Overdue</span>
+                          {task.daysLate ? <span className="text-[9px] bg-rose-200 px-1.5 py-0.5 rounded font-mono">({task.daysLate} days late)</span> : null}
+                        </div>
+                      )}
                     </div>
 
                     <div className="pt-3 border-t border-slate-100 space-y-2">
@@ -2868,7 +3068,7 @@ export default function AcademicCalendar({
                           <span className="truncate">{task.assignedUser}</span>
                         </div>
                         <span className="bg-slate-50 border border-slate-150 px-1.5 py-0.5 rounded text-slate-500 shrink-0">
-                          📅 {task.dueDate}
+                          📅 Due {task.dueDate} {task.dueTime ? `@ ${task.dueTime}` : ''}
                         </span>
                       </div>
                     </div>
@@ -5619,20 +5819,115 @@ export default function AcademicCalendar({
                   </div>
                 )}
 
-                {/* Parent Event Selection */}
+                {/* Quick Teaching Deadline Presets */}
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Parent Event Scope</label>
-                  <select
-                    required
-                    value={taskForm.eventId}
-                    onChange={(e) => setTaskForm(prev => ({ ...prev, eventId: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs focus:border-indigo-500 focus:bg-white outline-none transition-all cursor-pointer font-bold"
-                  >
-                    <option value="" disabled>Select a scheduled school event</option>
-                    {events.map(evt => (
-                      <option key={evt.id} value={evt.id}>{evt.title}</option>
-                    ))}
-                  </select>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Quick Presets</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTaskForm(prev => ({
+                        ...prev,
+                        title: 'Weekly Teaching Record',
+                        description: 'Log classroom instruction topics, board work layout, student notebook instructions, and book work coverage counts.',
+                        assignedUser: 'All Teachers',
+                        dueDate: '2026-07-10',
+                        dueTime: '17:00',
+                        taskType: 'teaching_record',
+                        reminderNotice: 'Due Friday at 5:00 PM. Please attach photos of classroom board and notebook samples.'
+                      }))}
+                      className="p-2 rounded-xl border border-blue-200 bg-blue-50/50 hover:bg-blue-100/70 text-left transition-all cursor-pointer"
+                    >
+                      <span className="text-[11px] font-bold text-blue-900 block">Weekly Teaching Record</span>
+                      <span className="text-[10px] text-blue-600 font-medium">Due Friday @ 5:00 PM</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setTaskForm(prev => ({
+                        ...prev,
+                        title: 'Weekly Lesson Plan',
+                        description: 'Submit structured weekly lesson plans, behavioral objectives, learning aids, and assessment strategies.',
+                        assignedUser: 'All Teachers',
+                        dueDate: '2026-07-06',
+                        dueTime: '08:00',
+                        taskType: 'lesson_plan',
+                        reminderNotice: 'Due Monday at 8:00 AM before first period assembly.'
+                      }))}
+                      className="p-2 rounded-xl border border-teal-200 bg-teal-50/50 hover:bg-teal-100/70 text-left transition-all cursor-pointer"
+                    >
+                      <span className="text-[11px] font-bold text-teal-900 block">Weekly Lesson Plan</span>
+                      <span className="text-[10px] text-teal-600 font-medium">Due Monday @ 8:00 AM</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setTaskForm(prev => ({
+                        ...prev,
+                        title: 'Monthly Curriculum Progress',
+                        description: 'Audit syllabus milestones coverage vs. scheme of work for the entire month across all assigned grades.',
+                        assignedUser: 'All Teachers',
+                        dueDate: '2026-07-31',
+                        dueTime: '16:00',
+                        taskType: 'curriculum_progress',
+                        reminderNotice: 'Due at the end of the month. Compare planned topics vs taught topics.'
+                      }))}
+                      className="p-2 rounded-xl border border-purple-200 bg-purple-50/50 hover:bg-purple-100/70 text-left transition-all cursor-pointer"
+                    >
+                      <span className="text-[11px] font-bold text-purple-900 block">Monthly Progress</span>
+                      <span className="text-[10px] text-purple-600 font-medium">Due End of Month</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setTaskForm(prev => ({
+                        ...prev,
+                        title: 'Scheme of Work Review',
+                        description: 'Departmental Scheme of Work progress audit, curriculum pace check, and remedial adjustment review.',
+                        assignedUser: 'All Teachers',
+                        dueDate: '2026-07-17',
+                        dueTime: '15:00',
+                        taskType: 'scheme_review',
+                        reminderNotice: 'Due Week 4 Friday. Review milestone pacing and student work coverage.'
+                      }))}
+                      className="p-2 rounded-xl border border-amber-200 bg-amber-50/50 hover:bg-amber-100/70 text-left transition-all cursor-pointer"
+                    >
+                      <span className="text-[11px] font-bold text-amber-900 block">Scheme of Work Review</span>
+                      <span className="text-[10px] text-amber-600 font-medium">Due Week 4 Friday</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Parent Event Selection & Task Type */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Parent Event Scope</label>
+                    <select
+                      required
+                      value={taskForm.eventId}
+                      onChange={(e) => setTaskForm(prev => ({ ...prev, eventId: e.target.value }))}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs focus:border-indigo-500 focus:bg-white outline-none transition-all cursor-pointer font-bold"
+                    >
+                      <option value="" disabled>Select scheduled event</option>
+                      {events.map(evt => (
+                        <option key={evt.id} value={evt.id}>{evt.title}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Deadline / Task Type</label>
+                    <select
+                      value={taskForm.taskType}
+                      onChange={(e: any) => setTaskForm(prev => ({ ...prev, taskType: e.target.value }))}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs focus:border-indigo-500 focus:bg-white outline-none transition-all cursor-pointer font-bold text-slate-700"
+                    >
+                      <option value="teaching_record">Weekly Teaching Record</option>
+                      <option value="lesson_plan">Weekly Lesson Plan</option>
+                      <option value="curriculum_progress">Monthly Curriculum Progress</option>
+                      <option value="scheme_review">Scheme of Work Review</option>
+                      <option value="general">General Operations Task</option>
+                    </select>
+                  </div>
                 </div>
 
                 {/* Task Title */}
@@ -5641,7 +5936,7 @@ export default function AcademicCalendar({
                   <input
                     type="text"
                     required
-                    placeholder="e.g. English Subject Exam Formulation"
+                    placeholder="e.g. Weekly Teaching Record"
                     value={taskForm.title}
                     onChange={(e) => setTaskForm(prev => ({ ...prev, title: e.target.value }))}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs focus:border-indigo-500 focus:bg-white outline-none transition-all font-medium"
@@ -5655,22 +5950,22 @@ export default function AcademicCalendar({
                     placeholder="Formulate paper with 40 objectives & 5 structural questions based on term syllabus..."
                     value={taskForm.description}
                     onChange={(e) => setTaskForm(prev => ({ ...prev, description: e.target.value }))}
-                    rows={3}
+                    rows={2}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs focus:border-indigo-500 focus:bg-white outline-none transition-all resize-none font-medium"
                   />
                 </div>
 
-                {/* Assigned User & Due Date */}
-                <div className="grid grid-cols-2 gap-4">
+                {/* Assigned User & Due Date & Due Time */}
+                <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Assigned User / Role</label>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Assignee</label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. English Department Head"
+                      placeholder="e.g. All Teachers"
                       value={taskForm.assignedUser}
                       onChange={(e) => setTaskForm(prev => ({ ...prev, assignedUser: e.target.value }))}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs focus:border-indigo-500 focus:bg-white outline-none transition-all font-semibold"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-indigo-500 focus:bg-white outline-none transition-all font-semibold"
                     />
                   </div>
                   <div>
@@ -5680,25 +5975,62 @@ export default function AcademicCalendar({
                       required
                       value={taskForm.dueDate}
                       onChange={(e) => setTaskForm(prev => ({ ...prev, dueDate: e.target.value }))}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs focus:border-indigo-500 focus:bg-white outline-none transition-all font-mono"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-indigo-500 focus:bg-white outline-none transition-all font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Due Time</label>
+                    <input
+                      type="time"
+                      value={taskForm.dueTime}
+                      onChange={(e) => setTaskForm(prev => ({ ...prev, dueTime: e.target.value }))}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-indigo-500 focus:bg-white outline-none transition-all font-mono"
                     />
                   </div>
                 </div>
 
-                {/* Status Selection */}
+                {/* Reminder Notice */}
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Current Operational Status</label>
-                  <select
-                    required
-                    value={taskForm.status}
-                    onChange={(e: any) => setTaskForm(prev => ({ ...prev, status: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs focus:border-indigo-500 focus:bg-white outline-none transition-all cursor-pointer font-bold"
-                  >
-                    <option value="Pending">Pending</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Completed">Completed</option>
-                    <option value="Overdue">Overdue</option>
-                  </select>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Automated Reminder Notice</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Due Friday at 5:00 PM. Please attach photos of classroom board."
+                    value={taskForm.reminderNotice}
+                    onChange={(e) => setTaskForm(prev => ({ ...prev, reminderNotice: e.target.value }))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs focus:border-indigo-500 focus:bg-white outline-none transition-all font-medium"
+                  />
+                </div>
+
+                {/* Status & Submission Tracking */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Status</label>
+                    <select
+                      required
+                      value={taskForm.status}
+                      onChange={(e: any) => setTaskForm(prev => ({ ...prev, status: e.target.value }))}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs focus:border-indigo-500 focus:bg-white outline-none transition-all cursor-pointer font-bold"
+                    >
+                      <option value="Pending">Pending</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Completed">Completed</option>
+                      <option value="Overdue">Overdue</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Submission Compliance</label>
+                    <select
+                      value={taskForm.submissionStatus}
+                      onChange={(e: any) => setTaskForm(prev => ({ ...prev, submissionStatus: e.target.value }))}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs focus:border-indigo-500 focus:bg-white outline-none transition-all cursor-pointer font-bold text-slate-700"
+                    >
+                      <option value="Pending">Pending</option>
+                      <option value="Submitted On Time">Submitted On Time</option>
+                      <option value="Submitted Late">Submitted Late</option>
+                      <option value="Not Submitted">Not Submitted</option>
+                    </select>
+                  </div>
                 </div>
 
                 {/* Action Controls */}

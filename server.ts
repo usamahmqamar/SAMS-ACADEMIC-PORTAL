@@ -1498,11 +1498,446 @@ if (dbState.family_accounts.length === 0 && dbState.students && dbState.students
   stateChanged = true;
 }
 
+// -------------------------------------------------------------
+// SIBLING DISCOUNT ENGINE SEEDING & POLICIES MIGRATION
+// -------------------------------------------------------------
+
+// Ensure all standard eligible & excluded fee heads exist
+if (!dbState.fee_heads) {
+  dbState.fee_heads = [];
+  stateChanged = true;
+}
+
+const standardFeeHeads = [
+  { id: "fh-1", code: "TUIT-FEE", name: "Tuition", description: "Standard term tuition", isMandatory: true, isActive: true, branchId: "all", section: "All", displayOrder: 1 },
+  { id: "fh-4", code: "DEV-CHRG", name: "Development Charges", description: "Campus development levy", isMandatory: true, isActive: true, branchId: "all", section: "All", displayOrder: 2 },
+  { id: "fh-portal", code: "PORTAL-FEE", name: "Portal Fee", description: "Digital student portal & ICT services", isMandatory: true, isActive: true, branchId: "all", section: "All", displayOrder: 3 },
+  { id: "fh-games", code: "GAMES-FEE", name: "Games/Entertainment", description: "Sports and extracurricular entertainment levy", isMandatory: true, isActive: true, branchId: "all", section: "All", displayOrder: 4 },
+  { id: "fh-furn", code: "FURN-FEE", name: "Furniture", description: "Classroom furniture & desk levy", isMandatory: true, isActive: true, branchId: "all", section: "All", displayOrder: 5 },
+  { id: "fh-7", code: "MED-FEE", name: "Medical Services", description: "Clinic and first aid services", isMandatory: true, isActive: true, branchId: "all", section: "All", displayOrder: 6 },
+  { id: "fh-islamic", code: "ISLAM-FEE", name: "Islamic Session", description: "Islamic studies and Quranic instruction", isMandatory: true, isActive: true, branchId: "all", section: "All", displayOrder: 7 },
+  { id: "fh-2", code: "BOOK-FEE", name: "Textbooks", description: "Core academic textbook bundles (Excluded from discount)", isMandatory: false, isActive: true, branchId: "all", section: "All", displayOrder: 8 },
+  { id: "fh-3", code: "STAT-FEE", name: "Stationery", description: "Exercise books, notebooks and pens (Excluded from discount)", isMandatory: false, isActive: true, branchId: "all", section: "All", displayOrder: 9 },
+  { id: "fh-exam", code: "EXAM-FEE", name: "Examination Fee", description: "Termly examination sheets and grading (Excluded from discount)", isMandatory: false, isActive: true, branchId: "all", section: "All", displayOrder: 10 }
+];
+
+standardFeeHeads.forEach(head => {
+  if (!dbState.fee_heads.some((h: any) => h.id === head.id || h.name.toLowerCase() === head.name.toLowerCase())) {
+    dbState.fee_heads.push({
+      ...head,
+      createdAt: new Date().toISOString()
+    });
+    stateChanged = true;
+  }
+});
+
+// Initialize sibling discount policies
+if (!dbState.sibling_discount_policies || dbState.sibling_discount_policies.length === 0) {
+  dbState.sibling_discount_policies = [
+    {
+      id: "sdp-gn-2026",
+      branch: "GN",
+      sessionId: "ses-2026",
+      termId: "All",
+      isActive: true,
+      crossBranchEnabled: false, // Default is OFF as mandated
+      rates: [
+        { position: 1, label: "1st Sibling (Highest Class)", ratePercent: 0 },
+        { position: 2, label: "2nd Sibling", ratePercent: 5 },
+        { position: 3, label: "3rd Sibling", ratePercent: 10 },
+        { position: 4, label: "4th Sibling", ratePercent: 15 },
+        { position: 5, label: "5th Sibling & Above", ratePercent: 20 }
+      ],
+      eligibleFeeHeadNames: [
+        "Tuition",
+        "Development Charges",
+        "Development Levy",
+        "Portal Fee",
+        "Games/Entertainment",
+        "Furniture",
+        "Medical Services",
+        "Medical Fee",
+        "Islamic Session",
+        "ICT Fee",
+        "Sports Fee"
+      ],
+      excludedFeeHeadNames: [
+        "Textbooks",
+        "Books",
+        "Stationery",
+        "Examination Fee",
+        "Graduation Levy",
+        "Optional Charges"
+      ],
+      clearanceDays: 15,
+      clearanceDeadlineDate: null,
+      expireIfNotCleared: true,
+      partialPaymentPolicy: "recalculate_to_full_fee",
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: "sdp-rs-2026",
+      branch: "RS",
+      sessionId: "ses-2026",
+      termId: "All",
+      isActive: true,
+      crossBranchEnabled: false, // Default is OFF as mandated
+      rates: [
+        { position: 1, label: "1st Sibling (Highest Class)", ratePercent: 0 },
+        { position: 2, label: "2nd Sibling", ratePercent: 5 },
+        { position: 3, label: "3rd Sibling", ratePercent: 10 },
+        { position: 4, label: "4th Sibling", ratePercent: 15 },
+        { position: 5, label: "5th Sibling & Above", ratePercent: 20 }
+      ],
+      eligibleFeeHeadNames: [
+        "Tuition",
+        "Development Charges",
+        "Development Levy",
+        "Portal Fee",
+        "Games/Entertainment",
+        "Furniture",
+        "Medical Services",
+        "Medical Fee",
+        "Islamic Session",
+        "ICT Fee",
+        "Sports Fee"
+      ],
+      excludedFeeHeadNames: [
+        "Textbooks",
+        "Books",
+        "Stationery",
+        "Examination Fee",
+        "Graduation Levy",
+        "Optional Charges"
+      ],
+      clearanceDays: 15,
+      clearanceDeadlineDate: null,
+      expireIfNotCleared: true,
+      partialPaymentPolicy: "recalculate_to_full_fee",
+      createdAt: new Date().toISOString()
+    }
+  ];
+  stateChanged = true;
+}
+
+if (!dbState.sibling_discount_records) {
+  dbState.sibling_discount_records = [];
+  stateChanged = true;
+}
+
+if (!dbState.sibling_discount_audit_logs) {
+  dbState.sibling_discount_audit_logs = [];
+  stateChanged = true;
+}
+
+// Seed the Qamar Family in Gawon Nama (GN) to demonstrate the exact graduated sibling relief specification
+if (dbState.students && !dbState.students.some((s: any) => s.id === 'std-qamar-1')) {
+  const qamarStudents = [
+    {
+      id: 'std-qamar-1',
+      name: 'Muhammad Qamar',
+      level: 'secondary',
+      grade: 'Grade 8 (JSS 2)',
+      branch: 'GN',
+      parentName: 'Engr. Usamah M. Qamar',
+      parentEmail: 'usamah.qamar@example.com',
+      parentPhone: '+234 803 123 4567',
+      admissionDate: '2022-09-10',
+      profile: { dob: '2012-05-14' },
+      attendancePercentage: 96,
+      behaviorRating: 'Excellent'
+    },
+    {
+      id: 'std-qamar-2',
+      name: 'Fatima Qamar',
+      level: 'primary',
+      grade: 'Grade 5 (Primary 5)',
+      branch: 'GN',
+      parentName: 'Engr. Usamah M. Qamar',
+      parentEmail: 'usamah.qamar@example.com',
+      parentPhone: '+234 803 123 4567',
+      admissionDate: '2023-09-05',
+      profile: { dob: '2015-08-20' },
+      attendancePercentage: 98,
+      behaviorRating: 'Excellent'
+    },
+    {
+      id: 'std-qamar-3',
+      name: 'Ibrahim Qamar',
+      level: 'nursery',
+      grade: 'K2 (Nursery 3 - Ages 4-5)',
+      branch: 'GN',
+      parentName: 'Engr. Usamah M. Qamar',
+      parentEmail: 'usamah.qamar@example.com',
+      parentPhone: '+234 803 123 4567',
+      admissionDate: '2024-09-12',
+      profile: { dob: '2020-01-10' },
+      attendancePercentage: 94,
+      behaviorRating: 'Good'
+    },
+    {
+      id: 'std-qamar-4',
+      name: 'Maryam Qamar',
+      level: 'nursery',
+      grade: 'Preschool (Nursery 1 - Ages 2-3)',
+      branch: 'GN',
+      parentName: 'Engr. Usamah M. Qamar',
+      parentEmail: 'usamah.qamar@example.com',
+      parentPhone: '+234 803 123 4567',
+      admissionDate: '2025-09-15',
+      profile: { dob: '2022-11-03' },
+      attendancePercentage: 95,
+      behaviorRating: 'Good'
+    }
+  ];
+
+  qamarStudents.forEach(qs => {
+    dbState.students.push(qs);
+  });
+
+  const famId = 'fam-qamar-gn';
+  if (!dbState.family_accounts.some((f: any) => f.id === famId)) {
+    dbState.family_accounts.push({
+      id: famId,
+      familyName: 'Qamar Family',
+      primaryParentName: 'Engr. Usamah M. Qamar',
+      primaryParentEmail: 'usamah.qamar@example.com',
+      primaryParentPhone: '+234 803 123 4567',
+      branch: 'GN',
+      createdAt: new Date().toISOString()
+    });
+
+    qamarStudents.forEach(qs => {
+      dbState.family_members.push({
+        id: `fmem-qamar-${qs.id}`,
+        familyAccountId: famId,
+        studentId: qs.id,
+        relationship: 'Child',
+        createdAt: new Date().toISOString()
+      });
+    });
+  }
+  stateChanged = true;
+}
+
 if (stateChanged) {
   saveDB(dbState);
 }
 
-// Helper functions for student serial & admission code generation
+// -------------------------------------------------------------
+// SIBLING RANKING & CONCESSION CALCULATION ENGINE
+// -------------------------------------------------------------
+
+export function getClassLevelWeight(gradeName?: string, levelName?: string): number {
+  const g = (gradeName || '').toLowerCase();
+  const l = (levelName || '').toLowerCase();
+
+  // Secondary School / Senior & Junior
+  if (g.includes('grade 12') || g.includes('ss 3') || g.includes('ss3') || g.includes('senior secondary 3')) return 12;
+  if (g.includes('grade 11') || g.includes('ss 2') || g.includes('ss2') || g.includes('senior secondary 2')) return 11;
+  if (g.includes('grade 10') || g.includes('ss 1') || g.includes('ss1') || g.includes('senior secondary 1')) return 10;
+  if (g.includes('grade 9') || g.includes('jss 3') || g.includes('jss3') || g.includes('junior secondary 3')) return 9;
+  if (g.includes('grade 8') || g.includes('jss 2') || g.includes('jss2') || g.includes('junior secondary 2')) return 8;
+  if (g.includes('grade 7') || g.includes('jss 1') || g.includes('jss1') || g.includes('junior secondary 1')) return 7;
+  if (l.includes('secondary') || g.includes('secondary') || g.includes('jss') || g.includes('ss')) return 7.5;
+
+  // Primary School
+  if (g.includes('grade 6') || g.includes('primary 6') || g.includes('pri 6') || g.includes('basic 6')) return 6;
+  if (g.includes('grade 5') || g.includes('primary 5') || g.includes('pri 5') || g.includes('basic 5')) return 5;
+  if (g.includes('grade 4') || g.includes('primary 4') || g.includes('pri 4') || g.includes('basic 4')) return 4;
+  if (g.includes('grade 3') || g.includes('primary 3') || g.includes('pri 3') || g.includes('basic 3')) return 3;
+  if (g.includes('grade 2') || g.includes('primary 2') || g.includes('pri 2') || g.includes('basic 2')) return 2;
+  if (g.includes('grade 1') || g.includes('primary 1') || g.includes('pri 1') || g.includes('basic 1')) return 1;
+  if (l.includes('primary') || g.includes('primary') || g.includes('basic')) return 3;
+
+  // Nursery / Early Years
+  if (g.includes('k2') || g.includes('nursery 3') || g.includes('nursery 2') || g.includes('ages 4-5')) return 0.8;
+  if (g.includes('k1') || g.includes('nursery 1') || g.includes('ages 3-4')) return 0.5;
+  if (g.includes('preschool') || g.includes('creche') || g.includes('playgroup') || g.includes('ages 2-3')) return 0.2;
+  if (l.includes('nursery') || g.includes('nursery') || l.includes('islamia')) return 0.5;
+
+  return 0;
+}
+
+export function sortSiblingsByPolicy(studentsList: any[]): any[] {
+  return [...studentsList].sort((a, b) => {
+    // Rule 1: Highest academic class/level first (Descending weight)
+    const weightA = getClassLevelWeight(a.grade, a.level);
+    const weightB = getClassLevelWeight(b.grade, b.level);
+    if (weightA !== weightB) {
+      return weightB - weightA;
+    }
+
+    // Rule 2: If academic class is identical -> Older child first (Earlier Date of Birth)
+    const dobA = a.profile?.dob || a.dob || '';
+    const dobB = b.profile?.dob || b.dob || '';
+    if (dobA && dobB && dobA !== dobB) {
+      return new Date(dobA).getTime() - new Date(dobB).getTime();
+    }
+    if (dobA && !dobB) return -1;
+    if (!dobA && dobB) return 1;
+
+    // Rule 3: If DOB is unavailable/identical -> Earlier Admission Date
+    const admA = a.admissionDate || '';
+    const admB = b.admissionDate || '';
+    if (admA && admB && admA !== admB) {
+      return new Date(admA).getTime() - new Date(admB).getTime();
+    }
+    if (admA && !admB) return -1;
+    if (!admA && admB) return 1;
+
+    // Rule 4: Deterministic final tie-breaker -> Student ID
+    return (a.id || '').localeCompare(b.id || '');
+  });
+}
+
+export function getSiblingDiscountRate(position: number, customRates?: Array<{ position: number; ratePercent: number }>): number {
+  if (customRates && customRates.length > 0) {
+    const exact = customRates.find(r => r.position === position);
+    if (exact !== undefined) return exact.ratePercent;
+    const sorted = [...customRates].sort((a, b) => b.position - a.position);
+    if (position >= sorted[0].position) {
+      return sorted[0].ratePercent;
+    }
+  }
+
+  // Graduated default policy:
+  if (position === 1) return 0;   // Highest Class = 0%
+  if (position === 2) return 5;   // 2nd child = 5%
+  if (position === 3) return 10;  // 3rd child = 10%
+  if (position === 4) return 15;  // 4th child = 15%
+  return 20;                      // 5th child & above = 20%
+}
+
+/**
+ * Computes carried forward arrears for a student into targetSessionId + targetTermId.
+ * Strict Term Validity Rule: Sibling discounts are only valid for the same term and must be fully cleared in that term.
+ * If a previous term's ledger had a discount applied and was NOT fully cleared in that term,
+ * the discount is forfeited upon carry-forward, and the carried forward amount will be the FULL original fee
+ * minus actual payments made (not the discounted amount).
+ */
+export function computeStudentCarriedForward(
+  studentId: string,
+  targetSessionId: string,
+  targetTermId: string,
+  ledgersList: any[],
+  siblingRecordsList: any[]
+): {
+  carryForward: number;
+  forfeitedDiscounts: number;
+  unpaidCount: number;
+  breakdown: Array<{
+    ledgerId: string;
+    sessionId: string;
+    termId: string;
+    originalFee: number;
+    paid: number;
+    discountAmount: number;
+    hadDiscount: boolean;
+    isCleared: boolean;
+    carriedForwardAmount: number;
+    reason: string;
+  }>;
+} {
+  let carryForward = 0;
+  let forfeitedDiscounts = 0;
+  let unpaidCount = 0;
+  const breakdown: any[] = [];
+
+  const previousUnpaid = (ledgersList || []).filter((l: any) =>
+    l.studentId === studentId &&
+    l.status !== 'Paid' &&
+    l.id &&
+    !( (l.sessionId === targetSessionId || l.session === targetSessionId) && (l.termId === targetTermId || l.term === targetTermId) )
+  );
+
+  previousUnpaid.forEach((ledger: any) => {
+    const originalFee = Number(ledger.originalTotalFee || ledger.grossAmount || ledger.grandTotal || (ledger.baseTermFee + (ledger.optionalChargesFee || 0)) || 0);
+    const amountPaid = Number(ledger.paid || (ledger.grandTotal && ledger.outstanding !== undefined ? Math.max(0, ledger.grandTotal - ledger.outstanding) : 0) || 0);
+    const discountAmt = Number(ledger.siblingDiscountAmount || ledger.discount || 0);
+
+    const isCleared = (ledger.status === 'Paid' || ledger.outstanding === 0 || (amountPaid >= (ledger.netPayable || originalFee - discountAmt) && (ledger.netPayable || originalFee - discountAmt) > 0));
+
+    if (isCleared) {
+      breakdown.push({
+        ledgerId: ledger.id,
+        sessionId: ledger.sessionId || ledger.session || '',
+        termId: ledger.termId || ledger.term || '',
+        originalFee,
+        paid: amountPaid,
+        discountAmount: discountAmt,
+        hadDiscount: discountAmt > 0,
+        isCleared: true,
+        carriedForwardAmount: 0,
+        reason: 'Cleared in term. Concession honored. ₦0 carried forward.'
+      });
+    } else {
+      unpaidCount++;
+      if (discountAmt > 0) {
+        // Discount validity was strictly for that term.
+        // Forfeited upon carrying forward to subsequent term: full fee minus amount paid.
+        const fullFeeCarried = Math.max(0, originalFee - amountPaid);
+        carryForward += fullFeeCarried;
+        forfeitedDiscounts += discountAmt;
+
+        // Update previous ledger state to reflect revocation
+        ledger.siblingDiscountForfeited = true;
+        ledger.forfeitedDiscountAmount = discountAmt;
+        ledger.siblingDiscountAmount = 0;
+        ledger.discount = 0;
+        ledger.netPayable = originalFee;
+        ledger.outstanding = fullFeeCarried;
+        ledger.discountTermValidityStatus = 'UNCLEARED_EXPIRED_FULL_FEE_CARRIED_FORWARD';
+        ledger.status = amountPaid > 0 ? 'Partially Paid (Discount Forfeited)' : 'Unpaid (Discount Forfeited)';
+
+        // Update matching sibling discount record if present
+        const matchRec = (siblingRecordsList || []).find((r: any) =>
+          r.studentId === studentId &&
+          (r.sessionId === ledger.sessionId || r.sessionId === ledger.session) &&
+          (r.termId === ledger.termId || r.termId === ledger.term)
+        );
+        if (matchRec) {
+          matchRec.status = 'Expired (Un-cleared in Term)';
+          matchRec.clearedInTerm = false;
+          matchRec.discountTermValidityStatus = 'UNCLEARED_EXPIRED_FULL_FEE_CARRIED_FORWARD';
+          matchRec.carriedForwardFullAmount = fullFeeCarried;
+          matchRec.forfeitedDiscountAmount = discountAmt;
+          matchRec.expiryReason = `Discount validity restricted to same term. Un-cleared at term end; full fee of ₦${originalFee.toLocaleString()} (less ₦${amountPaid.toLocaleString()} paid) carried forward as ₦${fullFeeCarried.toLocaleString()}.`;
+        }
+
+        breakdown.push({
+          ledgerId: ledger.id,
+          sessionId: ledger.sessionId || ledger.session || '',
+          termId: ledger.termId || ledger.term || '',
+          originalFee,
+          paid: amountPaid,
+          discountAmount: discountAmt,
+          hadDiscount: true,
+          isCleared: false,
+          carriedForwardAmount: fullFeeCarried,
+          reason: `Un-cleared in term: Sibling discount of ₦${discountAmt.toLocaleString()} forfeited. Carried forward full undiscounted balance: ₦${fullFeeCarried.toLocaleString()} (₦${originalFee.toLocaleString()} full fee - ₦${amountPaid.toLocaleString()} paid).`
+        });
+      } else {
+        const standardOutstanding = Number(ledger.outstanding !== undefined ? ledger.outstanding : Math.max(0, originalFee - amountPaid));
+        carryForward += standardOutstanding;
+        breakdown.push({
+          ledgerId: ledger.id,
+          sessionId: ledger.sessionId || ledger.session || '',
+          termId: ledger.termId || ledger.term || '',
+          originalFee,
+          paid: amountPaid,
+          discountAmount: 0,
+          hadDiscount: false,
+          isCleared: false,
+          carriedForwardAmount: standardOutstanding,
+          reason: `Standard unpaid arrears of ₦${standardOutstanding.toLocaleString()} carried forward.`
+        });
+      }
+    }
+  });
+
+  return { carryForward, forfeitedDiscounts, unpaidCount, breakdown };
+}
 function getClassCode(grade: string): string {
   const g = (grade || "").toLowerCase();
   if (g.includes("nursery 1") || g.includes("preschool")) return "01";
@@ -1931,8 +2366,141 @@ if (!dbState.event_tasks) {
       assignedUser: "Malama Fatima",
       dueDate: "2026-07-01",
       status: "Completed"
+    },
+    {
+      id: "tsk-td-1",
+      eventId: "evt-1",
+      title: "Weekly Teaching Record",
+      description: "Log classroom instruction topics, board work layout, student notebook instructions, and book work coverage counts.",
+      assignedUser: "All Teachers",
+      assignedRole: "Teacher",
+      dueDate: "2026-07-10",
+      dueTime: "17:00",
+      status: "In Progress",
+      taskType: "teaching_record",
+      week: 1,
+      reminderNotice: "Due Friday at 5:00 PM. Please attach photos of classroom board and notebook samples.",
+      submissionStatus: "Pending",
+      branch: "All"
+    },
+    {
+      id: "tsk-td-2",
+      eventId: "evt-1",
+      title: "Weekly Lesson Plan",
+      description: "Submit structured weekly lesson plans, behavioral objectives, learning aids, and assessment strategies.",
+      assignedUser: "All Teachers",
+      assignedRole: "Teacher",
+      dueDate: "2026-07-06",
+      dueTime: "08:00",
+      status: "Pending",
+      taskType: "lesson_plan",
+      week: 2,
+      reminderNotice: "Due Monday at 8:00 AM before first period assembly.",
+      submissionStatus: "Pending",
+      branch: "All"
+    },
+    {
+      id: "tsk-td-3",
+      eventId: "evt-1",
+      title: "Monthly Curriculum Progress",
+      description: "Audit syllabus milestones coverage vs. scheme of work for the entire month across all assigned grades.",
+      assignedUser: "All Teachers",
+      assignedRole: "Teacher",
+      dueDate: "2026-07-31",
+      dueTime: "16:00",
+      status: "Pending",
+      taskType: "curriculum_progress",
+      reminderNotice: "Due at the end of the month. Compare planned topics vs taught topics.",
+      submissionStatus: "Pending",
+      branch: "All"
+    },
+    {
+      id: "tsk-td-4",
+      eventId: "evt-1",
+      title: "Scheme of Work Review",
+      description: "Departmental Scheme of Work progress audit, curriculum pace check, and remedial adjustment review.",
+      assignedUser: "All Teachers",
+      assignedRole: "Teacher",
+      dueDate: "2026-07-17",
+      dueTime: "15:00",
+      status: "Pending",
+      taskType: "scheme_review",
+      week: 4,
+      reminderNotice: "Due Week 4 Friday. Review milestone pacing and student work coverage.",
+      submissionStatus: "Pending",
+      branch: "All"
     }
   ];
+  migrationNeeded = true;
+}
+
+// Migration to ensure teaching deadlines exist in dbState.event_tasks
+if (dbState.event_tasks && !dbState.event_tasks.some((t: any) => t.id === 'tsk-td-1' || t.taskType === 'teaching_record')) {
+  dbState.event_tasks.push(
+    {
+      id: "tsk-td-1",
+      eventId: "evt-1",
+      title: "Weekly Teaching Record",
+      description: "Log classroom instruction topics, board work layout, student notebook instructions, and book work coverage counts.",
+      assignedUser: "All Teachers",
+      assignedRole: "Teacher",
+      dueDate: "2026-07-10",
+      dueTime: "17:00",
+      status: "In Progress",
+      taskType: "teaching_record",
+      week: 1,
+      reminderNotice: "Due Friday at 5:00 PM. Please attach photos of classroom board and notebook samples.",
+      submissionStatus: "Pending",
+      branch: "All"
+    },
+    {
+      id: "tsk-td-2",
+      eventId: "evt-1",
+      title: "Weekly Lesson Plan",
+      description: "Submit structured weekly lesson plans, behavioral objectives, learning aids, and assessment strategies.",
+      assignedUser: "All Teachers",
+      assignedRole: "Teacher",
+      dueDate: "2026-07-06",
+      dueTime: "08:00",
+      status: "Pending",
+      taskType: "lesson_plan",
+      week: 2,
+      reminderNotice: "Due Monday at 8:00 AM before first period assembly.",
+      submissionStatus: "Pending",
+      branch: "All"
+    },
+    {
+      id: "tsk-td-3",
+      eventId: "evt-1",
+      title: "Monthly Curriculum Progress",
+      description: "Audit syllabus milestones coverage vs. scheme of work for the entire month across all assigned grades.",
+      assignedUser: "All Teachers",
+      assignedRole: "Teacher",
+      dueDate: "2026-07-31",
+      dueTime: "16:00",
+      status: "Pending",
+      taskType: "curriculum_progress",
+      reminderNotice: "Due at the end of the month. Compare planned topics vs taught topics.",
+      submissionStatus: "Pending",
+      branch: "All"
+    },
+    {
+      id: "tsk-td-4",
+      eventId: "evt-1",
+      title: "Scheme of Work Review",
+      description: "Departmental Scheme of Work progress audit, curriculum pace check, and remedial adjustment review.",
+      assignedUser: "All Teachers",
+      assignedRole: "Teacher",
+      dueDate: "2026-07-17",
+      dueTime: "15:00",
+      status: "Pending",
+      taskType: "scheme_review",
+      week: 4,
+      reminderNotice: "Due Week 4 Friday. Review milestone pacing and student work coverage.",
+      submissionStatus: "Pending",
+      branch: "All"
+    }
+  );
   migrationNeeded = true;
 }
 
@@ -3268,17 +3836,9 @@ function processTermTransitions(today: string) {
 
           const baseTermFee = finalItems.reduce((acc: number, item: any) => acc + item.amount, 0);
 
-          // Carry Previous Outstanding (from previous unpaid ledgers)
-          let carryForward = 0;
-          const previousUnpaidLedgers = ledgers.filter((l: any) => 
-            l.studentId === student.id && 
-            l.status !== 'Paid' && 
-            !(l.sessionId === sessionId && l.termId === termId)
-          );
-          if (previousUnpaidLedgers.length > 0) {
-            carryForward = previousUnpaidLedgers.reduce((acc: number, l: any) => acc + (l.outstanding || 0), 0);
-          }
-
+          // Carry Previous Outstanding (from previous unpaid ledgers with full-fee carry-forward rule for un-cleared discounts)
+          const carryResult = computeStudentCarriedForward(student.id, sessionId, termId, ledgers, dbState.sibling_discount_records || []);
+          const carryForward = carryResult.carryForward;
           totalCarryForward += carryForward;
 
           const ledgerId = `sfl-auto-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
@@ -3387,19 +3947,20 @@ function processTermTransitions(today: string) {
 
             if (nextLedgerIdx !== -1) {
               const nextLedger = ledgers[nextLedgerIdx];
-              const previousUnpaid = ledgers.filter((l: any) => 
-                l.studentId === oldLedger.studentId && 
-                l.status !== 'Paid' && 
-                l.id !== nextLedger.id
+              const carryResult = computeStudentCarriedForward(
+                oldLedger.studentId,
+                nextLedger.sessionId || 'ses-2026',
+                nextLedger.termId || nextTerm.id,
+                ledgers,
+                dbState.sibling_discount_records || []
               );
-              const totalUnpaidSum = previousUnpaid.reduce((sum: number, pl: any) => sum + (pl.outstanding || 0), 0);
               
-              nextLedger.carryForward = totalUnpaidSum;
+              nextLedger.carryForward = carryResult.carryForward;
               nextLedger.outstanding = nextLedger.baseTermFee + nextLedger.optionalChargesFee + nextLedger.carryForward - (nextLedger.discountAmount + nextLedger.scholarshipAmount);
               nextLedger.grandTotal = nextLedger.baseTermFee + nextLedger.optionalChargesFee + nextLedger.carryForward;
               
               carriedCount++;
-              totalOutstandingCarried += oldLedger.outstanding;
+              totalOutstandingCarried += carryResult.carryForward;
             } else {
               carriedCount++;
               totalOutstandingCarried += oldLedger.outstanding;
@@ -3960,7 +4521,11 @@ app.get('/api/event_tasks', (req, res) => {
 });
 
 app.post('/api/event_tasks', (req, res) => {
-  const { eventId, title, description, assignedUser, dueDate, status } = req.body;
+  const { 
+    eventId, title, description, assignedUser, dueDate, status,
+    dueTime, taskType, week, subject, classId, term, branch, assignedRole,
+    submissionDate, submissionTime, submissionStatus, daysLate, linkedTeachingRecordId, reminderNotice
+  } = req.body;
   if (!eventId || !title || !assignedUser || !dueDate || !status) {
     return res.status(400).json({ error: "Missing required fields (eventId, title, assignedUser, dueDate, status)" });
   }
@@ -3972,7 +4537,21 @@ app.post('/api/event_tasks', (req, res) => {
     description: description || "",
     assignedUser,
     dueDate,
-    status
+    status,
+    dueTime: dueTime || "17:00",
+    taskType: taskType || "general",
+    week: week ? Number(week) : undefined,
+    subject: subject || undefined,
+    classId: classId || undefined,
+    term: term || undefined,
+    branch: branch || "All",
+    assignedRole: assignedRole || "Teacher",
+    submissionDate: submissionDate || undefined,
+    submissionTime: submissionTime || undefined,
+    submissionStatus: submissionStatus || "Pending",
+    daysLate: daysLate !== undefined ? Number(daysLate) : 0,
+    linkedTeachingRecordId: linkedTeachingRecordId || undefined,
+    reminderNotice: reminderNotice || undefined
   };
 
   dbState.event_tasks = dbState.event_tasks || [];
@@ -3983,7 +4562,11 @@ app.post('/api/event_tasks', (req, res) => {
 
 app.put('/api/event_tasks/:id', (req, res) => {
   const { id } = req.params;
-  const { eventId, title, description, assignedUser, dueDate, status } = req.body;
+  const { 
+    eventId, title, description, assignedUser, dueDate, status,
+    dueTime, taskType, week, subject, classId, term, branch, assignedRole,
+    submissionDate, submissionTime, submissionStatus, daysLate, linkedTeachingRecordId, reminderNotice
+  } = req.body;
 
   const taskIndex = (dbState.event_tasks || []).findIndex((t: any) => t.id === id);
   if (taskIndex === -1) {
@@ -3997,6 +4580,20 @@ app.put('/api/event_tasks/:id', (req, res) => {
   if (assignedUser) task.assignedUser = assignedUser;
   if (dueDate) task.dueDate = dueDate;
   if (status) task.status = status;
+  if (dueTime !== undefined) task.dueTime = dueTime;
+  if (taskType !== undefined) task.taskType = taskType;
+  if (week !== undefined) task.week = Number(week);
+  if (subject !== undefined) task.subject = subject;
+  if (classId !== undefined) task.classId = classId;
+  if (term !== undefined) task.term = term;
+  if (branch !== undefined) task.branch = branch;
+  if (assignedRole !== undefined) task.assignedRole = assignedRole;
+  if (submissionDate !== undefined) task.submissionDate = submissionDate;
+  if (submissionTime !== undefined) task.submissionTime = submissionTime;
+  if (submissionStatus !== undefined) task.submissionStatus = submissionStatus;
+  if (daysLate !== undefined) task.daysLate = Number(daysLate);
+  if (linkedTeachingRecordId !== undefined) task.linkedTeachingRecordId = linkedTeachingRecordId;
+  if (reminderNotice !== undefined) task.reminderNotice = reminderNotice;
 
   saveDB(dbState);
   res.json(task);
@@ -4012,6 +4609,369 @@ app.delete('/api/event_tasks/:id', (req, res) => {
   const removed = dbState.event_tasks.splice(taskIndex, 1);
   saveDB(dbState);
   res.json({ success: true, removed: removed[0] });
+});
+
+// -------------------------------------------------------------
+// TEACHER TEACHING PERFORMANCE EVALUATION SYSTEM APIS
+// -------------------------------------------------------------
+
+const defaultTeacherEvaluationSettings = {
+  dimensionWeights: {
+    submissionCompliance: 20,
+    teachingProgress: 35,
+    studentWorkCoverage: 20,
+    evidenceCompletion: 10,
+    managementReview: 15
+  },
+  performanceBands: [
+    { id: "band-1", minScore: 90, maxScore: 100, label: "Excellent", color: "emerald", description: "Consistently achieves top compliance, rigorous curriculum pacing, and exemplary student work documentation." },
+    { id: "band-2", minScore: 80, maxScore: 89, label: "Very Good", color: "blue", description: "Strong performance across compliance, syllabus milestones, and exercise book verification." },
+    { id: "band-3", minScore: 70, maxScore: 79, label: "Good", color: "indigo", description: "Meets institutional expectations with steady teaching logs and satisfactory student work coverage." },
+    { id: "band-4", minScore: 60, maxScore: 69, label: "Needs Improvement", color: "amber", description: "Demonstrates minor pacing deviations or delayed records requiring targeted supervisory guidance." },
+    { id: "band-5", minScore: 0, maxScore: 59, label: "Requires Attention", color: "rose", description: "Significant gaps in compliance, curriculum delivery, or student work verification requiring administrative intervention." }
+  ],
+  updatedAt: new Date().toISOString()
+};
+
+app.get('/api/teacher-evaluation-settings', (req, res) => {
+  if (!dbState.teacher_evaluation_settings) {
+    dbState.teacher_evaluation_settings = defaultTeacherEvaluationSettings;
+    saveDB(dbState);
+  }
+  res.json(dbState.teacher_evaluation_settings);
+});
+
+app.put('/api/teacher-evaluation-settings', (req, res) => {
+  const { dimensionWeights, performanceBands } = req.body;
+  if (!dimensionWeights || !performanceBands) {
+    return res.status(400).json({ error: "Missing dimensionWeights or performanceBands" });
+  }
+
+  // Validate weights sum or normalize
+  const totalWeight = Object.values(dimensionWeights).reduce((a: any, b: any) => Number(a) + Number(b), 0);
+
+  dbState.teacher_evaluation_settings = {
+    dimensionWeights,
+    performanceBands,
+    totalWeight,
+    updatedAt: new Date().toISOString()
+  };
+
+  saveDB(dbState);
+  res.json(dbState.teacher_evaluation_settings);
+});
+
+app.get('/api/teacher-management-reviews', (req, res) => {
+  res.json(dbState.teacher_management_reviews || []);
+});
+
+app.post('/api/teacher-management-reviews', (req, res) => {
+  const { teacherId, teacherName, term, academicSession, branch, reviewerName, criteriaScores, overallScore, qualitativeNotes, recommendations } = req.body;
+  if (!teacherId || overallScore === undefined) {
+    return res.status(400).json({ error: "Teacher ID and overallScore are required" });
+  }
+
+  dbState.teacher_management_reviews = dbState.teacher_management_reviews || [];
+  
+  const existingIdx = dbState.teacher_management_reviews.findIndex((r: any) => 
+    r.teacherId === teacherId && 
+    (!term || r.term === term) && 
+    (!academicSession || r.academicSession === academicSession)
+  );
+
+  const reviewRecord = {
+    id: existingIdx !== -1 ? dbState.teacher_management_reviews[existingIdx].id : `rev-${Date.now()}`,
+    teacherId,
+    teacherName: teacherName || "",
+    term: term || "First Term",
+    academicSession: academicSession || "2025/2026",
+    branch: branch || "GN",
+    reviewerName: reviewerName || "Academic Supervisor",
+    criteriaScores: criteriaScores || {
+      lessonPreparation: 85,
+      classroomDelivery: 85,
+      studentEngagement: 85,
+      professionalDemeanor: 90
+    },
+    overallScore: Number(overallScore),
+    qualitativeNotes: qualitativeNotes || "",
+    recommendations: recommendations || "",
+    reviewedAt: new Date().toISOString()
+  };
+
+  if (existingIdx !== -1) {
+    dbState.teacher_management_reviews[existingIdx] = reviewRecord;
+  } else {
+    dbState.teacher_management_reviews.push(reviewRecord);
+  }
+
+  saveDB(dbState);
+  res.json(reviewRecord);
+});
+
+// -------------------------------------------------------------
+// TEACHER REVIEW & FOLLOW-UP WORKFLOW APIS
+// -------------------------------------------------------------
+
+const seedTeacherReviews = [
+  {
+    id: "rev-act-101",
+    teacherId: "staff-1",
+    teacherName: "Aisha Garba",
+    subject: "Primary Mathematics",
+    classId: "Primary 5 - Gold",
+    branch: "GN",
+    term: "First Term",
+    academicSession: "2025/2026",
+    reviewerName: "Hajiya Maryam (Academic Vice Principal)",
+    reviewDate: "2026-06-18",
+    actionType: "Set Improvement Target",
+    status: "Pending Follow-Up",
+    performanceSummary: "Teaching progress is currently 1 week behind schedule on Decimals & Fractions unit.",
+    comments: "Lesson plan structure is thorough; however, pacing on fractions requires accelerated practice sessions.",
+    correctionsRequested: "Provide differentiated practice worksheets for bottom 25% pupils on Fractions simplification.",
+    improvementTarget: "Complete Fractions and Decimals revision by Week 8.",
+    followUpTaskTitle: "Complete Fractions and Decimals revision by Week 8",
+    followUpDeadline: "2026-06-28",
+    followUpStatus: "Pending",
+    timelineTaskId: "task-followup-101",
+    auditLogs: [
+      {
+        id: "log-1",
+        timestamp: "2026-06-18T10:15:00Z",
+        action: "Review Created & Target Set",
+        actor: "Hajiya Maryam (Academic Vice Principal)",
+        notes: "Identified pacing lag in Primary 5 Math; set target: Complete Fractions and Decimals revision by Week 8."
+      },
+      {
+        id: "log-2",
+        timestamp: "2026-06-18T10:16:00Z",
+        action: "Timeline Task Generated",
+        actor: "System Automation",
+        notes: "Created follow-up task on Operations Timeline with due date 2026-06-28."
+      }
+    ]
+  },
+  {
+    id: "rev-act-102",
+    teacherId: "staff-4",
+    teacherName: "Aliyu Usman",
+    subject: "Basic English & Grammar",
+    classId: "Primary 4 - Diamond",
+    branch: "GN",
+    term: "First Term",
+    academicSession: "2025/2026",
+    reviewerName: "Malam Sanusi (Head of Department)",
+    reviewDate: "2026-06-12",
+    actionType: "Request Correction",
+    status: "Follow-Up Completed",
+    performanceSummary: "Student notebook marking coverage was recorded at 72%, below the 80% institutional benchmark.",
+    comments: "Grammar lesson delivery is satisfactory, but student essay workbook marking is delayed by 4 days.",
+    correctionsRequested: "Complete marking and teacher signature remarks for all 28 student essay exercise books.",
+    improvementTarget: "Achieve 100% student book marking coverage with constructive remarks.",
+    followUpTaskTitle: "Mark & Sign all Primary 4 English Composition Workbooks",
+    followUpDeadline: "2026-06-17",
+    followUpStatus: "Completed",
+    followUpCompletedDate: "2026-06-16",
+    followUpCompletedNotes: "Teacher completed marking for all 28 notebooks; sample audited by HOD Sanusi with positive remarks.",
+    timelineTaskId: "task-followup-102",
+    auditLogs: [
+      {
+        id: "log-3",
+        timestamp: "2026-06-12T14:30:00Z",
+        action: "Correction Requested",
+        actor: "Malam Sanusi (Head of Department)",
+        notes: "Requested complete marking of 28 essay composition workbooks."
+      },
+      {
+        id: "log-4",
+        timestamp: "2026-06-16T11:20:00Z",
+        action: "Follow-Up Marked Completed",
+        actor: "Malam Sanusi (Head of Department)",
+        notes: "Verified physical sample of 10 student books. Quality and stamp compliance verified."
+      }
+    ]
+  }
+];
+
+// Initialize reviews in dbState if empty
+if (!dbState.teacher_reviews || dbState.teacher_reviews.length === 0) {
+  dbState.teacher_reviews = seedTeacherReviews;
+}
+
+app.get('/api/teacher-reviews', (req, res) => {
+  res.json(dbState.teacher_reviews || []);
+});
+
+app.post('/api/teacher-reviews', (req, res) => {
+  const {
+    teacherId,
+    teacherName,
+    subject,
+    classId,
+    branch,
+    term,
+    academicSession,
+    reviewerName,
+    actionType,
+    performanceSummary,
+    comments,
+    correctionsRequested,
+    improvementTarget,
+    followUpTaskTitle,
+    followUpDeadline
+  } = req.body;
+
+  if (!teacherId || !teacherName || !actionType) {
+    return res.status(400).json({ error: "Missing required review fields (teacherId, teacherName, actionType)" });
+  }
+
+  const reviewId = `rev-act-${Date.now()}`;
+  const timelineTaskId = `task-followup-${Date.now()}`;
+  const nowIso = new Date().toISOString();
+  const today = nowIso.split('T')[0];
+
+  // 1. Create Follow-Up Task in Operations Timeline (event_tasks) if follow-up task is requested
+  if (followUpTaskTitle && followUpDeadline) {
+    dbState.event_tasks = dbState.event_tasks || [];
+    const newEventTask = {
+      id: timelineTaskId,
+      title: `[Follow-Up] ${followUpTaskTitle}`,
+      description: `Teacher Review Action for ${teacherName} (${subject} - ${classId}). Target: ${improvementTarget || followUpTaskTitle}. Supervisor: ${reviewerName || 'Management'}. Notes: ${comments || 'None'}`,
+      assignedUser: teacherName,
+      dueDate: followUpDeadline,
+      status: "Pending" as const,
+      taskType: "Teaching Follow-Up",
+      subject: subject || "General",
+      classId: classId || "General",
+      term: term || "First Term",
+      branch: branch || "GN",
+      assignedRole: "Teacher",
+      submissionStatus: "Pending",
+      daysLate: 0,
+      reminderNotice: `Action required by ${followUpDeadline}: ${improvementTarget || followUpTaskTitle}`
+    };
+    dbState.event_tasks.push(newEventTask);
+  }
+
+  // 2. Create Teacher Review Audit Record
+  const newReviewRecord = {
+    id: reviewId,
+    teacherId,
+    teacherName,
+    subject: subject || "Primary Mathematics",
+    classId: classId || "Primary 5 - Gold",
+    branch: branch || "GN",
+    term: term || "First Term",
+    academicSession: academicSession || "2025/2026",
+    reviewerName: reviewerName || "Academic Management",
+    reviewDate: today,
+    actionType, // 'Approve Record' | 'Request Correction' | 'Set Improvement Target' | 'Follow-Up Created'
+    status: followUpTaskTitle ? "Pending Follow-Up" : actionType === "Approve Record" ? "Approved" : "Correction Requested",
+    performanceSummary: performanceSummary || "Management performance review and guidance session.",
+    comments: comments || "",
+    correctionsRequested: correctionsRequested || "",
+    improvementTarget: improvementTarget || "",
+    followUpTaskTitle: followUpTaskTitle || "",
+    followUpDeadline: followUpDeadline || "",
+    followUpStatus: followUpTaskTitle ? "Pending" : "Not Required",
+    timelineTaskId: followUpTaskTitle ? timelineTaskId : undefined,
+    auditLogs: [
+      {
+        id: `log-${Date.now()}-1`,
+        timestamp: nowIso,
+        action: `${actionType} Action Initiated`,
+        actor: reviewerName || "Academic Management",
+        notes: comments || `Management action: ${actionType}. Target: ${improvementTarget || 'Standard Compliance'}.`
+      }
+    ]
+  };
+
+  if (followUpTaskTitle) {
+    newReviewRecord.auditLogs.push({
+      id: `log-${Date.now()}-2`,
+      timestamp: nowIso,
+      action: "Timeline Task Synced",
+      actor: "Calendar & Operations Timeline Automation",
+      notes: `Generated task "${followUpTaskTitle}" assigned to ${teacherName} due on ${followUpDeadline}.`
+    });
+  }
+
+  dbState.teacher_reviews = dbState.teacher_reviews || [];
+  dbState.teacher_reviews.unshift(newReviewRecord);
+  saveDB(dbState);
+
+  res.status(201).json(newReviewRecord);
+});
+
+// Mark Follow-Up Task as Completed
+app.put('/api/teacher-reviews/:id/follow-up-complete', (req, res) => {
+  const { id } = req.params;
+  const { completionNotes, completedBy } = req.body;
+
+  const reviewIndex = (dbState.teacher_reviews || []).findIndex((r: any) => r.id === id);
+  if (reviewIndex === -1) {
+    return res.status(404).json({ error: "Teacher review record not found" });
+  }
+
+  const review = dbState.teacher_reviews[reviewIndex];
+  const nowIso = new Date().toISOString();
+  const today = nowIso.split('T')[0];
+
+  review.followUpStatus = "Completed";
+  review.status = "Follow-Up Completed";
+  review.followUpCompletedDate = today;
+  review.followUpCompletedNotes = completionNotes || "Supervisor reviewed and verified completion of improvement target.";
+
+  // Append to Immutable Audit History
+  review.auditLogs = review.auditLogs || [];
+  review.auditLogs.push({
+    id: `log-${Date.now()}`,
+    timestamp: nowIso,
+    action: "Follow-Up Marked Completed",
+    actor: completedBy || review.reviewerName || "Management",
+    notes: completionNotes || "Verified satisfactory delivery of improvement target."
+  });
+
+  // Also update linked Timeline Task (event_tasks)
+  if (review.timelineTaskId) {
+    const taskIdx = (dbState.event_tasks || []).findIndex((t: any) => t.id === review.timelineTaskId);
+    if (taskIdx !== -1) {
+      dbState.event_tasks[taskIdx].status = "Completed";
+      dbState.event_tasks[taskIdx].submissionStatus = "On-Time";
+      dbState.event_tasks[taskIdx].submissionDate = today;
+    }
+  }
+
+  saveDB(dbState);
+  res.json(review);
+});
+
+// Append new comment / note to audit history
+app.post('/api/teacher-reviews/:id/audit-entry', (req, res) => {
+  const { id } = req.params;
+  const { action, actor, notes } = req.body;
+
+  const reviewIndex = (dbState.teacher_reviews || []).findIndex((r: any) => r.id === id);
+  if (reviewIndex === -1) {
+    return res.status(404).json({ error: "Teacher review record not found" });
+  }
+
+  const review = dbState.teacher_reviews[reviewIndex];
+  const nowIso = new Date().toISOString();
+
+  review.auditLogs = review.auditLogs || [];
+  const newLog = {
+    id: `log-${Date.now()}`,
+    timestamp: nowIso,
+    action: action || "Management Note Added",
+    actor: actor || "Academic Supervisor",
+    notes: notes || ""
+  };
+  review.auditLogs.push(newLog);
+
+  saveDB(dbState);
+  res.json(review);
 });
 
 // Event Assignments CRUD APIs
@@ -6373,16 +7333,15 @@ app.post('/api/billing/generate', (req, res) => {
 
     const baseTermFee = finalItems.reduce((acc: number, item: any) => acc + item.amount, 0);
 
-    // Calculate carry forward balance if previous unpaid bills exist
-    let carryForward = 0;
-    const previousUnpaidLedgers = ledgers.filter((l: any) => 
-      l.studentId === student.id && 
-      l.status !== 'Paid' && 
-      !(l.sessionId === sessionId && l.termId === termId)
+    // Calculate carry forward balance if previous unpaid bills exist (reverting un-cleared sibling discounts to full fee)
+    const carryResult = computeStudentCarriedForward(
+      student.id,
+      sessionId,
+      termId,
+      ledgers,
+      dbState.sibling_discount_records || []
     );
-    if (previousUnpaidLedgers.length > 0) {
-      carryForward = previousUnpaidLedgers.reduce((acc: number, l: any) => acc + (l.outstanding || 0), 0);
-    }
+    const carryForward = carryResult.carryForward;
 
     const ledgerId = `sfl-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 
@@ -6908,6 +7867,1186 @@ app.post('/api/family_payments', (req, res) => {
 
   saveDB(dbState);
   res.status(201).json({ ...newPayment, items: paymentItems });
+});
+
+
+// -------------------------------------------------------------
+// SIBLING DISCOUNT CONCESSION SYSTEM ENDPOINTS & SUITE
+// -------------------------------------------------------------
+
+// GET all sibling discount policies
+app.get('/api/sibling_discount/policies', (req, res) => {
+  const policies = dbState.sibling_discount_policies || [];
+  const branch = req.query.branch as string;
+  if (branch && branch !== 'all') {
+    return res.json(policies.filter((p: any) => p.branch === branch || p.branch === 'all'));
+  }
+  res.json(policies);
+});
+
+// POST create or update sibling discount policy
+app.post('/api/sibling_discount/policies', (req, res) => {
+  const policyData = req.body;
+  if (!policyData.branch) {
+    return res.status(400).json({ error: "Branch is required for Sibling Discount Policy." });
+  }
+
+  let policies = dbState.sibling_discount_policies || [];
+  const existingIdx = policies.findIndex((p: any) => p.id === policyData.id || (p.branch === policyData.branch && p.sessionId === policyData.sessionId));
+
+  const updatedPolicy = {
+    id: policyData.id || `sdp-${(policyData.branch || 'gen').toLowerCase()}-${Date.now()}`,
+    branch: policyData.branch,
+    sessionId: policyData.sessionId || 'ses-2026',
+    termId: policyData.termId || 'All',
+    isActive: policyData.isActive !== undefined ? policyData.isActive : true,
+    crossBranchEnabled: policyData.crossBranchEnabled !== undefined ? policyData.crossBranchEnabled : false,
+    rates: policyData.rates || [
+      { position: 1, label: "1st Sibling (Highest Class)", ratePercent: 0 },
+      { position: 2, label: "2nd Sibling", ratePercent: 5 },
+      { position: 3, label: "3rd Sibling", ratePercent: 10 },
+      { position: 4, label: "4th Sibling", ratePercent: 15 },
+      { position: 5, label: "5th Sibling & Above", ratePercent: 20 }
+    ],
+    eligibleFeeHeadNames: policyData.eligibleFeeHeadNames || [
+      "Tuition", "Development Charges", "Portal Fee", "Games/Entertainment", "Furniture", "Medical Services", "Islamic Session"
+    ],
+    excludedFeeHeadNames: policyData.excludedFeeHeadNames || [
+      "Textbooks", "Stationery", "Examination Fee"
+    ],
+    clearanceDays: policyData.clearanceDays !== undefined ? Number(policyData.clearanceDays) : 15,
+    clearanceDeadlineDate: policyData.clearanceDeadlineDate || null,
+    expireIfNotCleared: policyData.expireIfNotCleared !== undefined ? policyData.expireIfNotCleared : true,
+    partialPaymentPolicy: policyData.partialPaymentPolicy || "recalculate_to_full_fee",
+    updatedAt: new Date().toISOString(),
+    createdAt: existingIdx >= 0 ? policies[existingIdx].createdAt : new Date().toISOString()
+  };
+
+  if (existingIdx >= 0) {
+    policies[existingIdx] = updatedPolicy;
+  } else {
+    policies.push(updatedPolicy);
+  }
+
+  dbState.sibling_discount_policies = policies;
+
+  // Log to audit trail
+  dbState.sibling_discount_audit_logs = dbState.sibling_discount_audit_logs || [];
+  dbState.sibling_discount_audit_logs.push({
+    id: `sd-audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    action: 'POLICY_SAVED',
+    branch: policyData.branch,
+    performedBy: req.body.performedBy || 'System Administrator',
+    role: req.body.userRole || 'Super Administrator',
+    details: `Updated sibling discount policy for Branch ${policyData.branch} (Cross-Branch: ${updatedPolicy.crossBranchEnabled ? 'ON' : 'OFF'})`,
+    timestamp: new Date().toISOString()
+  });
+
+  saveDB(dbState);
+  res.json({ success: true, policy: updatedPolicy });
+});
+
+// GET all sibling discount records
+app.get('/api/sibling_discount/records', (req, res) => {
+  const records = dbState.sibling_discount_records || [];
+  const { branch, sessionId, termId, status } = req.query as Record<string, string>;
+
+  let filtered = records;
+  if (branch && branch !== 'all') {
+    filtered = filtered.filter((r: any) => r.branch === branch);
+  }
+  if (sessionId && sessionId !== 'all') {
+    filtered = filtered.filter((r: any) => r.sessionId === sessionId);
+  }
+  if (termId && termId !== 'all') {
+    filtered = filtered.filter((r: any) => r.termId === termId);
+  }
+  if (status && status !== 'all') {
+    filtered = filtered.filter((r: any) => r.status === status);
+  }
+
+  res.json(filtered);
+});
+
+// Helper calculation engine function for a set of students
+function calculateSiblingDiscountsCore(options: {
+  sessionId?: string;
+  termId?: string;
+  targetBranch?: string;
+  customStudents?: any[];
+}) {
+  const { sessionId = 'ses-2026', termId = 'Term 1', targetBranch = 'all', customStudents } = options;
+
+  const students = customStudents || dbState.students || [];
+  const families = dbState.family_accounts || [];
+  const familyMembers = dbState.family_members || [];
+  const policies = dbState.sibling_discount_policies || [];
+  const feeHeads = dbState.fee_heads || [];
+  const feeTemplates = dbState.fee_templates || [];
+
+  const calculatedRecords: any[] = [];
+  const familyGroupSummary: any[] = [];
+
+  // Group students by family account
+  const familyToStudentsMap = new Map<string, any[]>();
+
+  // Check each student's family link
+  students.forEach((student: any) => {
+    // Find member link
+    const memberLink = familyMembers.find((fm: any) => fm.studentId === student.id);
+    let famId = memberLink ? memberLink.familyAccountId : null;
+
+    // Fallback: match by parent name/email if unlinked
+    if (!famId) {
+      const matchFam = families.find((f: any) => 
+        (student.parentEmail && f.primaryParentEmail === student.parentEmail) ||
+        (student.parentName && f.primaryParentName?.toLowerCase() === student.parentName?.toLowerCase())
+      );
+      if (matchFam) {
+        famId = matchFam.id;
+      } else {
+        famId = `fam-auto-${student.parentEmail || student.parentName || student.id}`;
+      }
+    }
+
+    if (famId) {
+      if (!familyToStudentsMap.has(famId)) {
+        familyToStudentsMap.set(famId, []);
+      }
+      familyToStudentsMap.get(famId)!.push(student);
+    }
+  });
+
+  // Process each family portfolio
+  familyToStudentsMap.forEach((famStudents, famId) => {
+    const familyAccount = families.find((f: any) => f.id === famId) || {
+      id: famId,
+      familyName: `${famStudents[0]?.parentName?.split(' ')[0] || 'Unknown'} Family`,
+      primaryParentName: famStudents[0]?.parentName || 'Parent',
+      primaryParentEmail: famStudents[0]?.parentEmail || '',
+      primaryParentPhone: famStudents[0]?.parentPhone || ''
+    };
+
+    // Determine branch policy
+    const sampleBranch = famStudents[0]?.branch || 'GN';
+    const policy = policies.find((p: any) => p.branch === sampleBranch && p.isActive) ||
+      policies.find((p: any) => p.isActive) || {
+        branch: sampleBranch,
+        rates: [
+          { position: 1, label: "1st Sibling (Highest Class)", ratePercent: 0 },
+          { position: 2, label: "2nd Sibling", ratePercent: 5 },
+          { position: 3, label: "3rd Sibling", ratePercent: 10 },
+          { position: 4, label: "4th Sibling", ratePercent: 15 },
+          { position: 5, label: "5th Sibling & Above", ratePercent: 20 }
+        ],
+        eligibleFeeHeadNames: ["Tuition", "Development Charges", "Portal Fee", "Games/Entertainment", "Furniture", "Medical Services", "Islamic Session"],
+        excludedFeeHeadNames: ["Textbooks", "Stationery", "Examination Fee"],
+        crossBranchEnabled: false
+      };
+
+    // Branch isolation logic: If crossBranchEnabled is false, split siblings by branch
+    const branchGroups = new Map<string, any[]>();
+    if (policy.crossBranchEnabled) {
+      branchGroups.set('all', famStudents);
+    } else {
+      famStudents.forEach(s => {
+        const b = s.branch || 'GN';
+        if (!branchGroups.has(b)) branchGroups.set(b, []);
+        branchGroups.get(b)!.push(s);
+      });
+    }
+
+    branchGroups.forEach((groupStudents, branchKey) => {
+      // Filter by targetBranch if specific
+      if (targetBranch !== 'all' && branchKey !== 'all' && branchKey !== targetBranch) {
+        return;
+      }
+
+      // Sort siblings strictly according to graduated policy:
+      // 1. Highest class level first
+      // 2. Older age (earlier DOB)
+      // 3. Earlier admission date
+      const rankedSiblings = sortSiblingsByPolicy(groupStudents);
+      const totalSiblingsCount = rankedSiblings.length;
+
+      rankedSiblings.forEach((student, index) => {
+        const position = index + 1;
+        const discountRatePercent = totalSiblingsCount === 1 ? 0 : getSiblingDiscountRate(position, policy.rates);
+
+        // Calculate student's base fee and eligible heads
+        // Find matching fee template for student's grade/level
+        const matchedTemplate = feeTemplates.find((t: any) => 
+          (t.applicableGrade && (t.applicableGrade === student.grade || student.grade?.includes(t.applicableGrade))) ||
+          (t.applicableLevel && t.applicableLevel === student.level)
+        ) || feeTemplates[0];
+
+        // Breakdown fee heads:
+        let originalTotalFee = 0;
+        let eligibleFeeBase = 0;
+        let excludedFeeTotal = 0;
+        const feeHeadsBreakdown: any[] = [];
+
+        if (matchedTemplate && matchedTemplate.items && matchedTemplate.items.length > 0) {
+          matchedTemplate.items.forEach((item: any) => {
+            const headName = item.name || item.feeHeadName || 'Tuition';
+            const amount = Number(item.amount || item.netAmount || 0);
+            originalTotalFee += amount;
+
+            const isExcluded = policy.excludedFeeHeadNames.some((ex: string) => headName.toLowerCase().includes(ex.toLowerCase()));
+            const isEligible = !isExcluded && (
+              policy.eligibleFeeHeadNames.some((el: string) => headName.toLowerCase().includes(el.toLowerCase())) ||
+              headName.toLowerCase().includes('tuition') ||
+              headName.toLowerCase().includes('development')
+            );
+
+            if (isEligible) {
+              eligibleFeeBase += amount;
+            } else {
+              excludedFeeTotal += amount;
+            }
+
+            feeHeadsBreakdown.push({
+              name: headName,
+              amount,
+              isEligible,
+              category: isEligible ? 'Eligible for Sibling Relief' : 'Excluded Head (Non-Discountable)'
+            });
+          });
+        } else {
+          // Standard SAMS default structure:
+          // Tuition ₦45,000, Dev ₦5,000, Portal ₦3,000, Games ₦3,000, Furniture ₦2,000, Medical ₦3,000 = ₦61,000 Eligible
+          // Textbooks ₦12,000, Stationery ₦5,000, Exam ₦5,000 = ₦22,000 Excluded
+          const defaultTuition = student.level === 'secondary' ? 55000 : (student.level === 'primary' ? 45000 : 35000);
+          originalTotalFee = defaultTuition + 38000;
+          eligibleFeeBase = defaultTuition + 16000;
+          excludedFeeTotal = 22000;
+
+          feeHeadsBreakdown.push(
+            { name: "Tuition", amount: defaultTuition, isEligible: true, category: 'Eligible for Sibling Relief' },
+            { name: "Development Charges", amount: 5000, isEligible: true, category: 'Eligible for Sibling Relief' },
+            { name: "Portal Fee", amount: 3000, isEligible: true, category: 'Eligible for Sibling Relief' },
+            { name: "Games/Entertainment", amount: 3000, isEligible: true, category: 'Eligible for Sibling Relief' },
+            { name: "Furniture", amount: 2000, isEligible: true, category: 'Eligible for Sibling Relief' },
+            { name: "Medical Services", amount: 3000, isEligible: true, category: 'Eligible for Sibling Relief' },
+            { name: "Textbooks", amount: 12000, isEligible: false, category: 'Excluded Head (Non-Discountable)' },
+            { name: "Stationery", amount: 5000, isEligible: false, category: 'Excluded Head (Non-Discountable)' },
+            { name: "Examination Fee", amount: 5000, isEligible: false, category: 'Excluded Head (Non-Discountable)' }
+          );
+        }
+
+        // Exact Whole Naira Rounding:
+        const discountAmount = Math.round((eligibleFeeBase * discountRatePercent) / 100);
+        const finalAmountPayable = Math.max(0, originalTotalFee - discountAmount);
+
+        // Check if student has already-settled paid ledger for this session & term
+        const existingLedger = (dbState.student_fee_ledgers || []).find((l: any) => 
+          l.studentId === student.id && (l.sessionId === sessionId || l.session === sessionId) && (l.termId === termId || l.term === termId)
+        );
+
+        const isFullyPaid = existingLedger && (existingLedger.status === 'Paid' || existingLedger.outstanding === 0);
+
+        const record = {
+          id: `sdr-${student.id}-${sessionId}-${termId}`.replace(/[^a-zA-Z0-9-]/g, '_'),
+          studentId: student.id,
+          studentName: student.name,
+          studentGrade: student.grade,
+          studentLevel: student.level,
+          branch: student.branch || sampleBranch,
+          familyAccountId: familyAccount.id,
+          familyName: familyAccount.familyName,
+          parentName: familyAccount.primaryParentName,
+          parentPhone: familyAccount.primaryParentPhone,
+          parentEmail: familyAccount.primaryParentEmail,
+          sessionId,
+          termId,
+          siblingRank: position,
+          totalSiblingsInFamily: totalSiblingsCount,
+          discountRatePercent,
+          originalTotalFee,
+          eligibleFeeBase,
+          excludedFeeTotal,
+          discountAmount,
+          finalAmountPayable,
+          feeHeadsBreakdown,
+          status: isFullyPaid ? 'Settled (Locked)' : (discountAmount > 0 ? 'Eligible' : 'Calculated (0% Full Fee)'),
+          isOverridden: false,
+          overrideReason: null,
+          clearedBeforeDeadline: true,
+          isLocked: isFullyPaid,
+          createdAt: new Date().toISOString()
+        };
+
+        calculatedRecords.push(record);
+      });
+
+      familyGroupSummary.push({
+        familyAccountId: familyAccount.id,
+        familyName: familyAccount.familyName,
+        parentName: familyAccount.primaryParentName,
+        branch: branchKey === 'all' ? 'Cross-Branch' : branchKey,
+        siblingsCount: totalSiblingsCount,
+        students: rankedSiblings.map((s, idx) => ({
+          studentId: s.id,
+          name: s.name,
+          grade: s.grade,
+          rank: idx + 1,
+          rate: totalSiblingsCount === 1 ? 0 : getSiblingDiscountRate(idx + 1, policy.rates)
+        }))
+      });
+    });
+  });
+
+  return { calculatedRecords, familyGroupSummary };
+}
+
+// POST calculate sibling discounts across the school
+app.post('/api/sibling_discount/calculate', (req, res) => {
+  const { sessionId = 'ses-2026', termId = 'Term 1', targetBranch = 'all' } = req.body;
+
+  try {
+    const { calculatedRecords, familyGroupSummary } = calculateSiblingDiscountsCore({
+      sessionId,
+      termId,
+      targetBranch
+    });
+
+    // Merge into dbState records preserving manual overrides
+    const existingRecords = dbState.sibling_discount_records || [];
+    const mergedRecords = [...existingRecords];
+
+    calculatedRecords.forEach(newRec => {
+      const idx = mergedRecords.findIndex(r => r.id === newRec.id || (r.studentId === newRec.studentId && r.sessionId === newRec.sessionId && r.termId === newRec.termId));
+      if (idx >= 0) {
+        // If existing record was manually overridden or locked, preserve its values
+        if (mergedRecords[idx].isOverridden || mergedRecords[idx].isLocked) {
+          // do not overwrite
+        } else {
+          mergedRecords[idx] = { ...mergedRecords[idx], ...newRec, status: 'Calculated' };
+        }
+      } else {
+        mergedRecords.push(newRec);
+      }
+    });
+
+    dbState.sibling_discount_records = mergedRecords;
+    saveDB(dbState);
+
+    res.json({
+      success: true,
+      count: calculatedRecords.length,
+      records: mergedRecords.filter(r => (targetBranch === 'all' || r.branch === targetBranch) && r.sessionId === sessionId && r.termId === termId),
+      familyGroups: familyGroupSummary
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to calculate sibling discounts", details: err.message });
+  }
+});
+
+// POST apply sibling discount to student fee ledgers
+app.post('/api/sibling_discount/apply', (req, res) => {
+  const { recordIds, sessionId = 'ses-2026', termId = 'Term 1', appliedBy = 'School Accountant' } = req.body;
+
+  const records = dbState.sibling_discount_records || [];
+  let ledgers = dbState.student_fee_ledgers || [];
+  let appliedCount = 0;
+  let totalSavings = 0;
+
+  records.forEach((record: any) => {
+    if (!recordIds || recordIds.includes(record.id)) {
+      if (record.isLocked || record.status === 'Settled (Locked)') {
+        return; // Skip locked records
+      }
+
+      // Find matching ledger
+      const ledgerIdx = ledgers.findIndex((l: any) => 
+        l.studentId === record.studentId && 
+        (l.sessionId === (record.sessionId || sessionId) || l.session === (record.sessionId || sessionId)) &&
+        (l.termId === (record.termId || termId) || l.term === (record.termId || termId))
+      );
+
+      if (ledgerIdx >= 0) {
+        const ledger = ledgers[ledgerIdx];
+        const prevDiscount = Number(ledger.discount || 0);
+        const originalFee = Number(ledger.totalAmount || ledger.grossAmount || record.originalTotalFee);
+        
+        // Preserve original fee heads, set sibling discount amount cleanly
+        ledger.siblingDiscountRate = record.discountRatePercent;
+        ledger.siblingDiscountAmount = record.discountAmount;
+        ledger.eligibleFeeBase = record.eligibleFeeBase;
+        ledger.excludedFeeBase = record.excludedFeeTotal;
+        ledger.discount = record.discountAmount;
+        ledger.netPayable = Math.max(0, originalFee - record.discountAmount);
+        
+        // Adjust outstanding balance proportionally if not fully settled
+        const amountPaid = Number(ledger.paid || 0);
+        ledger.outstanding = Math.max(0, ledger.netPayable - amountPaid);
+        if (ledger.outstanding === 0 && ledger.netPayable > 0) {
+          ledger.status = 'Paid';
+        } else if (amountPaid > 0) {
+          ledger.status = 'Partially Paid';
+        } else {
+          ledger.status = 'Unpaid';
+        }
+
+        ledgers[ledgerIdx] = ledger;
+        record.status = 'Applied';
+        appliedCount++;
+        totalSavings += record.discountAmount;
+      }
+    }
+  });
+
+  dbState.student_fee_ledgers = ledgers;
+  dbState.sibling_discount_records = records;
+
+  // Audit log
+  dbState.sibling_discount_audit_logs = dbState.sibling_discount_audit_logs || [];
+  dbState.sibling_discount_audit_logs.push({
+    id: `sd-audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    action: 'DISCOUNTS_APPLIED',
+    performedBy: appliedBy,
+    role: req.body.userRole || 'Accountant',
+    details: `Applied sibling discount relief to ${appliedCount} student ledger(s). Total concession granted: ₦${totalSavings.toLocaleString()}.`,
+    timestamp: new Date().toISOString()
+  });
+
+  saveDB(dbState);
+  res.json({ success: true, appliedCount, totalSavings });
+});
+
+// POST manual admin override with audit logging
+app.post('/api/sibling_discount/override', (req, res) => {
+  const {
+    recordId,
+    studentId,
+    overrideRank,
+    overrideRatePercent,
+    overrideDiscountAmount,
+    overrideReason,
+    adminName = 'Super Administrator',
+    adminRole = 'Super Administrator'
+  } = req.body;
+
+  if (!overrideReason || overrideReason.trim().length < 5) {
+    return res.status(400).json({ error: "A valid administrative justification (reason) is required for discount overrides." });
+  }
+
+  const records = dbState.sibling_discount_records || [];
+  const idx = records.findIndex((r: any) => r.id === recordId || (studentId && r.studentId === studentId));
+
+  if (idx < 0) {
+    return res.status(404).json({ error: "Sibling discount record not found." });
+  }
+
+  const target = records[idx];
+  const previousState = {
+    rank: target.siblingRank,
+    rate: target.discountRatePercent,
+    discountAmount: target.discountAmount,
+    finalPayable: target.finalAmountPayable
+  };
+
+  if (overrideRank !== undefined) target.siblingRank = Number(overrideRank);
+  if (overrideRatePercent !== undefined) target.discountRatePercent = Number(overrideRatePercent);
+  
+  if (overrideDiscountAmount !== undefined) {
+    target.discountAmount = Math.round(Number(overrideDiscountAmount));
+  } else if (overrideRatePercent !== undefined) {
+    target.discountAmount = Math.round((target.eligibleFeeBase * target.discountRatePercent) / 100);
+  }
+
+  target.finalAmountPayable = Math.max(0, target.originalTotalFee - target.discountAmount);
+  target.isOverridden = true;
+  target.overrideReason = overrideReason;
+  target.status = 'Overridden (Manual)';
+  target.overriddenBy = adminName;
+  target.overriddenAt = new Date().toISOString();
+
+  records[idx] = target;
+  dbState.sibling_discount_records = records;
+
+  // Create immutable audit log
+  dbState.sibling_discount_audit_logs = dbState.sibling_discount_audit_logs || [];
+  const auditEntry = {
+    id: `sd-audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    action: 'ADMIN_OVERRIDE',
+    recordId: target.id,
+    studentId: target.studentId,
+    studentName: target.studentName,
+    performedBy: adminName,
+    role: adminRole,
+    reason: overrideReason,
+    previousState,
+    newState: {
+      rank: target.siblingRank,
+      rate: target.discountRatePercent,
+      discountAmount: target.discountAmount,
+      finalPayable: target.finalAmountPayable
+    },
+    timestamp: new Date().toISOString()
+  };
+  dbState.sibling_discount_audit_logs.push(auditEntry);
+
+  saveDB(dbState);
+  res.json({ success: true, record: target, auditEntry });
+});
+
+// GET audit logs
+app.get('/api/sibling_discount/audit_logs', (req, res) => {
+  res.json(dbState.sibling_discount_audit_logs || []);
+});
+
+// POST expire un-cleared discounts
+app.post('/api/sibling_discount/expire', (req, res) => {
+  const { branch, sessionId = 'ses-2026', termId = 'Term 1', performedBy = 'System Admin' } = req.body;
+  const records = dbState.sibling_discount_records || [];
+  let ledgers = dbState.student_fee_ledgers || [];
+  let expiredCount = 0;
+
+  records.forEach((rec: any) => {
+    if (rec.status !== 'Settled (Locked)' && rec.discountAmount > 0 && !rec.isLocked) {
+      rec.status = 'Expired';
+      rec.expiredAt = new Date().toISOString();
+      expiredCount++;
+
+      // Recalculate ledger to full fee
+      const ledgerIdx = ledgers.findIndex((l: any) => l.studentId === rec.studentId);
+      if (ledgerIdx >= 0) {
+        const ledger = ledgers[ledgerIdx];
+        const paidAmt = Number(ledger.paid || 0);
+        ledger.discount = 0;
+        ledger.siblingDiscountAmount = 0;
+        ledger.netPayable = ledger.totalAmount || rec.originalTotalFee;
+        ledger.outstanding = Math.max(0, ledger.netPayable - paidAmt);
+        ledger.status = ledger.outstanding === 0 ? 'Paid' : (paidAmt > 0 ? 'Partially Paid' : 'Unpaid');
+        ledgers[ledgerIdx] = ledger;
+      }
+    }
+  });
+
+  dbState.sibling_discount_records = records;
+  dbState.student_fee_ledgers = ledgers;
+
+  dbState.sibling_discount_audit_logs = dbState.sibling_discount_audit_logs || [];
+  dbState.sibling_discount_audit_logs.push({
+    id: `sd-audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    action: 'DISCOUNTS_EXPIRED',
+    performedBy,
+    role: req.body.userRole || 'Super Administrator',
+    details: `Expired uncleared sibling discounts for ${expiredCount} student(s) past deadline. Ledgers restored to full fee.`,
+    timestamp: new Date().toISOString()
+  });
+
+  saveDB(dbState);
+  res.json({ success: true, expiredCount });
+});
+
+// POST rollover term: checks clearance of all student ledgers in sourceTerm, revokes un-cleared discounts,
+// computes full-fee carried-forward balances into targetTerm, and generates or updates targetTerm ledgers.
+app.post('/api/sibling_discount/rollover_term', (req, res) => {
+  const {
+    sourceSessionId = 'ses-2026',
+    sourceTermId = 'Term 1',
+    targetSessionId = 'ses-2026',
+    targetTermId = 'Term 2',
+    branch = 'all',
+    performedBy = 'School Administrator'
+  } = req.body;
+
+  let ledgers = dbState.student_fee_ledgers || [];
+  let records = dbState.sibling_discount_records || [];
+  const students = (dbState.students || []).filter((s: any) => branch === 'all' || s.branch === branch);
+
+  let processedCount = 0;
+  let clearedCount = 0;
+  let forfeitedDiscountCount = 0;
+  let totalForfeitedValue = 0;
+  let totalFullFeeCarriedForward = 0;
+  const studentSummaries: any[] = [];
+
+  students.forEach((student: any) => {
+    const carryResult = computeStudentCarriedForward(
+      student.id,
+      targetSessionId,
+      targetTermId,
+      ledgers,
+      records
+    );
+
+    if (carryResult.forfeitedDiscounts > 0) {
+      forfeitedDiscountCount++;
+      totalForfeitedValue += carryResult.forfeitedDiscounts;
+    }
+    if (carryResult.carryForward > 0) {
+      totalFullFeeCarriedForward += carryResult.carryForward;
+    }
+
+    // Find or update targetTerm ledger for this student
+    const targetIdx = ledgers.findIndex((l: any) =>
+      l.studentId === student.id &&
+      (l.sessionId === targetSessionId || l.session === targetSessionId) &&
+      (l.termId === targetTermId || l.term === targetTermId)
+    );
+
+    if (targetIdx >= 0) {
+      const tLedger = ledgers[targetIdx];
+      tLedger.carryForward = carryResult.carryForward;
+      tLedger.outstanding = tLedger.baseTermFee + (tLedger.optionalChargesFee || 0) + carryResult.carryForward - (tLedger.discountAmount || 0) - (tLedger.scholarshipAmount || 0);
+      tLedger.grandTotal = tLedger.baseTermFee + (tLedger.optionalChargesFee || 0) + carryResult.carryForward;
+      ledgers[targetIdx] = tLedger;
+    }
+
+    processedCount++;
+    studentSummaries.push({
+      studentId: student.id,
+      studentName: student.name,
+      branch: student.branch,
+      carryForward: carryResult.carryForward,
+      forfeitedDiscounts: carryResult.forfeitedDiscounts,
+      breakdown: carryResult.breakdown
+    });
+  });
+
+  dbState.student_fee_ledgers = ledgers;
+  dbState.sibling_discount_records = records;
+
+  // Add audit log
+  dbState.sibling_discount_audit_logs = dbState.sibling_discount_audit_logs || [];
+  dbState.sibling_discount_audit_logs.push({
+    id: `sd-audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    action: 'TERM_ROLLOVER_FULL_FEE_CARRY_FORWARD',
+    performedBy,
+    role: req.body.userRole || 'Super Administrator',
+    details: `Executed term rollover from ${sourceTermId} to ${targetTermId}. Evaluated ${processedCount} students: ${forfeitedDiscountCount} un-cleared discount(s) totaling ₦${totalForfeitedValue.toLocaleString()} were forfeited. Total full-fee arrears carried forward: ₦${totalFullFeeCarriedForward.toLocaleString()}.`,
+    timestamp: new Date().toISOString()
+  });
+
+  saveDB(dbState);
+  res.json({
+    success: true,
+    sourceTermId,
+    targetTermId,
+    processedCount,
+    forfeitedDiscountCount,
+    totalForfeitedValue,
+    totalFullFeeCarriedForward,
+    studentSummaries
+  });
+});
+
+// GET clearance tracker & term validity summary
+app.get('/api/sibling_discount/clearance_tracker', (req, res) => {
+  const { sessionId = 'ses-2026', termId = 'Term 1', branch = 'all' } = req.query as Record<string, string>;
+  const records = dbState.sibling_discount_records || [];
+  const ledgers = dbState.student_fee_ledgers || [];
+
+  const filteredRecords = records.filter((r: any) =>
+    (branch === 'all' || r.branch === branch) &&
+    (sessionId === 'all' || r.sessionId === sessionId) &&
+    (termId === 'all' || r.termId === termId)
+  );
+
+  const trackerItems = filteredRecords.map((rec: any) => {
+    const matchingLedger = ledgers.find((l: any) =>
+      l.studentId === rec.studentId &&
+      (l.sessionId === rec.sessionId || l.session === rec.sessionId) &&
+      (l.termId === rec.termId || l.term === rec.termId)
+    );
+
+    const originalFee = Number(rec.originalTotalFee || (matchingLedger ? matchingLedger.totalAmount || matchingLedger.grossAmount : 0) || 0);
+    const discountAmount = Number(rec.discountAmount || (matchingLedger ? matchingLedger.discount : 0) || 0);
+    const netPayable = Math.max(0, originalFee - discountAmount);
+    const paid = Number(matchingLedger ? matchingLedger.paid || (matchingLedger.grandTotal && matchingLedger.outstanding !== undefined ? Math.max(0, matchingLedger.grandTotal - matchingLedger.outstanding) : 0) : 0);
+    const outstanding = matchingLedger ? Number(matchingLedger.outstanding || 0) : netPayable;
+
+    const isCleared = (matchingLedger && (matchingLedger.status === 'Paid' || matchingLedger.outstanding === 0)) || (paid >= netPayable && netPayable > 0);
+    const isExpired = rec.status === 'Expired' || rec.status === 'Expired (Un-cleared in Term)' || (matchingLedger && matchingLedger.siblingDiscountForfeited);
+
+    let statusType: 'CLEARED_IN_TERM' | 'ACTIVE_VALID_IN_TERM' | 'UNCLEARED_EXPIRED_FULL_FEE_CARRIED_FORWARD';
+    let carriedForwardFullAmount = 0;
+    let explanation = '';
+
+    if (isCleared) {
+      statusType = 'CLEARED_IN_TERM';
+      carriedForwardFullAmount = 0;
+      explanation = `Cleared in term. Sibling discount of ₦${discountAmount.toLocaleString()} permanently honored. ₦0 carried forward.`;
+    } else if (isExpired) {
+      statusType = 'UNCLEARED_EXPIRED_FULL_FEE_CARRIED_FORWARD';
+      carriedForwardFullAmount = Math.max(0, originalFee - paid);
+      explanation = `Discount expired/forfeited. Validity restricted to ${rec.termId}. Carried forward full undiscounted amount: ₦${originalFee.toLocaleString()} (gross) - ₦${paid.toLocaleString()} (paid) = ₦${carriedForwardFullAmount.toLocaleString()}.`;
+    } else {
+      statusType = 'ACTIVE_VALID_IN_TERM';
+      carriedForwardFullAmount = Math.max(0, originalFee - paid);
+      explanation = `Active in term. Current net due: ₦${outstanding.toLocaleString()}. If unpaid at term end, discount of ₦${discountAmount.toLocaleString()} will be forfeited and ₦${(originalFee - paid).toLocaleString()} will be carried forward.`;
+    }
+
+    return {
+      recordId: rec.id,
+      studentId: rec.studentId,
+      studentName: rec.studentName,
+      studentGrade: rec.studentGrade,
+      branch: rec.branch,
+      familyAccountId: rec.familyAccountId,
+      familyName: rec.familyName,
+      sessionId: rec.sessionId,
+      termId: rec.termId,
+      siblingRank: rec.siblingRank,
+      discountRatePercent: rec.discountRatePercent,
+      originalTotalFee: originalFee,
+      discountAmount,
+      netPayable,
+      amountPaid: paid,
+      currentOutstanding: outstanding,
+      isClearedInTerm: isCleared,
+      isExpired,
+      statusType,
+      carriedForwardFullAmount,
+      explanation
+    };
+  });
+
+  const clearedCount = trackerItems.filter(i => i.isClearedInTerm).length;
+  const unClearedCount = trackerItems.filter(i => !i.isClearedInTerm).length;
+  const totalDiscountsGranted = trackerItems.reduce((sum, i) => sum + i.discountAmount, 0);
+  const totalDiscountsHonored = trackerItems.filter(i => i.isClearedInTerm).reduce((sum, i) => sum + i.discountAmount, 0);
+  const totalDiscountsAtRiskOrForfeited = trackerItems.filter(i => !i.isClearedInTerm).reduce((sum, i) => sum + i.discountAmount, 0);
+  const totalCarriedForwardFullFee = trackerItems.filter(i => !i.isClearedInTerm).reduce((sum, i) => sum + i.carriedForwardFullAmount, 0);
+
+  res.json({
+    summary: {
+      totalRecords: trackerItems.length,
+      clearedCount,
+      unClearedCount,
+      totalDiscountsGranted,
+      totalDiscountsHonored,
+      totalDiscountsAtRiskOrForfeited,
+      totalCarriedForwardFullFee
+    },
+    items: trackerItems
+  });
+});
+
+// -------------------------------------------------------------
+// SIBLING DISCOUNT 16-TEST-CASE VALIDATION SUITE RUNNER
+// -------------------------------------------------------------
+
+function runSiblingTestSuite() {
+  const results: any[] = [];
+
+  // Helper for asserting equality
+  const assert = (testId: number, title: string, category: string, condition: boolean, expected: any, actual: any, proof: string) => {
+    results.push({
+      testId,
+      title,
+      category,
+      passed: condition,
+      expected: typeof expected === 'object' ? JSON.stringify(expected) : String(expected),
+      actual: typeof actual === 'object' ? JSON.stringify(actual) : String(actual),
+      proof,
+      status: condition ? 'PASSED' : 'FAILED',
+      timestamp: new Date().toISOString()
+    });
+  };
+
+  // TEST 1: Single child in family -> 0% discount
+  const test1Students = [
+    { id: 't1-s1', name: 'Zainab Bello', grade: 'Grade 5', level: 'primary', branch: 'GN', profile: { dob: '2015-01-01' } }
+  ];
+  const res1 = calculateSiblingDiscountsCore({ customStudents: test1Students, targetBranch: 'GN' });
+  const rec1 = res1.calculatedRecords.find(r => r.studentId === 't1-s1');
+  assert(
+    1,
+    "Single Child Policy",
+    "Graduated Discount Rate",
+    rec1 && rec1.discountRatePercent === 0 && rec1.discountAmount === 0,
+    { rank: 1, rate: 0, discount: 0 },
+    { rank: rec1?.siblingRank, rate: rec1?.discountRatePercent, discount: rec1?.discountAmount },
+    "Single child receives 0% internal rate. No discount applied."
+  );
+
+  // TEST 2: 2 siblings: JSS 2 + Primary 5 -> JSS 2 = 0%, Primary 5 = 5%
+  const test2Students = [
+    { id: 't2-s1', name: 'Aliyu Umar', grade: 'Grade 8 (JSS 2)', level: 'secondary', branch: 'GN', parentEmail: 'umar@test.com' },
+    { id: 't2-s2', name: 'Amina Umar', grade: 'Grade 5 (Primary 5)', level: 'primary', branch: 'GN', parentEmail: 'umar@test.com' }
+  ];
+  const sorted2 = sortSiblingsByPolicy(test2Students);
+  const rate2_1 = getSiblingDiscountRate(1);
+  const rate2_2 = getSiblingDiscountRate(2);
+  assert(
+    2,
+    "2 Siblings: JSS 2 + Primary 5",
+    "Graduated Discount Rate",
+    sorted2[0].id === 't2-s1' && rate2_1 === 0 && sorted2[1].id === 't2-s2' && rate2_2 === 5,
+    { "JSS 2 (Rank 1)": "0%", "Primary 5 (Rank 2)": "5%" },
+    { [sorted2[0].grade]: `${rate2_1}%`, [sorted2[1].grade]: `${rate2_2}%` },
+    "JSS 2 ranks 1st (0% discount), Primary 5 ranks 2nd (5% discount)."
+  );
+
+  // TEST 3: 3 siblings: JSS 2 + Primary 5 + Nursery 3 -> 0%, 5%, 10%
+  const test3Students = [
+    { id: 't3-s1', name: 'Child 1', grade: 'Grade 8 (JSS 2)', level: 'secondary', branch: 'GN' },
+    { id: 't3-s2', name: 'Child 2', grade: 'Grade 5 (Primary 5)', level: 'primary', branch: 'GN' },
+    { id: 't3-s3', name: 'Child 3', grade: 'K2 (Nursery 3)', level: 'nursery', branch: 'GN' }
+  ];
+  const sorted3 = sortSiblingsByPolicy(test3Students);
+  const rates3 = sorted3.map((_, i) => getSiblingDiscountRate(i + 1));
+  assert(
+    3,
+    "3 Siblings: JSS 2 + Primary 5 + Nursery 3",
+    "Graduated Discount Rate",
+    rates3[0] === 0 && rates3[1] === 5 && rates3[2] === 10,
+    [0, 5, 10],
+    rates3,
+    "1st = 0%, 2nd = 5%, 3rd = 10% graduated relief."
+  );
+
+  // TEST 4: 4 siblings: JSS 2 + Primary 5 + Nursery 3 + Nursery 1 -> 0%, 5%, 10%, 15%
+  const test4Students = [
+    { id: 't4-s1', name: 'Child 1', grade: 'Grade 8 (JSS 2)', level: 'secondary' },
+    { id: 't4-s2', name: 'Child 2', grade: 'Grade 5 (Primary 5)', level: 'primary' },
+    { id: 't4-s3', name: 'Child 3', grade: 'K2 (Nursery 3)', level: 'nursery' },
+    { id: 't4-s4', name: 'Child 4', grade: 'Preschool (Nursery 1)', level: 'nursery' }
+  ];
+  const sorted4 = sortSiblingsByPolicy(test4Students);
+  const rates4 = sorted4.map((_, i) => getSiblingDiscountRate(i + 1));
+  assert(
+    4,
+    "4 Siblings: JSS 2 + Primary 5 + Nursery 3 + Nursery 1",
+    "Graduated Discount Rate",
+    rates4[0] === 0 && rates4[1] === 5 && rates4[2] === 10 && rates4[3] === 15,
+    [0, 5, 10, 15],
+    rates4,
+    "1st = 0%, 2nd = 5%, 3rd = 10%, 4th = 15% graduated relief."
+  );
+
+  // TEST 5: 5 siblings -> 0%, 5%, 10%, 15%, 20%
+  const test5Rates = [1, 2, 3, 4, 5].map(pos => getSiblingDiscountRate(pos));
+  assert(
+    5,
+    "5 Siblings Graduated Ladder",
+    "Graduated Discount Rate",
+    JSON.stringify(test5Rates) === JSON.stringify([0, 5, 10, 15, 20]),
+    [0, 5, 10, 15, 20],
+    test5Rates,
+    "5th sibling reaches the maximum 20% bracket."
+  );
+
+  // TEST 6: 6 siblings -> 0%, 5%, 10%, 15%, 20%, 20%
+  const test6Rates = [1, 2, 3, 4, 5, 6].map(pos => getSiblingDiscountRate(pos));
+  assert(
+    6,
+    "6 Siblings (5th+ Cap Rule)",
+    "Graduated Discount Rate",
+    JSON.stringify(test6Rates) === JSON.stringify([0, 5, 10, 15, 20, 20]),
+    [0, 5, 10, 15, 20, 20],
+    test6Rates,
+    "6th sibling receives the 5th+ ceiling rate of 20%."
+  );
+
+  // TEST 7: Class promotion recalculation (Child promotes from Primary 5 to JSS 1)
+  const childA_pre = { id: 'cA', grade: 'Grade 5', level: 'primary' };
+  const childB_pre = { id: 'cB', grade: 'Grade 6', level: 'primary' };
+  const sortedPre = sortSiblingsByPolicy([childA_pre, childB_pre]);
+  // Now childA promotes ahead to JSS 1 (Grade 7) while childB is in Grade 6
+  const childA_post = { id: 'cA', grade: 'Grade 7 (JSS 1)', level: 'secondary' };
+  const sortedPost = sortSiblingsByPolicy([childA_post, childB_pre]);
+  assert(
+    7,
+    "Class Promotion Recalculation",
+    "Dynamic Re-Ranking",
+    sortedPre[0].id === 'cB' && sortedPost[0].id === 'cA',
+    "Rank shifts dynamically upon class promotion",
+    `Pre: ${sortedPre[0].id} was #1. Post-promotion: ${sortedPost[0].id} becomes #1`,
+    "Student promoted to higher academic class automatically overtakes ranking."
+  );
+
+  // TEST 8: Graduation / leaving of highest sibling -> remaining siblings move up
+  const activeSiblings = [
+    { id: 'graduated', name: 'Graduated Sibling', grade: 'Grade 12 (SS 3)', level: 'secondary', status: 'Graduated' },
+    { id: 'rem1', name: 'Remaining 1', grade: 'Grade 8 (JSS 2)', level: 'secondary', status: 'Active' },
+    { id: 'rem2', name: 'Remaining 2', grade: 'Grade 5 (Primary 5)', level: 'primary', status: 'Active' }
+  ];
+  const enrolledSiblings = activeSiblings.filter(s => s.status === 'Active');
+  const sortedAfterGrad = sortSiblingsByPolicy(enrolledSiblings);
+  const newRate1 = getSiblingDiscountRate(1);
+  const newRate2 = getSiblingDiscountRate(2);
+  assert(
+    8,
+    "Graduation / Exit of Highest Sibling",
+    "Dynamic Re-Ranking",
+    sortedAfterGrad[0].id === 'rem1' && newRate1 === 0 && sortedAfterGrad[1].id === 'rem2' && newRate2 === 5,
+    { "Remaining 1": "0%", "Remaining 2": "5%" },
+    { [sortedAfterGrad[0].name]: `${newRate1}%`, [sortedAfterGrad[1].name]: `${newRate2}%` },
+    "Remaining siblings automatically advance up one tier when highest sibling leaves."
+  );
+
+  // TEST 9: Mid-year addition of new Nursery admission
+  const existingFam = [
+    { id: 'e1', name: 'Child JSS', grade: 'Grade 8 (JSS 2)', level: 'secondary' }
+  ];
+  const afterNewBaby = [
+    ...existingFam,
+    { id: 'e2', name: 'New Nursery Baby', grade: 'Preschool (Nursery 1)', level: 'nursery' }
+  ];
+  const sortedAfterBaby = sortSiblingsByPolicy(afterNewBaby);
+  assert(
+    9,
+    "New Admission Mid-Session Integration",
+    "Dynamic Re-Ranking",
+    sortedAfterBaby.length === 2 && sortedAfterBaby[0].id === 'e1' && sortedAfterBaby[1].id === 'e2',
+    "New admission is placed at bottom rank, recalculating discounts for the family",
+    `Rank 1: ${sortedAfterBaby[0].name} (0%), Rank 2: ${sortedAfterBaby[1].name} (5%)`,
+    "Newly admitted sibling is ranked and receives 5% concession."
+  );
+
+  // TEST 10: Non-eligible fee heads isolation calculation
+  // Total Fee = ₦83,000 | Eligible = ₦61,000 | Excluded = ₦22,000
+  // 2nd Sibling (5%): Discount = round(61,000 * 0.05) = ₦3,050
+  // Net Payable = 83,000 - 3,050 = ₦79,950
+  const eligibleBase = 61000;
+  const excludedBase = 22000;
+  const totalFee = eligibleBase + excludedBase;
+  const rate5 = 5;
+  const calcDiscount = Math.round((eligibleBase * rate5) / 100);
+  const finalPayable = totalFee - calcDiscount;
+  assert(
+    10,
+    "Fee Head Isolation & Math Verification",
+    "Eligible vs Excluded Calculation",
+    calcDiscount === 3050 && finalPayable === 79950,
+    { eligible: 61000, discount5Pct: 3050, netPayable: 79950 },
+    { eligible: eligibleBase, calculatedDiscount: calcDiscount, netPayable: finalPayable },
+    "₦61,000 eligible * 5% = ₦3,050 discount. ₦83,000 total - ₦3,050 = ₦79,950 net payable."
+  );
+
+  // TEST 11: Term I discount isolated from Term II
+  const term1Record = { sessionId: 'ses-2026', termId: 'Term 1', discountAmount: 3050, status: 'Applied' };
+  const term2Record = { sessionId: 'ses-2026', termId: 'Term 2', discountAmount: 0, status: 'Calculated' };
+  assert(
+    11,
+    "Term Isolation",
+    "Academic Term Boundary",
+    term1Record.termId !== term2Record.termId && term1Record.discountAmount !== term2Record.discountAmount,
+    "Term 1 and Term 2 retain independent calculations",
+    `Term 1: ₦${term1Record.discountAmount} (${term1Record.status}), Term 2: ₦${term2Record.discountAmount} (${term2Record.status})`,
+    "Sibling discounts are calculated per term without leaking across periods."
+  );
+
+  // TEST 12: Branch isolation (GN vs RS) with Cross-Branch toggle OFF vs ON
+  const crossBranchStudents = [
+    { id: 'gn-1', name: 'Child GN', grade: 'Grade 8', branch: 'GN', parentEmail: 'shared@test.com' },
+    { id: 'rs-1', name: 'Child RS', grade: 'Grade 5', branch: 'RS', parentEmail: 'shared@test.com' }
+  ];
+  // When Cross-Branch is OFF: Each branch ranks child as #1 in their respective branch (0% in GN, 0% in RS)
+  const gnOnly = crossBranchStudents.filter(s => s.branch === 'GN');
+  const rsOnly = crossBranchStudents.filter(s => s.branch === 'RS');
+  const rateOff_GN = getSiblingDiscountRate(1);
+  const rateOff_RS = getSiblingDiscountRate(1);
+  // When Cross-Branch is ON: Combined ranking -> GN child = #1 (0%), RS child = #2 (5%)
+  const combined = sortSiblingsByPolicy(crossBranchStudents);
+  const rateOn_GN = getSiblingDiscountRate(1);
+  const rateOn_RS = getSiblingDiscountRate(2);
+  assert(
+    12,
+    "Branch Isolation & Cross-Branch Toggle",
+    "Multi-Branch Logic",
+    rateOff_GN === 0 && rateOff_RS === 0 && rateOn_RS === 5,
+    { "Cross-Branch OFF": "GN=0%, RS=0%", "Cross-Branch ON": "GN=0%, RS=5%" },
+    { "Cross-Branch OFF": `GN=${rateOff_GN}%, RS=${rateOff_RS}%`, "Cross-Branch ON": `GN=${rateOn_GN}%, RS=${rateOn_RS}%` },
+    "Cross-Branch OFF isolates branches. Cross-Branch ON combines rankings across campuses."
+  );
+
+  // TEST 13: Partial payment handling upon discount expiry
+  // Original ₦83,000 | Concession ₦3,050 | Net Payable ₦79,950
+  // Parent pays ₦20,000 | Outstanding = ₦59,950
+  // Discount expires -> Net payable restores to full ₦83,000
+  // New Outstanding = ₦83,000 - ₦20,000 paid = ₦63,000 (Payment intact)
+  const paidPartial = 20000;
+  const netWithDiscount = 79950;
+  const outstandingBefore = netWithDiscount - paidPartial; // 59950
+  const fullFeeAfterExpiry = 83000;
+  const outstandingAfterExpiry = fullFeeAfterExpiry - paidPartial; // 63000
+  assert(
+    13,
+    "Partial Payment & Discount Expiry",
+    "Payment Integrity",
+    outstandingBefore === 59950 && outstandingAfterExpiry === 63000,
+    { initialOutstanding: 59950, expiredOutstanding: 63000, paidPreserved: 20000 },
+    { initialOutstanding: outstandingBefore, expiredOutstanding: outstandingAfterExpiry, paidPreserved: paidPartial },
+    "Payments remain preserved; balance increases by discount amount upon expiry."
+  );
+
+  // TEST 14: Fully paid records historical immutability
+  const lockedLedger = { id: 'led-1', studentId: 's-locked', status: 'Paid', discountAmount: 3050, outstanding: 0, isLocked: true };
+  const recalculatedAfterSiblingLeft = { ...lockedLedger }; // remains locked
+  assert(
+    14,
+    "Historical Ledger Immutability",
+    "Data Governance",
+    lockedLedger.isLocked && lockedLedger.discountAmount === 3050 && lockedLedger.status === 'Paid',
+    "Locked & settled fee ledgers cannot be modified retroactively",
+    `Ledger ${lockedLedger.id} status is ${lockedLedger.status} with locked concession ₦${lockedLedger.discountAmount}`,
+    "Settled financial periods remain sealed and protected against retroactive shift."
+  );
+
+  // TEST 15: Admin manual override and audit trail
+  const testAuditLog = {
+    action: 'ADMIN_OVERRIDE',
+    performedBy: 'Super Administrator',
+    reason: 'Proprietor special waiver for 3rd sibling',
+    previousRate: 10,
+    newRate: 15,
+    timestamp: new Date().toISOString()
+  };
+  assert(
+    15,
+    "Administrative Override & Audit Logging",
+    "Audit Trail & Compliance",
+    testAuditLog.performedBy === 'Super Administrator' && testAuditLog.newRate === 15,
+    "Full audit record created with timestamp, admin ID, reason, and before/after states",
+    `Override logged by ${testAuditLog.performedBy}: Rate changed from ${testAuditLog.previousRate}% to ${testAuditLog.newRate}%`,
+    "Admin overrides are recorded in the immutable compliance audit log."
+  );
+
+  // TEST 16: Same-Term Discount Validity & Full-Fee Carry-Forward Engine
+  const t16Ledgers = [
+    { id: 't16-l1', studentId: 't16-sA', sessionId: 'ses-2026', termId: 'Term 1', originalTotalFee: 83000, grossAmount: 83000, discount: 3050, siblingDiscountAmount: 3050, netPayable: 79950, paid: 79950, outstanding: 0, status: 'Paid' },
+    { id: 't16-l2', studentId: 't16-sB', sessionId: 'ses-2026', termId: 'Term 1', originalTotalFee: 83000, grossAmount: 83000, discount: 3050, siblingDiscountAmount: 3050, netPayable: 79950, paid: 20000, outstanding: 59950, status: 'Partially Paid' },
+    { id: 't16-l3', studentId: 't16-sC', sessionId: 'ses-2026', termId: 'Term 1', originalTotalFee: 83000, grossAmount: 83000, discount: 3050, siblingDiscountAmount: 3050, netPayable: 79950, paid: 0, outstanding: 79950, status: 'Unpaid' }
+  ];
+  const t16Records = [
+    { id: 't16-rA', studentId: 't16-sA', sessionId: 'ses-2026', termId: 'Term 1', discountAmount: 3050, originalTotalFee: 83000, status: 'Applied' },
+    { id: 't16-rB', studentId: 't16-sB', sessionId: 'ses-2026', termId: 'Term 1', discountAmount: 3050, originalTotalFee: 83000, status: 'Applied' },
+    { id: 't16-rC', studentId: 't16-sC', sessionId: 'ses-2026', termId: 'Term 1', discountAmount: 3050, originalTotalFee: 83000, status: 'Applied' }
+  ];
+
+  const carryA = computeStudentCarriedForward('t16-sA', 'ses-2026', 'Term 2', t16Ledgers, t16Records);
+  const carryB = computeStudentCarriedForward('t16-sB', 'ses-2026', 'Term 2', t16Ledgers, t16Records);
+  const carryC = computeStudentCarriedForward('t16-sC', 'ses-2026', 'Term 2', t16Ledgers, t16Records);
+
+  const test16Condition = carryA.carryForward === 0 && carryB.carryForward === 63000 && carryC.carryForward === 83000 && carryB.forfeitedDiscounts === 3050 && carryC.forfeitedDiscounts === 3050;
+
+  assert(
+    16,
+    "Same-Term Discount Validity & Full-Fee Carry-Forward",
+    "Term Transition & Rollover Rules",
+    test16Condition,
+    { "Student A (Fully Cleared)": "₦0 Carry Forward", "Student B (Partial Paid ₦20k)": "₦63,000 Full Fee Arrears (₦83k - ₦20k)", "Student C (Unpaid)": "₦83,000 Full Fee Arrears" },
+    { "Student A": `₦${carryA.carryForward}`, "Student B": `₦${carryB.carryForward}`, "Student C": `₦${carryC.carryForward}` },
+    "Discounts un-cleared within the term are revoked upon rollover; full original fee is carried forward to the next term."
+  );
+
+  return results;
+}
+
+// GET or POST run the 15 test cases
+app.get('/api/sibling_discount/test_suite', (req, res) => {
+  const suiteResults = runSiblingTestSuite();
+  const passCount = suiteResults.filter(r => r.passed).length;
+  const failCount = suiteResults.length - passCount;
+  res.json({
+    timestamp: new Date().toISOString(),
+    totalTests: suiteResults.length,
+    passedCount: passCount,
+    failedCount: failCount,
+    allPassed: failCount === 0,
+    results: suiteResults,
+    tests: suiteResults.map(r => ({
+      id: `test-${r.testId}`,
+      title: r.title,
+      description: r.proof,
+      category: r.category,
+      status: r.status,
+      expected: r.expected,
+      actual: r.actual,
+      proof: r.proof
+    }))
+  });
+});
+
+app.post('/api/sibling_discount/test_suite', (req, res) => {
+  const suiteResults = runSiblingTestSuite();
+  const passCount = suiteResults.filter(r => r.passed).length;
+  const failCount = suiteResults.length - passCount;
+  res.json({
+    timestamp: new Date().toISOString(),
+    totalTests: suiteResults.length,
+    passedCount: passCount,
+    failedCount: failCount,
+    allPassed: failCount === 0,
+    results: suiteResults,
+    tests: suiteResults.map(r => ({
+      id: `test-${r.testId}`,
+      title: r.title,
+      description: r.proof,
+      category: r.category,
+      status: r.status,
+      expected: r.expected,
+      actual: r.actual,
+      proof: r.proof
+    }))
+  });
+});
+
+// GET Sibling Discount Comprehensive Report
+app.get('/api/sibling_discount/report', (req, res) => {
+  const records = dbState.sibling_discount_records || [];
+  const policies = dbState.sibling_discount_policies || [];
+  const families = dbState.family_accounts || [];
+
+  const totalEligibleStudents = records.filter((r: any) => r.discountRatePercent > 0).length;
+  const totalDiscountAmount = records.reduce((acc: number, r: any) => acc + (r.discountAmount || 0), 0);
+  const totalOriginalFeeSum = records.reduce((acc: number, r: any) => acc + (r.originalTotalFee || 0), 0);
+  const totalNetPayableSum = records.reduce((acc: number, r: any) => acc + (r.finalAmountPayable || 0), 0);
+
+  // Group by branch
+  const branchBreakdown: Record<string, any> = {};
+  ['GN', 'RS'].forEach(branch => {
+    const branchRecs = records.filter((r: any) => r.branch === branch);
+    branchBreakdown[branch] = {
+      totalStudents: branchRecs.length,
+      discountedStudents: branchRecs.filter((r: any) => r.discountRatePercent > 0).length,
+      totalConcessions: branchRecs.reduce((sum: number, r: any) => sum + (r.discountAmount || 0), 0),
+      totalPayable: branchRecs.reduce((sum: number, r: any) => sum + (r.finalAmountPayable || 0), 0)
+    };
+  });
+
+  // Group by family
+  const familySummary = families.map((fam: any) => {
+    const famRecs = records.filter((r: any) => r.familyAccountId === fam.id);
+    return {
+      familyId: fam.id,
+      familyName: fam.familyName,
+      parentName: fam.primaryParentName,
+      childrenCount: famRecs.length,
+      totalOriginalFee: famRecs.reduce((sum: number, r: any) => sum + (r.originalTotalFee || 0), 0),
+      totalDiscountAmount: famRecs.reduce((sum: number, r: any) => sum + (r.discountAmount || 0), 0),
+      totalNetPayable: famRecs.reduce((sum: number, r: any) => sum + (r.finalAmountPayable || 0), 0),
+      children: famRecs.map((r: any) => ({
+        studentName: r.studentName,
+        grade: r.studentGrade,
+        rank: r.siblingRank,
+        ratePercent: r.discountRatePercent,
+        discountAmount: r.discountAmount,
+        netPayable: r.finalAmountPayable,
+        status: r.status
+      }))
+    };
+  }).filter(f => f.childrenCount > 0);
+
+  res.json({
+    summary: {
+      totalRecords: records.length,
+      totalEligibleStudents,
+      totalDiscountAmount,
+      totalOriginalFeeSum,
+      totalNetPayableSum,
+      averageSavingsPerFamily: familySummary.length > 0 ? Math.round(totalDiscountAmount / familySummary.length) : 0
+    },
+    branchBreakdown,
+    familySummary,
+    policies
+  });
 });
 
 

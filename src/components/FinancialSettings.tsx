@@ -11,6 +11,7 @@ import PaymentCollection from './PaymentCollection';
 import FinancialTimeline from './FinancialTimeline';
 import ExpenseManagement from './ExpenseManagement';
 import FinancialReports from './FinancialReports';
+import SiblingDiscountManagement from './SiblingDiscountManagement';
 
 interface FinancialSetting {
   id: string;
@@ -52,13 +53,13 @@ interface FeeHead {
 
 interface FinancialSettingsProps {
   currentRole: string;
-  activeSection?: 'general' | 'fee_heads' | 'optional_charges' | 'sections_classes' | 'fee_templates' | 'student_billing' | 'family_accounts' | 'payment_collection' | 'financial_timeline' | 'expense_management' | 'financial_reports';
+  activeSection?: 'general' | 'fee_heads' | 'optional_charges' | 'sections_classes' | 'fee_templates' | 'student_billing' | 'family_accounts' | 'payment_collection' | 'financial_timeline' | 'expense_management' | 'financial_reports' | 'sibling_discounts' | 'discounts';
   onSectionChange?: (section: any) => void;
 }
 
 export default function FinancialSettings({ currentRole, activeSection: propActiveSection, onSectionChange }: FinancialSettingsProps) {
-  // Navigation Tabs: 'general', 'fee_heads', 'optional_charges', 'sections_classes', 'fee_templates', 'student_billing', 'family_accounts', 'payment_collection', 'expense_management'
-  const [localActiveSection, setLocalActiveSection] = useState<'general' | 'fee_heads' | 'optional_charges' | 'sections_classes' | 'fee_templates' | 'student_billing' | 'family_accounts' | 'payment_collection' | 'financial_timeline' | 'expense_management' | 'financial_reports'>('general');
+  // Navigation Tabs: 'general', 'fee_heads', 'optional_charges', 'sections_classes', 'fee_templates', 'student_billing', 'family_accounts', 'payment_collection', 'expense_management', 'sibling_discounts'
+  const [localActiveSection, setLocalActiveSection] = useState<'general' | 'fee_heads' | 'optional_charges' | 'sections_classes' | 'fee_templates' | 'student_billing' | 'family_accounts' | 'payment_collection' | 'financial_timeline' | 'expense_management' | 'financial_reports' | 'sibling_discounts' | 'discounts'>('general');
 
   const activeSection = propActiveSection !== undefined ? propActiveSection : localActiveSection;
   const setActiveSection = (section: any) => {
@@ -697,273 +698,229 @@ export default function FinancialSettings({ currentRole, activeSection: propActi
         </div>
       </div>
 
-      {/* Main Grid: Left Navigation Sidebar (lg:col-span-3) & Right Dynamic Workspace Panel (lg:col-span-9) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Navigation Sidebar Column */}
-        <div className="lg:col-span-3 space-y-4 lg:sticky lg:top-6">
-          {/* Mobile Select Dropdown Selection */}
-          <div className="lg:hidden w-full space-y-1.5">
-            <label className="text-[10px] font-black tracking-wider uppercase text-slate-400">Financial Workspace Area</label>
-            <div className="relative">
-              <select
-                value={activeSection}
-                onChange={(e) => setActiveSection(e.target.value as any)}
-                className="w-full bg-white border border-slate-200 px-4 py-3 rounded-2xl text-xs font-extrabold text-slate-800 shadow-sm outline-none focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer"
-              >
-                <optgroup label="⚙️ SETUP & CORE CONFIG">
-                  <option value="general">General Parameters</option>
-                  <option value="sections_classes">Sections & Classes</option>
-                  <option value="fee_heads">Fee Head Blueprints</option>
-                  <option value="optional_charges">Optional Charges</option>
-                  <option value="fee_templates">Fee Template Builder</option>
-                </optgroup>
-                <optgroup label="💸 BILLING & OPERATIONS">
-                  <option value="student_billing">Student Billing</option>
-                  <option value="family_accounts">Family Portfolios</option>
-                  <option value="payment_collection">Payment Collection</option>
-                  <option value="expense_management">Expense Management</option>
-                </optgroup>
-                <optgroup label="📈 PERFORMANCE & TIMELINES">
-                  <option value="financial_timeline">Financial Timeline</option>
-                  <option value="financial_reports">Financial Reports & AI Insights</option>
-                </optgroup>
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
-                <Lucide.ChevronDown className="w-4 h-4 text-slate-500" />
-              </div>
-            </div>
-          </div>
-
-          {/* Desktop Sidebar Navigation Container */}
-          <div className="hidden lg:block bg-white rounded-2xl border border-slate-200/60 p-4 shadow-sm space-y-6">
-            <div className="border-b border-slate-100 pb-3">
-              <span className="text-[10px] font-extrabold text-slate-400 tracking-widest uppercase">Workspace Hub</span>
-              <h3 className="text-sm font-black text-slate-800 mt-0.5">Control Panel</h3>
-            </div>
-
-            {/* CATEGORY 1: SETUP & CONFIGURATION */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5 px-2">
-                <Lucide.Settings className="w-3 h-3 text-indigo-500" />
-                <span className="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase">Setup & Config</span>
-              </div>
-              <div className="space-y-1">
-                <button
-                  onClick={() => setActiveSection('general')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    activeSection === 'general'
-                      ? 'bg-indigo-50 text-indigo-700 shadow-2xs font-extrabold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Lucide.SlidersHorizontal className="w-3.5 h-3.5" />
-                    <span>General Parameters</span>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setActiveSection('sections_classes')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    activeSection === 'sections_classes'
-                      ? 'bg-indigo-50 text-indigo-700 shadow-2xs font-extrabold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Lucide.School className="w-3.5 h-3.5" />
-                    <span>Sections & Classes</span>
-                  </div>
-                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${
-                    activeSection === 'sections_classes' ? 'bg-indigo-200/50 text-indigo-800' : 'bg-slate-100 text-slate-500'
-                  }`}>
-                    {sectionsCount}:{classesCount}
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => setActiveSection('fee_heads')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    activeSection === 'fee_heads'
-                      ? 'bg-indigo-50 text-indigo-700 shadow-2xs font-extrabold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Lucide.Layers className="w-3.5 h-3.5" />
-                    <span>Fee Head Blueprints</span>
-                  </div>
-                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${
-                    activeSection === 'fee_heads' ? 'bg-indigo-200/50 text-indigo-800' : 'bg-slate-100 text-slate-500'
-                  }`}>
-                    {feeHeads.length}
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => setActiveSection('optional_charges')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    activeSection === 'optional_charges'
-                      ? 'bg-indigo-50 text-indigo-700 shadow-2xs font-extrabold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Lucide.Receipt className="w-3.5 h-3.5" />
-                    <span>Optional Charges</span>
-                  </div>
-                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${
-                    activeSection === 'optional_charges' ? 'bg-indigo-200/50 text-indigo-800' : 'bg-slate-100 text-slate-500'
-                  }`}>
-                    {optionalChargesCount}
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => setActiveSection('fee_templates')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    activeSection === 'fee_templates'
-                      ? 'bg-indigo-50 text-indigo-700 shadow-2xs font-extrabold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Lucide.Coins className="w-3.5 h-3.5" />
-                    <span>Fee Templates</span>
-                  </div>
-                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${
-                    activeSection === 'fee_templates' ? 'bg-indigo-200/50 text-indigo-800' : 'bg-slate-100 text-slate-500'
-                  }`}>
-                    {feeTemplatesCount}
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            {/* CATEGORY 2: OPERATIONS & BILLING */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5 px-2">
-                <Lucide.Activity className="w-3 h-3 text-emerald-500" />
-                <span className="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase">Billing & Ops</span>
-              </div>
-              <div className="space-y-1">
-                <button
-                  onClick={() => setActiveSection('student_billing')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    activeSection === 'student_billing'
-                      ? 'bg-emerald-50 text-emerald-700 shadow-2xs font-extrabold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Lucide.Receipt className="w-3.5 h-3.5" />
-                    <span>Student Billing</span>
-                  </div>
-                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${
-                    activeSection === 'student_billing' ? 'bg-emerald-200/50 text-emerald-800' : 'bg-slate-100 text-slate-500'
-                  }`}>
-                    {billingCount}
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => setActiveSection('family_accounts')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    activeSection === 'family_accounts'
-                      ? 'bg-emerald-50 text-emerald-700 shadow-2xs font-extrabold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Lucide.Users className="w-3.5 h-3.5" />
-                    <span>Family Portfolios</span>
-                  </div>
-                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${
-                    activeSection === 'family_accounts' ? 'bg-emerald-200/50 text-emerald-800' : 'bg-slate-100 text-slate-500'
-                  }`}>
-                    {familyCount}
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => setActiveSection('payment_collection')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    activeSection === 'payment_collection'
-                      ? 'bg-emerald-50 text-emerald-700 shadow-2xs font-extrabold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Lucide.HandCoins className="w-3.5 h-3.5" />
-                    <span>Payment Collection</span>
-                  </div>
-                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${
-                    activeSection === 'payment_collection' ? 'bg-emerald-200/50 text-emerald-800' : 'bg-slate-100 text-slate-500'
-                  }`}>
-                    {paymentsCount}
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => setActiveSection('expense_management')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    activeSection === 'expense_management'
-                      ? 'bg-emerald-50 text-emerald-700 shadow-2xs font-extrabold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Lucide.DollarSign className="w-3.5 h-3.5" />
-                    <span>Expense Management</span>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* CATEGORY 3: PERFORMANCE & ANALYTICS */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5 px-2">
-                <Lucide.TrendingUp className="w-3 h-3 text-indigo-500" />
-                <span className="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase">Performance & AI</span>
-              </div>
-              <div className="space-y-1">
-                <button
-                  onClick={() => setActiveSection('financial_timeline')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    activeSection === 'financial_timeline'
-                      ? 'bg-indigo-50 text-indigo-700 shadow-2xs font-extrabold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Lucide.History className="w-3.5 h-3.5" />
-                    <span>Financial Timeline</span>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setActiveSection('financial_reports')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    activeSection === 'financial_reports'
-                      ? 'bg-indigo-50 text-indigo-700 shadow-2xs font-extrabold animate-pulse'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Lucide.PieChart className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Financial Reports</span>
-                  </div>
-                  <span className="text-[8px] bg-indigo-600 text-white font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider scale-90">
-                    AI
-                  </span>
-                </button>
-              </div>
+      {/* Clean Category-Grouped Top Horizontal Navigation Bar (Replacing the nested Workspace Hub Control Panel) */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-3 shadow-2xs space-y-3">
+        {/* Mobile Dropdown */}
+        <div className="md:hidden w-full">
+          <div className="relative">
+            <select
+              value={activeSection}
+              onChange={(e) => setActiveSection(e.target.value as any)}
+              className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer"
+            >
+              <optgroup label="⚙️ SETUP & CONFIGURATION">
+                <option value="general">General Parameters</option>
+                <option value="sections_classes">Sections & Classes</option>
+                <option value="fee_heads">Fee Head Blueprints</option>
+                <option value="optional_charges">Optional Charges</option>
+                <option value="fee_templates">Fee Template Builder</option>
+              </optgroup>
+              <optgroup label="💸 BILLING & OPERATIONS">
+                <option value="student_billing">Student Billing</option>
+                <option value="family_accounts">Family Portfolios</option>
+                <option value="sibling_discounts">Sibling Relief (Discounts)</option>
+                <option value="payment_collection">Payment Collection</option>
+                <option value="expense_management">Expense Management</option>
+              </optgroup>
+              <optgroup label="📈 PERFORMANCE & ANALYTICS">
+                <option value="financial_timeline">Financial Timeline</option>
+                <option value="financial_reports">Financial Reports & AI Insights</option>
+              </optgroup>
+            </select>
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+              <Lucide.ChevronDown className="w-4 h-4 text-slate-500" />
             </div>
           </div>
         </div>
 
-        {/* Dynamic Workspace Panel Column */}
-        <div className="lg:col-span-9 bg-white border border-slate-100 rounded-3xl p-6 shadow-2xs space-y-8">
+        {/* Desktop Responsive Categorized Tabs */}
+        <div className="hidden md:flex flex-wrap items-center justify-between gap-3 text-xs">
+          {/* Group 1: Setup */}
+          <div className="flex items-center flex-wrap gap-1.5">
+            <span className="text-[10px] font-extrabold tracking-wider uppercase text-slate-400 mr-1 flex items-center gap-1">
+              <Lucide.Settings className="w-3 h-3 text-indigo-500" />
+              Setup:
+            </span>
+            <button
+              onClick={() => setActiveSection('general')}
+              className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeSection === 'general'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
+              }`}
+            >
+              <Lucide.SlidersHorizontal className="w-3.5 h-3.5" />
+              General
+            </button>
+
+            <button
+              onClick={() => setActiveSection('sections_classes')}
+              className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeSection === 'sections_classes'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
+              }`}
+            >
+              <Lucide.School className="w-3.5 h-3.5" />
+              Sections & Classes
+              <span className={`text-[9px] px-1.5 py-0.2 rounded-full ${activeSection === 'sections_classes' ? 'bg-indigo-700 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                {sectionsCount}:{classesCount}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveSection('fee_heads')}
+              className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeSection === 'fee_heads'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
+              }`}
+            >
+              <Lucide.Layers className="w-3.5 h-3.5" />
+              Fee Heads
+              <span className={`text-[9px] px-1.5 py-0.2 rounded-full ${activeSection === 'fee_heads' ? 'bg-indigo-700 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                {feeHeads.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveSection('optional_charges')}
+              className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeSection === 'optional_charges'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
+              }`}
+            >
+              <Lucide.Receipt className="w-3.5 h-3.5" />
+              Optional Charges
+              <span className={`text-[9px] px-1.5 py-0.2 rounded-full ${activeSection === 'optional_charges' ? 'bg-indigo-700 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                {optionalChargesCount}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveSection('fee_templates')}
+              className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeSection === 'fee_templates'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
+              }`}
+            >
+              <Lucide.Coins className="w-3.5 h-3.5" />
+              Fee Templates
+              <span className={`text-[9px] px-1.5 py-0.2 rounded-full ${activeSection === 'fee_templates' ? 'bg-indigo-700 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                {feeTemplatesCount}
+              </span>
+            </button>
+          </div>
+
+          {/* Group 2: Operations & Billing */}
+          <div className="flex items-center flex-wrap gap-1.5">
+            <span className="text-[10px] font-extrabold tracking-wider uppercase text-slate-400 mr-1 flex items-center gap-1">
+              <Lucide.Activity className="w-3 h-3 text-emerald-500" />
+              Operations:
+            </span>
+            <button
+              onClick={() => setActiveSection('student_billing')}
+              className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeSection === 'student_billing'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
+              }`}
+            >
+              <Lucide.Receipt className="w-3.5 h-3.5" />
+              Student Billing
+              <span className={`text-[9px] px-1.5 py-0.2 rounded-full ${activeSection === 'student_billing' ? 'bg-emerald-700 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                {billingCount}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveSection('family_accounts')}
+              className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeSection === 'family_accounts'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
+              }`}
+            >
+              <Lucide.Users className="w-3.5 h-3.5" />
+              Family Portfolios
+              <span className={`text-[9px] px-1.5 py-0.2 rounded-full ${activeSection === 'family_accounts' ? 'bg-emerald-700 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                {familyCount}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveSection('sibling_discounts')}
+              className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeSection === 'sibling_discounts' || activeSection === 'discounts'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
+              }`}
+            >
+              <Lucide.BadgePercent className="w-3.5 h-3.5" />
+              Sibling Relief
+              <span className={`text-[9px] px-1.5 py-0.2 rounded-full ${activeSection === 'sibling_discounts' || activeSection === 'discounts' ? 'bg-emerald-700 text-white' : 'bg-emerald-100 text-emerald-800'}`}>
+                Graduated
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveSection('payment_collection')}
+              className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeSection === 'payment_collection'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
+              }`}
+            >
+              <Lucide.HandCoins className="w-3.5 h-3.5" />
+              Collections
+              <span className={`text-[9px] px-1.5 py-0.2 rounded-full ${activeSection === 'payment_collection' ? 'bg-emerald-700 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                {paymentsCount}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveSection('expense_management')}
+              className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeSection === 'expense_management'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
+              }`}
+            >
+              <Lucide.DollarSign className="w-3.5 h-3.5" />
+              Expenses
+            </button>
+
+            <button
+              onClick={() => setActiveSection('financial_timeline')}
+              className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeSection === 'financial_timeline'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
+              }`}
+            >
+              <Lucide.History className="w-3.5 h-3.5" />
+              Timeline
+            </button>
+
+            <button
+              onClick={() => setActiveSection('financial_reports')}
+              className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeSection === 'financial_reports'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
+              }`}
+            >
+              <Lucide.PieChart className="w-3.5 h-3.5" />
+              Reports & AI
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Full-Width Content Container */}
+      <div className="w-full bg-white border border-slate-100 rounded-3xl p-6 shadow-2xs space-y-8">
 
       {/* RENDER PHASE 6: STUDENT BILLING WORKSPACE */}
       {activeSection === 'student_billing' && (
@@ -973,6 +930,11 @@ export default function FinancialSettings({ currentRole, activeSection: propActi
       {/* RENDER PHASE 7: FAMILY FINANCIAL ACCOUNTS WORKSPACE */}
       {activeSection === 'family_accounts' && (
         <FamilyBilling />
+      )}
+
+      {/* RENDER PHASE 7B: SIBLING RELIEF / DISCOUNTS WORKSPACE */}
+      {(activeSection === 'sibling_discounts' || activeSection === 'discounts') && (
+        <SiblingDiscountManagement currentRole={currentRole} />
       )}
 
       {/* RENDER PHASE 8: PAYMENT COLLECTION WORKSPACE */}
@@ -1503,7 +1465,6 @@ export default function FinancialSettings({ currentRole, activeSection: propActi
         </div>
       )}
 
-        </div>
       </div>
 
       {/* --- FORM MODALS --- */}

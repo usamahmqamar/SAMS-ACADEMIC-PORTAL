@@ -64,6 +64,9 @@ import { Navigation, SAMS_MODULES } from './components/Navigation';
 import { defaultChecklists, defaultLessonPlans } from './data/curriculumData';
 import { CurriculumChecklistTab } from './components/CurriculumChecklistTab';
 import { LessonPlansTab } from './components/LessonPlansTab';
+import { TeachingRecordsTab } from './components/TeachingRecordsTab';
+import { TeachingRecord, defaultTeachingRecords } from './data/teachingRecordData';
+import { StudentBookCoverageProfileView } from './components/StudentBookCoverageProfileView';
 import { PersonalizationModal, UserPreferences } from './components/PersonalizationModal';
 import { GlobalSearch } from './components/GlobalSearch';
 import { InventoryCatalog } from './components/InventoryCatalog';
@@ -584,7 +587,7 @@ export default function App() {
     };
   }, [activeTab]);
 
-  const [classesSubTab, setClassesSubTab] = useState<'classes' | 'subjects' | 'curriculum_checklists' | 'lesson_plans'>('classes');
+  const [classesSubTab, setClassesSubTab] = useState<'classes' | 'subjects' | 'curriculum_checklists' | 'lesson_plans' | 'teaching_records'>('classes');
 
   const handleSubmenuSelect = (subId: string) => {
     if (subId === 'academics_classes' || subId === 'academics_sections' || subId === 'academics_islamia') {
@@ -595,9 +598,15 @@ export default function App() {
       setClassesSubTab('curriculum_checklists');
     } else if (subId === 'academics_lessons') {
       setClassesSubTab('lesson_plans');
+    } else if (subId === 'academics_teaching_records') {
+      setClassesSubTab('teaching_records');
     } else if (subId === 'students_directory') {
       setStudentsSubTab('directory');
       setStudentSelectionPrompt(null);
+    } else if (subId === 'students_coverage') {
+      setStudentsSubTab('directory');
+      setDrawerActiveTab('coverage');
+      setStudentSelectionPrompt("Please select a student from the directory below to inspect their Lesson Book Coverage and Work Completion History.");
     } else if (subId === 'students_profile') {
       setStudentsSubTab('directory');
       setDrawerActiveTab('profile');
@@ -628,6 +637,26 @@ export default function App() {
     } else if (subId === 'students_transfer') {
       setStudentsSubTab('transfer');
       setStudentSelectionPrompt(null);
+    } else if (subId === 'financial_discounts' || subId === 'financial_sibling_relief') {
+      setFinancialActiveSection('sibling_discounts');
+    } else if (subId === 'financial_heads') {
+      setFinancialActiveSection('fee_heads');
+    } else if (subId === 'financial_templates' || subId === 'financial_overrides') {
+      setFinancialActiveSection('fee_templates');
+    } else if (subId === 'financial_optional') {
+      setFinancialActiveSection('optional_charges');
+    } else if (subId === 'financial_billing') {
+      setFinancialActiveSection('student_billing');
+    } else if (subId === 'financial_family') {
+      setFinancialActiveSection('family_accounts');
+    } else if (subId === 'financial_payments') {
+      setFinancialActiveSection('payment_collection');
+    } else if (subId === 'financial_expenses') {
+      setFinancialActiveSection('expense_management');
+    } else if (subId === 'financial_reports' || subId === 'financial_analytics') {
+      setFinancialActiveSection('financial_reports');
+    } else if (subId === 'financial_settings_main') {
+      setFinancialActiveSection('general');
     }
   };
 
@@ -667,6 +696,14 @@ export default function App() {
     return defaultLessonPlans;
   });
 
+  const [teachingRecords, setTeachingRecords] = useState<TeachingRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem('sams_teaching_records');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return defaultTeachingRecords;
+  });
+
   useEffect(() => {
     localStorage.setItem('sams_curriculum_checklists', JSON.stringify(curriculumChecklists));
   }, [curriculumChecklists]);
@@ -674,6 +711,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('sams_lesson_plan_drafts', JSON.stringify(lessonPlanDrafts));
   }, [lessonPlanDrafts]);
+
+  useEffect(() => {
+    localStorage.setItem('sams_teaching_records', JSON.stringify(teachingRecords));
+  }, [teachingRecords]);
 
   // Multi-branch filtered subsets
   const branchStudents = useMemo(() => {
@@ -729,7 +770,7 @@ export default function App() {
   const [studentSectionFilter, setStudentSectionFilter] = useState<string>('All');
   const [studentSessionFilter, setStudentSessionFilter] = useState<string>('All');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [drawerActiveTab, setDrawerActiveTab] = useState<'profile' | 'conduct' | 'health' | 'finance' | 'docs' | 'id'>('profile');
+  const [drawerActiveTab, setDrawerActiveTab] = useState<'profile' | 'coverage' | 'conduct' | 'health' | 'finance' | 'docs' | 'id'>('profile');
   const [studentsSubTab, setStudentsSubTab] = useState<'directory' | 'promotion' | 'transfer'>('directory');
   const [studentSelectionPrompt, setStudentSelectionPrompt] = useState<string | null>(null);
   const [idCardTheme, setIdCardTheme] = useState<'indigo' | 'emerald' | 'amber' | 'midnight'>('indigo');
@@ -829,7 +870,7 @@ export default function App() {
   const [showAddTeacher, setShowAddTeacher] = useState(false);
 
   // Programmatic financial active section
-  const [financialActiveSection, setFinancialActiveSection] = useState<'general' | 'fee_heads' | 'optional_charges' | 'sections_classes' | 'fee_templates' | 'student_billing' | 'family_accounts' | 'payment_collection' | 'financial_timeline' | 'expense_management' | 'financial_reports'>('general');
+  const [financialActiveSection, setFinancialActiveSection] = useState<'general' | 'fee_heads' | 'optional_charges' | 'sections_classes' | 'fee_templates' | 'student_billing' | 'family_accounts' | 'payment_collection' | 'financial_timeline' | 'expense_management' | 'financial_reports' | 'sibling_discounts' | 'discounts'>('general');
 
   // Bulk Student Import fields
   const [bulkImportNames, setBulkImportNames] = useState('');
@@ -4486,7 +4527,7 @@ export default function App() {
 
                       {/* Horizontal Tab Selector */}
                       <div className="flex border-b border-slate-200 text-xs overflow-x-auto gap-1">
-                        {(['profile', 'conduct', 'health', 'finance', 'docs', 'id'] as const).map(tab => (
+                        {(['profile', 'coverage', 'conduct', 'health', 'finance', 'docs', 'id'] as const).map(tab => (
                           <button
                             key={tab}
                             onClick={() => setDrawerActiveTab(tab)}
@@ -4497,6 +4538,7 @@ export default function App() {
                             }`}
                           >
                             {tab === 'profile' && '📋 Student Profile'}
+                            {tab === 'coverage' && '📖 Book & Work Coverage'}
                             {tab === 'conduct' && '⚖️ Discipline & Conduct'}
                             {tab === 'health' && '🩺 Medical Record'}
                             {tab === 'finance' && '📊 Financial Timeline'}
@@ -4897,6 +4939,20 @@ export default function App() {
                               )}
                             </div>
 
+                          </div>
+                        )}
+
+                        {/* ----------------- TAB: STUDENT BOOK & WORK COVERAGE ----------------- */}
+                        {drawerActiveTab === 'coverage' && (
+                          <div className="animate-fade-in">
+                            <StudentBookCoverageProfileView
+                              student={selectedStudent}
+                              teachingRecords={teachingRecords}
+                              onSelectTeachingRecord={(record) => {
+                                setActiveTab('classes');
+                                setClassesSubTab('teaching_records');
+                              }}
+                            />
                           </div>
                         )}
 
@@ -8731,6 +8787,19 @@ export default function App() {
                     >
                       <span>📝 Lesson-Plan Canvas &amp; Review</span>
                     </button>
+                    <button
+                      onClick={() => setClassesSubTab('teaching_records')}
+                      className={`px-6 py-3 text-sm font-semibold border-b-2 transition-all flex items-center space-x-2 cursor-pointer shrink-0 ${
+                        classesSubTab === 'teaching_records'
+                          ? 'border-indigo-650 text-indigo-700 font-bold'
+                          : 'border-transparent text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      <span>📖 Teaching Records (What Was Taught)</span>
+                      <span className="text-[10px] bg-indigo-100 text-indigo-700 font-mono px-2 py-0.5 rounded-full font-bold">
+                        {teachingRecords.length}
+                      </span>
+                    </button>
                   </div>
 
                   {classesSubTab === 'classes' && (
@@ -9811,6 +9880,29 @@ export default function App() {
                       subjects={subjects}
                       selectedBranch={selectedBranch}
                       currentSimulatedRole={currentSimulatedRole}
+                    />
+                  )}
+
+                  {classesSubTab === 'teaching_records' && (
+                    <TeachingRecordsTab
+                      teachingRecords={teachingRecords}
+                      setTeachingRecords={setTeachingRecords}
+                      classes={classes}
+                      subjects={subjects}
+                      teachers={teachers}
+                      selectedBranch={selectedBranch}
+                      currentSimulatedRole={currentSimulatedRole}
+                      academicSessions={academicSessions}
+                      terms={terms}
+                      curriculumChecklists={curriculumChecklists}
+                      students={students}
+                      lessonPlanDrafts={lessonPlanDrafts}
+                      onNavigateToTab={(tab, subTab) => {
+                        setActiveTab(tab as any);
+                        if (subTab && tab === 'curriculumChecklist') {
+                          setClassesSubTab(subTab as any);
+                        }
+                      }}
                     />
                   )}
 

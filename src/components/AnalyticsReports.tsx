@@ -169,6 +169,50 @@ export const AnalyticsReports: React.FC = () => {
         </div>
       </div>
 
+      {/* TEACHING RECORDS & TEACHER PERFORMANCE STATUTORY SUITE */}
+      <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-6 rounded-2xl border border-indigo-800/80 shadow-md space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center space-x-2">
+              <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/30 text-indigo-300 text-[10px] font-extrabold uppercase tracking-wider">
+                Statutory Intelligence Suite
+              </span>
+              <span className="text-[11px] text-emerald-400 font-bold">13 Audit-Ready Modules</span>
+            </div>
+            <h3 className="font-extrabold text-base text-white mt-1">Teaching Records &amp; Teacher Performance Reporting Hub</h3>
+            <p className="text-xs text-indigo-200/80 mt-0.5">
+              Comprehensive institutional dockets, syllabus coverage, exercise book verification, and multi-term/session performance tracking
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1 text-slate-900">
+          <div className="bg-white/95 p-3.5 rounded-xl border border-white/20 shadow-xs space-y-1">
+            <span className="text-[9px] font-extrabold text-indigo-600 uppercase tracking-wider">Curriculum Coverage</span>
+            <h4 className="font-bold text-xs text-slate-900">Syllabus Pacing Docket</h4>
+            <p className="text-[10px] text-slate-500">Weekly milestones vs. actual taught pacing across all grades.</p>
+          </div>
+
+          <div className="bg-white/95 p-3.5 rounded-xl border border-white/20 shadow-xs space-y-1">
+            <span className="text-[9px] font-extrabold text-emerald-600 uppercase tracking-wider">Student Work Audit</span>
+            <h4 className="font-bold text-xs text-slate-900">Student Book Coverage</h4>
+            <p className="text-[10px] text-slate-500">Physical notebook completion and exercise marking audit.</p>
+          </div>
+
+          <div className="bg-white/95 p-3.5 rounded-xl border border-white/20 shadow-xs space-y-1">
+            <span className="text-[9px] font-extrabold text-amber-600 uppercase tracking-wider">Submission Adherence</span>
+            <h4 className="font-bold text-xs text-slate-900">Teacher Compliance Register</h4>
+            <p className="text-[10px] text-slate-500">Timeline deadline adherence, late submissions, and missing logs.</p>
+          </div>
+
+          <div className="bg-white/95 p-3.5 rounded-xl border border-white/20 shadow-xs space-y-1">
+            <span className="text-[9px] font-extrabold text-purple-600 uppercase tracking-wider">Evaluations &amp; Trends</span>
+            <h4 className="font-bold text-xs text-slate-900">Multi-Term Performance</h4>
+            <p className="text-[10px] text-slate-500">Comparative analytics: Term 1 vs 2 vs 3 and Session vs Previous.</p>
+          </div>
+        </div>
+      </div>
+
       {/* REPORT EXPORTS DESK */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm space-y-4">
         <div>

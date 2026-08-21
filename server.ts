@@ -1720,6 +1720,160 @@ if (dbState.students && !dbState.students.some((s: any) => s.id === 'std-qamar-1
   stateChanged = true;
 }
 
+// -------------------------------------------------------------
+// SEED MULTI-TERM STUDENT FEE LEDGERS (Previous Term & Current Term)
+// -------------------------------------------------------------
+if (!dbState.student_fee_ledgers || dbState.student_fee_ledgers.length === 0 || !dbState.student_fee_ledgers.some((l: any) => l.studentId === 'std-n1')) {
+  dbState.student_fee_ledgers = dbState.student_fee_ledgers || [];
+  dbState.student_fee_items = dbState.student_fee_items || [];
+
+  const defaultLedgerSeeds = [
+    // Sophia Martinez (std-n1) - Exactly matching the prompt example: Previous Term ₦20,000 + Current Term ₦50,000 = ₦70,000
+    {
+      id: "sfl-std-n1-term1",
+      studentId: "std-n1",
+      studentName: "Sophia Martinez",
+      admissionNo: "GN2402001",
+      grade: "K1 (Ages 3-4)",
+      branch: "GN",
+      sessionId: "ses-2026",
+      termId: "term-1",
+      termName: "First Term (Previous Term)",
+      status: "Partially Paid",
+      baseTermFee: 40000,
+      optionalChargesFee: 5000,
+      discountAmount: 0,
+      scholarshipAmount: 0,
+      carryForward: 0,
+      outstanding: 20000,
+      grandTotal: 45000,
+      billingDate: "2025-09-05",
+      dueDate: "2025-09-25",
+      createdAt: "2025-09-01T08:00:00.000Z"
+    },
+    {
+      id: "sfl-std-n1-term2",
+      studentId: "std-n1",
+      studentName: "Sophia Martinez",
+      admissionNo: "GN2402001",
+      grade: "K1 (Ages 3-4)",
+      branch: "GN",
+      sessionId: "ses-2026",
+      termId: "term-2",
+      termName: "Second Term (Current Term)",
+      status: "Unpaid",
+      baseTermFee: 45000,
+      optionalChargesFee: 5000,
+      discountAmount: 0,
+      scholarshipAmount: 0,
+      carryForward: 0,
+      outstanding: 50000,
+      grandTotal: 50000,
+      billingDate: "2026-01-08",
+      dueDate: "2026-01-28",
+      createdAt: "2026-01-05T08:00:00.000Z"
+    },
+    // Zainab Abubakar (std-rs4)
+    {
+      id: "sfl-std-rs4-term1",
+      studentId: "std-rs4",
+      studentName: "Zainab Abubakar",
+      admissionNo: "ADM-2017-RS102",
+      grade: "Grade 10",
+      branch: "RS",
+      sessionId: "ses-2026",
+      termId: "term-1",
+      termName: "First Term (Previous Term)",
+      status: "Partially Paid",
+      baseTermFee: 55000,
+      optionalChargesFee: 5000,
+      discountAmount: 0,
+      scholarshipAmount: 0,
+      carryForward: 0,
+      outstanding: 15000,
+      grandTotal: 60000,
+      billingDate: "2025-09-05",
+      dueDate: "2025-09-25",
+      createdAt: "2025-09-01T08:00:00.000Z"
+    },
+    {
+      id: "sfl-std-rs4-term2",
+      studentId: "std-rs4",
+      studentName: "Zainab Abubakar",
+      admissionNo: "ADM-2017-RS102",
+      grade: "Grade 10",
+      branch: "RS",
+      sessionId: "ses-2026",
+      termId: "term-2",
+      termName: "Second Term (Current Term)",
+      status: "Unpaid",
+      baseTermFee: 60000,
+      optionalChargesFee: 5000,
+      discountAmount: 0,
+      scholarshipAmount: 0,
+      carryForward: 0,
+      outstanding: 65000,
+      grandTotal: 65000,
+      billingDate: "2026-01-08",
+      dueDate: "2026-01-28",
+      createdAt: "2026-01-05T08:00:00.000Z"
+    },
+    // Kabiru Ibrahim (std-rs5)
+    {
+      id: "sfl-std-rs5-term1",
+      studentId: "std-rs5",
+      studentName: "Kabiru Ibrahim",
+      admissionNo: "ADM-2016-RS088",
+      grade: "Grade 11",
+      branch: "RS",
+      sessionId: "ses-2026",
+      termId: "term-1",
+      termName: "First Term (Previous Term)",
+      status: "Partially Paid",
+      baseTermFee: 65000,
+      optionalChargesFee: 5000,
+      discountAmount: 0,
+      scholarshipAmount: 0,
+      carryForward: 0,
+      outstanding: 30000,
+      grandTotal: 70000,
+      billingDate: "2025-09-05",
+      dueDate: "2025-09-25",
+      createdAt: "2025-09-01T08:00:00.000Z"
+    },
+    {
+      id: "sfl-std-rs5-term2",
+      studentId: "std-rs5",
+      studentName: "Kabiru Ibrahim",
+      admissionNo: "ADM-2016-RS088",
+      grade: "Grade 11",
+      branch: "RS",
+      sessionId: "ses-2026",
+      termId: "term-2",
+      termName: "Second Term (Current Term)",
+      status: "Unpaid",
+      baseTermFee: 70000,
+      optionalChargesFee: 5000,
+      discountAmount: 0,
+      scholarshipAmount: 0,
+      carryForward: 0,
+      outstanding: 75000,
+      grandTotal: 75000,
+      billingDate: "2026-01-08",
+      dueDate: "2026-01-28",
+      createdAt: "2026-01-05T08:00:00.000Z"
+    }
+  ];
+
+  defaultLedgerSeeds.forEach(seed => {
+    if (!dbState.student_fee_ledgers.some((l: any) => l.id === seed.id)) {
+      dbState.student_fee_ledgers.push(seed);
+    }
+  });
+
+  stateChanged = true;
+}
+
 if (stateChanged) {
   saveDB(dbState);
 }
@@ -2759,6 +2913,442 @@ if (!dbState.inventory_readiness) {
         { itemId: "inv-8", name: "Staff & Security Access Lanyards", requiredQuantity: 50, availableQuantity: 50, status: "available" }
       ],
       lastChecked: "2026-07-04"
+    }
+  ];
+  migrationNeeded = true;
+}
+
+// Initial Sellable & School Issue Inventory Items
+if (!dbState.inventory_store_items || dbState.inventory_store_items.length === 0) {
+  dbState.inventory_store_items = [
+    {
+      id: "item-1",
+      itemCode: "MAT-MET-01",
+      name: "Uniform Material - Navy Blue (Terylene Wool)",
+      category: "Uniforms",
+      branch: "Main Campus",
+      store: "Uniform Depot",
+      unit: "Meter",
+      sellingPrice: 2500,
+      costPrice: 1700,
+      currentStock: 145.5,
+      minimumStockLevel: 25,
+      status: "Active",
+      setting: "Sell to Parent",
+      location: "Uniform Depot",
+      bin: "Rack B-01 (Fabric Rolls)"
+    },
+    {
+      id: "item-2",
+      itemCode: "MAT-YRD-02",
+      name: "Uniform Material - White Shirting Fabric",
+      category: "Uniforms",
+      branch: "Main Campus",
+      store: "Uniform Depot",
+      unit: "Yard",
+      sellingPrice: 2200,
+      costPrice: 1500,
+      currentStock: 98.0,
+      minimumStockLevel: 20,
+      status: "Active",
+      setting: "Both",
+      location: "Uniform Depot",
+      bin: "Rack B-03 (Shirting Rolls)"
+    },
+    {
+      id: "item-3",
+      itemCode: "UNI-SHT-01",
+      name: "Ready-Made Short Sleeve Oxford Shirt (Size 14-16)",
+      category: "Uniforms",
+      branch: "Main Campus",
+      store: "Uniform Depot",
+      unit: "Piece",
+      sellingPrice: 4500,
+      costPrice: 3200,
+      currentStock: 42,
+      minimumStockLevel: 15,
+      status: "Active",
+      setting: "Both",
+      location: "Uniform Depot",
+      bin: "Locker #01 (Shirts)"
+    },
+    {
+      id: "item-4",
+      itemCode: "UNI-TRS-02",
+      name: "Senior School Grey Tailored Trousers",
+      category: "Uniforms",
+      branch: "Main Campus",
+      store: "Uniform Depot",
+      unit: "Piece",
+      sellingPrice: 5800,
+      costPrice: 4000,
+      currentStock: 35,
+      minimumStockLevel: 10,
+      status: "Active",
+      setting: "Both",
+      location: "Uniform Depot",
+      bin: "Locker #02 (Trousers)"
+    },
+    {
+      id: "item-5",
+      itemCode: "ACC-TIE-01",
+      name: "Official Woven School Crest Tie (Senior)",
+      category: "Uniforms",
+      branch: "Main Campus",
+      store: "Uniform Depot",
+      unit: "Piece",
+      sellingPrice: 1800,
+      costPrice: 1100,
+      currentStock: 80,
+      minimumStockLevel: 20,
+      status: "Active",
+      setting: "Both",
+      location: "Uniform Depot",
+      bin: "Cabinet C-01 (Accessories)"
+    },
+    {
+      id: "item-6",
+      itemCode: "ACC-BLT-01",
+      name: "Embossed Leather School Uniform Belt",
+      category: "Uniforms",
+      branch: "Main Campus",
+      store: "Uniform Depot",
+      unit: "Piece",
+      sellingPrice: 2000,
+      costPrice: 1200,
+      currentStock: 55,
+      minimumStockLevel: 15,
+      status: "Active",
+      setting: "Sell to Parent",
+      location: "Uniform Depot",
+      bin: "Cabinet C-02 (Accessories)"
+    },
+    {
+      id: "item-7",
+      itemCode: "UNI-BLZ-01",
+      name: "Secondary School Wool-Blend Blazer (Navy, Medium)",
+      category: "Uniforms",
+      branch: "Main Campus",
+      store: "Uniform Depot",
+      unit: "Piece",
+      sellingPrice: 16500,
+      costPrice: 12000,
+      currentStock: 12,
+      minimumStockLevel: 8,
+      status: "Active",
+      setting: "Both",
+      location: "Uniform Depot",
+      bin: "Uniform Locker #02"
+    },
+    {
+      id: "item-8",
+      itemCode: "SPT-SCK-01",
+      name: "Official Sport Striped Athletic Socks",
+      category: "Sports",
+      branch: "Main Campus",
+      store: "Sports Store",
+      unit: "Pair",
+      sellingPrice: 1200,
+      costPrice: 750,
+      currentStock: 65,
+      minimumStockLevel: 20,
+      status: "Active",
+      setting: "Sell to Parent",
+      location: "Sports Store",
+      bin: "Bin S-04"
+    },
+    {
+      id: "item-9",
+      itemCode: "SPT-TRK-01",
+      name: "Physical Education Tracksuit Set (Jacket + Pants)",
+      category: "Sports",
+      branch: "Main Campus",
+      store: "Sports Store",
+      unit: "Set",
+      sellingPrice: 9500,
+      costPrice: 6800,
+      currentStock: 28,
+      minimumStockLevel: 10,
+      status: "Active",
+      setting: "Both",
+      location: "Sports Store",
+      bin: "Bin S-02"
+    },
+    {
+      id: "item-10",
+      itemCode: "STA-MTH-01",
+      name: "Oxford Mathematical Instruments & Geometry Set",
+      category: "Stationery",
+      branch: "Main Campus",
+      store: "Main Storeroom",
+      unit: "Pack",
+      sellingPrice: 2800,
+      costPrice: 1900,
+      currentStock: 48,
+      minimumStockLevel: 15,
+      status: "Active",
+      setting: "Sell to Parent",
+      location: "Main Storeroom",
+      bin: "Shelf M-02"
+    },
+    {
+      id: "item-11",
+      itemCode: "STA-NBK-50",
+      name: "SAMS Custom Embossed Notebook (Pack of 50)",
+      category: "Stationery",
+      branch: "Main Campus",
+      store: "Main Storeroom",
+      unit: "Pack",
+      sellingPrice: 7500,
+      costPrice: 5200,
+      currentStock: 45,
+      minimumStockLevel: 20,
+      status: "Active",
+      setting: "Both",
+      location: "Main Storeroom",
+      bin: "Central Storeroom, Box #44"
+    },
+    {
+      id: "item-12",
+      itemCode: "TXT-MTH-10",
+      name: "Grade 10 Mathematics Standard Textbook",
+      category: "Textbooks",
+      branch: "Main Campus",
+      store: "Main Storeroom",
+      unit: "Piece",
+      sellingPrice: 4500,
+      costPrice: 3500,
+      currentStock: 120,
+      minimumStockLevel: 30,
+      status: "Active",
+      setting: "Both",
+      location: "Main Storeroom",
+      bin: "Room A, Bin #12"
+    },
+    {
+      id: "item-13",
+      itemCode: "ADM-ANS-01",
+      name: "Standard Terminal Answer Booklets (Pack of 500)",
+      category: "Academic",
+      branch: "Main Campus",
+      store: "Main Storeroom",
+      unit: "Pack",
+      sellingPrice: 0,
+      costPrice: 3500,
+      currentStock: 80,
+      minimumStockLevel: 25,
+      status: "Active",
+      setting: "School Issue Only",
+      location: "Main Storeroom",
+      bin: "Exam Vault, Shelf 1"
+    },
+    {
+      id: "item-14",
+      itemCode: "STA-MKR-12",
+      name: "Whiteboard Dry-Erase Markers (Box of 12)",
+      category: "Stationery",
+      branch: "Main Campus",
+      store: "Staff Room Supplies",
+      unit: "Pack",
+      sellingPrice: 0,
+      costPrice: 1100,
+      currentStock: 18,
+      minimumStockLevel: 15,
+      status: "Active",
+      setting: "School Issue Only",
+      location: "Staff Room Supplies",
+      bin: "Cabinet #B"
+    }
+  ];
+  migrationNeeded = true;
+}
+
+// Initial Store Sales Transactions
+if (!dbState.inventory_store_sales || dbState.inventory_store_sales.length === 0) {
+  dbState.inventory_store_sales = [
+    {
+      id: "REC-STR-2026-001",
+      saleDate: "2026-07-20",
+      time: "10:30 AM",
+      branch: "Main Campus",
+      store: "Uniform Depot",
+      customerType: "Parent",
+      studentId: "s-101",
+      studentName: "Zainab Ibrahim",
+      parentName: "Hajiya Fatima Ibrahim",
+      parentPhone: "+234 803 456 7890",
+      grade: "Grade 10-A",
+      items: [
+        {
+          itemId: "item-1",
+          itemCode: "MAT-MET-01",
+          itemName: "Uniform Material - Navy Blue (Terylene Wool)",
+          unit: "Meter",
+          quantity: 2.5,
+          unitPrice: 2500,
+          subtotal: 6250
+        },
+        {
+          itemId: "item-5",
+          itemCode: "ACC-TIE-01",
+          itemName: "Official Woven School Crest Tie (Senior)",
+          unit: "Piece",
+          quantity: 1,
+          unitPrice: 1800,
+          subtotal: 1800
+        }
+      ],
+      subtotal: 8050,
+      discountAmount: 0,
+      totalAmount: 8050,
+      paymentMethod: "POS Card",
+      referenceNo: "POS-TXN-88412",
+      cashierName: "Mal. Abubakar (Store Mgr)",
+      notes: "2.5 meters fabric measured and cut for senior uniform tailoring",
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: "REC-STR-2026-002",
+      saleDate: "2026-07-21",
+      time: "02:15 PM",
+      branch: "Main Campus",
+      store: "Uniform Depot",
+      customerType: "Parent",
+      studentId: "s-102",
+      studentName: "Emmanuel Okafor",
+      parentName: "Dr. Chukwudi Okafor",
+      parentPhone: "+234 802 333 4455",
+      grade: "Grade 11-B",
+      items: [
+        {
+          itemId: "item-7",
+          itemCode: "UNI-BLZ-01",
+          itemName: "Secondary School Wool-Blend Blazer (Navy, Medium)",
+          unit: "Piece",
+          quantity: 1,
+          unitPrice: 16500,
+          subtotal: 16500
+        },
+        {
+          itemId: "item-3",
+          itemCode: "UNI-SHT-01",
+          itemName: "Ready-Made Short Sleeve Oxford Shirt (Size 14-16)",
+          unit: "Piece",
+          quantity: 2,
+          unitPrice: 4500,
+          subtotal: 9000
+        },
+        {
+          itemId: "item-6",
+          itemCode: "ACC-BLT-01",
+          itemName: "Embossed Leather School Uniform Belt",
+          unit: "Piece",
+          quantity: 1,
+          unitPrice: 2000,
+          subtotal: 2000
+        }
+      ],
+      subtotal: 27500,
+      discountAmount: 0,
+      totalAmount: 27500,
+      paymentMethod: "Bank Transfer",
+      referenceNo: "GTB-TRF-991204",
+      cashierName: "Mal. Abubakar (Store Mgr)",
+      notes: "Full senior secondary kit purchased",
+      createdAt: new Date().toISOString()
+    }
+  ];
+  migrationNeeded = true;
+}
+
+if (!dbState.combined_payments) {
+  dbState.combined_payments = [
+    {
+      id: "CPAY-2026-894102",
+      combinedReceiptNo: "RCP-COMB-2026-894102",
+      date: "2026-07-22",
+      time: "10:45 AM",
+      studentId: "std-n1",
+      admissionNo: "ADM-2024-N001",
+      studentName: "Sophia Martinez",
+      grade: "K1 (Ages 3-4)",
+      classSection: "A",
+      branch: "Main Campus",
+      parentName: "Carlos Martinez",
+      parentPhone: "+1 (555) 0192",
+      parentEmail: "carlos.m@example.com",
+      totalPaymentReceived: 50000,
+      paymentMethod: "Bank Transfer",
+      referenceNo: "TRF-ZENITH-883912",
+      cashierId: "usr-cashier-01",
+      cashierName: "Hajiya Maryam (Accounts)",
+      notes: "Single parent payment for Uniform material purchase (₦20,000) and Term Tuition Fee (₦30,000).",
+      allocationSummary: {
+        storePurchaseTotal: 20000,
+        storeAmountPaid: 20000,
+        storeBalanceDue: 0,
+        storeStatus: "Paid",
+        remainingForFees: 30000,
+        schoolFeeOutstandingBefore: 70000,
+        feeAmountAllocated: 30000,
+        schoolFeeOutstandingAfter: 40000,
+        feeStatus: "Partially Paid",
+        advanceWalletCreditGenerated: 0
+      },
+      storeSaleId: "STR-TXN-2026-894102",
+      storeReceiptNo: "RCP-STR-TXN-2026-894102",
+      store: "Uniform Depot",
+      storeItems: [
+        {
+          itemId: "item-1",
+          itemCode: "MAT-MET-01",
+          itemName: "Uniform Material - Navy Blue (Terylene Wool)",
+          unit: "Meter",
+          quantity: 4,
+          unitPrice: 2500,
+          subtotal: 10000
+        },
+        {
+          itemId: "item-3",
+          itemCode: "UNI-SHT-01",
+          itemName: "Ready-Made Short Sleeve Oxford Shirt (Size 14-16)",
+          unit: "Piece",
+          quantity: 2,
+          unitPrice: 4500,
+          subtotal: 9000
+        },
+        {
+          itemId: "item-5",
+          itemCode: "ACC-TIE-01",
+          itemName: "Official Woven School Crest Tie (Senior)",
+          unit: "Piece",
+          quantity: 1,
+          unitPrice: 1800,
+          subtotal: 1800
+        }
+      ],
+      storeSubtotal: 20800,
+      storeDiscountAmount: 800,
+      storeGrandTotal: 20000,
+      storeAmountPaid: 20000,
+      storeLedgerCategory: "Store Materials Purchase",
+      feePaymentId: "pay-fees-894102",
+      feeReceiptNo: "RCP-pay-fees-894102",
+      feeLedgerAllocations: [
+        {
+          ledgerId: "inv-std-n1-term1",
+          name: "First Term Tuition & Facility Levy",
+          termName: "Term 1 2026/2027",
+          outstandingBefore: 70000,
+          amountAllocated: 30000,
+          outstandingAfter: 40000,
+          status: "Partially Paid"
+        }
+      ],
+      feeAmountAllocated: 30000,
+      schoolFeeLedgerCategory: "Tuition & School Fees",
+      advanceCreditId: undefined,
+      createdAt: new Date().toISOString()
     }
   ];
   migrationNeeded = true;
@@ -5377,6 +5967,1180 @@ app.delete('/api/inventory_readiness/:id', (req, res) => {
 });
 
 // -------------------------------------------------------------
+// STORE SALES & SELLABLE INVENTORY REST API
+// -------------------------------------------------------------
+
+// GET all store inventory items
+app.get('/api/inventory/items', (req, res) => {
+  res.json(dbState.inventory_store_items || []);
+});
+
+// POST create new store inventory item
+app.post('/api/inventory/items', (req, res) => {
+  const {
+    itemCode,
+    name,
+    category,
+    branch,
+    store,
+    unit,
+    sellingPrice,
+    costPrice,
+    currentStock,
+    minimumStockLevel,
+    status,
+    setting,
+    location,
+    bin
+  } = req.body;
+
+  if (!name) {
+    return res.status(400).json({ error: "Item name is required" });
+  }
+
+  const newItem = {
+    id: `item-${Date.now()}`,
+    itemCode: itemCode || `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
+    name,
+    category: category || "Uniforms",
+    branch: branch || "Main Campus",
+    store: store || "Uniform Depot",
+    unit: unit || "Piece",
+    sellingPrice: Number(sellingPrice) || 0,
+    costPrice: Number(costPrice) || 0,
+    currentStock: Number(currentStock) || 0,
+    minimumStockLevel: Number(minimumStockLevel) || 10,
+    status: status || "Active",
+    setting: setting || "Both", // "School Issue Only" | "Sell to Parent" | "Both"
+    location: location || store || "Main Storeroom",
+    bin: bin || "General Shelf"
+  };
+
+  dbState.inventory_store_items = dbState.inventory_store_items || [];
+  dbState.inventory_store_items.push(newItem);
+  saveDB(dbState);
+  res.status(201).json(newItem);
+});
+
+// PUT update store inventory item
+app.put('/api/inventory/items/:id', (req, res) => {
+  const { id } = req.params;
+  const items = dbState.inventory_store_items || [];
+  const item = items.find((it: any) => it.id === id);
+
+  if (!item) {
+    return res.status(404).json({ error: "Inventory item not found" });
+  }
+
+  const {
+    itemCode,
+    name,
+    category,
+    branch,
+    store,
+    unit,
+    sellingPrice,
+    costPrice,
+    currentStock,
+    minimumStockLevel,
+    status,
+    setting,
+    location,
+    bin
+  } = req.body;
+
+  if (itemCode !== undefined) item.itemCode = itemCode;
+  if (name !== undefined) item.name = name;
+  if (category !== undefined) item.category = category;
+  if (branch !== undefined) item.branch = branch;
+  if (store !== undefined) item.store = store;
+  if (unit !== undefined) item.unit = unit;
+  if (sellingPrice !== undefined) item.sellingPrice = Number(sellingPrice);
+  if (costPrice !== undefined) item.costPrice = Number(costPrice);
+  if (currentStock !== undefined) item.currentStock = Number(currentStock);
+  if (minimumStockLevel !== undefined) item.minimumStockLevel = Number(minimumStockLevel);
+  if (status !== undefined) item.status = status;
+  if (setting !== undefined) item.setting = setting;
+  if (location !== undefined) item.location = location;
+  if (bin !== undefined) item.bin = bin;
+
+  saveDB(dbState);
+  res.json(item);
+});
+
+// DELETE store inventory item
+app.delete('/api/inventory/items/:id', (req, res) => {
+  const { id } = req.params;
+  const items = dbState.inventory_store_items || [];
+  const idx = items.findIndex((it: any) => it.id === id);
+
+  if (idx === -1) {
+    return res.status(404).json({ error: "Inventory item not found" });
+  }
+
+  const removed = items.splice(idx, 1);
+  saveDB(dbState);
+  res.json({ success: true, removed: removed[0] });
+});
+
+// POST adjust inventory item stock
+app.post('/api/inventory/adjust', (req, res) => {
+  const { itemId, adjustmentAmount, reason, notes } = req.body;
+  const items = dbState.inventory_store_items || [];
+  const item = items.find((it: any) => it.id === itemId);
+
+  if (!item) {
+    return res.status(404).json({ error: "Item not found" });
+  }
+
+  const adj = Number(adjustmentAmount) || 0;
+  item.currentStock = Math.max(0, parseFloat((item.currentStock + adj).toFixed(3)));
+
+  saveDB(dbState);
+  res.json({
+    success: true,
+    item,
+    newStock: item.currentStock,
+    reason: reason || "Manual Adjustment",
+    notes
+  });
+});
+
+// -------------------------------------------------------------
+// STORE SALES & STUDENT SEARCH API (ISOLATED STORE TRANSACTION SYSTEM)
+// -------------------------------------------------------------
+
+// Search students & families for Store Cashier (by Admission No, Student Name, Parent Name, Parent Phone)
+app.get('/api/students/store_search', (req, res) => {
+  const query = String(req.query.q || '').trim().toLowerCase();
+  const students = dbState.students || [];
+  const ledgers = dbState.student_fee_ledgers || [];
+  const storeSales = dbState.inventory_store_sales || [];
+  const families = dbState.family_accounts || [];
+
+  if (!query) {
+    // Return sample list of first 12 students with search metadata
+    const sampleResults = students.slice(0, 12).map((s: any) => {
+      const studentLedgers = ledgers.filter((l: any) => l.studentId === s.id);
+      const schoolFeesBalance = studentLedgers.reduce((sum: number, l: any) => sum + (Number(l.outstanding) || 0), 0);
+      const studentSales = storeSales.filter((sal: any) => sal.studentId === s.id || (sal.parentPhone && s.parentPhone && sal.parentPhone.includes(s.parentPhone)));
+      const storeTotalSpent = studentSales.reduce((sum: number, sal: any) => sum + (Number(sal.totalAmount) || 0), 0);
+      const family = families.find((f: any) => f.id === s.familyAccountId || (f.primaryParentPhone && s.parentPhone && f.primaryParentPhone === s.parentPhone));
+
+      return {
+        id: s.id,
+        admissionNo: s.enrollmentNo || `ADM-${s.serialNumber || s.id}`,
+        name: s.name,
+        grade: s.grade,
+        classSection: s.classSection || 'A',
+        branch: s.branch || 'Main Campus',
+        parentName: s.parentName || 'Parent / Guardian',
+        parentPhone: s.parentPhone || '',
+        parentEmail: s.parentEmail || '',
+        familyAccountId: family?.id || s.familyAccountId || '',
+        familyName: family?.familyName || '',
+        schoolFeesBalance, // For reference only (strictly isolated from store purchases)
+        storePurchasesCount: studentSales.length,
+        storeTotalSpent,
+        recentSales: studentSales.slice(0, 3)
+      };
+    });
+    return res.json(sampleResults);
+  }
+
+  // Filter students matching admission number, student name, parent name, or parent phone
+  const matches = students.filter((s: any) => {
+    const admission = (s.enrollmentNo || '').toLowerCase();
+    const serial = String(s.serialNumber || '');
+    const name = (s.name || '').toLowerCase();
+    const parent = (s.parentName || '').toLowerCase();
+    const phone = (s.parentPhone || '').replace(/\D/g, '');
+    const cleanQuery = query.replace(/\D/g, '');
+
+    const matchAdmission = admission.includes(query) || (serial && serial.includes(query));
+    const matchName = name.includes(query);
+    const matchParent = parent.includes(query);
+    const matchPhone = cleanQuery.length >= 3 && phone.includes(cleanQuery);
+
+    return matchAdmission || matchName || matchParent || matchPhone;
+  });
+
+  const formattedResults = matches.map((s: any) => {
+    const studentLedgers = ledgers.filter((l: any) => l.studentId === s.id);
+    const schoolFeesBalance = studentLedgers.reduce((sum: number, l: any) => sum + (Number(l.outstanding) || 0), 0);
+    const studentSales = storeSales.filter((sal: any) => sal.studentId === s.id || (sal.parentPhone && s.parentPhone && sal.parentPhone.includes(s.parentPhone)));
+    const storeTotalSpent = studentSales.reduce((sum: number, sal: any) => sum + (Number(sal.totalAmount) || 0), 0);
+    const family = families.find((f: any) => f.id === s.familyAccountId || (f.primaryParentPhone && s.parentPhone && f.primaryParentPhone === s.parentPhone));
+
+    return {
+      id: s.id,
+      admissionNo: s.enrollmentNo || `ADM-${s.serialNumber || s.id}`,
+      name: s.name,
+      grade: s.grade,
+      classSection: s.classSection || 'A',
+      branch: s.branch || 'Main Campus',
+      parentName: s.parentName || 'Parent / Guardian',
+      parentPhone: s.parentPhone || '',
+      parentEmail: s.parentEmail || '',
+      familyAccountId: family?.id || s.familyAccountId || '',
+      familyName: family?.familyName || '',
+      schoolFeesBalance, // For reference only (strictly isolated from store purchases)
+      storePurchasesCount: studentSales.length,
+      storeTotalSpent,
+      recentSales: studentSales.slice(0, 3)
+    };
+  });
+
+  res.json(formattedResults);
+});
+
+// GET single student's store financial history (Store Materials Purchase ledger)
+app.get('/api/students/:id/store_history', (req, res) => {
+  const { id } = req.params;
+  const storeSales = dbState.inventory_store_sales || [];
+  const studentSales = storeSales.filter((s: any) => s.studentId === id);
+  
+  res.json({
+    studentId: id,
+    ledgerCategory: 'Store Materials Purchase',
+    schoolFeeIsolated: true,
+    isolationNotice: 'Store purchases are maintained in a dedicated materials ledger and do not alter school-fee balances.',
+    transactionsCount: studentSales.length,
+    totalSpent: studentSales.reduce((sum: number, s: any) => sum + (Number(s.totalAmount) || 0), 0),
+    transactions: studentSales
+  });
+});
+
+// GET store audit trail
+app.get('/api/inventory/audit_trail', (req, res) => {
+  res.json(dbState.inventory_store_audit_logs || []);
+});
+
+// GET all store sales transactions
+app.get('/api/inventory/sales', (req, res) => {
+  res.json(dbState.inventory_store_sales || []);
+});
+
+// GET single store sale transaction by ID
+app.get('/api/inventory/sales/:id', (req, res) => {
+  const { id } = req.params;
+  const sale = (dbState.inventory_store_sales || []).find((s: any) => s.id === id || s.transactionNo === id);
+  if (!sale) {
+    return res.status(404).json({ error: "Sale record not found" });
+  }
+  res.json(sale);
+});
+
+// POST record a new store sale (Point-of-Sale checkout with Inventory reduction & Audit Trail)
+app.post('/api/inventory/sales', (req, res) => {
+  const {
+    branch,
+    store,
+    customerType,
+    studentId,
+    admissionNo,
+    studentName,
+    parentName,
+    parentPhone,
+    parentEmail,
+    grade,
+    items, // Array of { itemId, itemCode, itemName, unit, quantity, unitPrice, subtotal }
+    subtotal,
+    discountAmount,
+    discountDetail, // { permitted, type, rate, amount, reason, authorizedBy }
+    totalAmount,
+    paymentMethod,
+    referenceNo,
+    cashierId,
+    cashierName,
+    notes
+  } = req.body;
+
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: "At least one item is required for a sale" });
+  }
+
+  const inventory = dbState.inventory_store_items || [];
+  const auditSnapshots: any[] = [];
+
+  // Validate stock and verify items
+  const validatedItems: any[] = [];
+  for (const line of items) {
+    const invItem = inventory.find((it: any) => it.id === line.itemId || it.itemCode === line.itemCode);
+    const qty = Number(line.quantity) || 0;
+    if (qty <= 0) {
+      return res.status(400).json({ error: `Invalid quantity for ${line.itemName || 'item'}` });
+    }
+
+    let stockBefore = 0;
+    let stockAfter = 0;
+
+    if (invItem) {
+      stockBefore = invItem.currentStock;
+      if (invItem.currentStock < qty) {
+        return res.status(400).json({
+          error: `Insufficient stock for ${invItem.name}. Available: ${invItem.currentStock} ${invItem.unit}, Requested: ${qty} ${invItem.unit}`
+        });
+      }
+
+      // Check sellable setting
+      if (invItem.setting === "School Issue Only") {
+        return res.status(400).json({
+          error: `${invItem.name} is marked as 'School Issue Only' and cannot be sold to parents/students.`
+        });
+      }
+
+      // Deduct inventory quantity (supports decimal reduction e.g. 2.5 meters)
+      invItem.currentStock = parseFloat((invItem.currentStock - qty).toFixed(3));
+      stockAfter = invItem.currentStock;
+    }
+
+    const unitPrice = Number(line.unitPrice) || (invItem ? invItem.sellingPrice : 0);
+    const lineSubtotal = parseFloat((qty * unitPrice).toFixed(2));
+
+    const validatedLine = {
+      itemId: line.itemId || (invItem ? invItem.id : `item-${Date.now()}`),
+      itemCode: line.itemCode || (invItem ? invItem.itemCode : "SKU-N/A"),
+      itemName: line.itemName || (invItem ? invItem.name : "Custom Item"),
+      unit: line.unit || (invItem ? invItem.unit : "Piece"),
+      quantity: qty,
+      unitPrice,
+      subtotal: lineSubtotal
+    };
+
+    validatedItems.push(validatedLine);
+
+    auditSnapshots.push({
+      itemId: validatedLine.itemId,
+      itemCode: validatedLine.itemCode,
+      itemName: validatedLine.itemName,
+      unit: validatedLine.unit,
+      qtySold: qty,
+      stockBefore,
+      stockAfter,
+      unitPrice,
+      total: lineSubtotal
+    });
+  }
+
+  const calcSubtotal = validatedItems.reduce((acc, it) => acc + it.subtotal, 0);
+  const discount = Number(discountAmount) || (discountDetail ? Number(discountDetail.amount) || 0 : 0);
+  const grandTotal = Math.max(0, calcSubtotal - discount);
+
+  const saleDate = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  
+  // Generate unique transaction number (e.g. STR-TXN-2026-894102)
+  const uniqueRandom = Math.floor(100000 + Math.random() * 900000);
+  const uniqueTxnNo = `STR-TXN-${now.getFullYear()}-${uniqueRandom}`;
+  const saleId = uniqueTxnNo;
+  const receiptNo = `RCP-${uniqueTxnNo}`;
+
+  const generatedRef = referenceNo || `${(paymentMethod || 'CASH').toUpperCase().slice(0, 3)}-REF-${Math.floor(100000 + Math.random() * 900000)}`;
+
+  const newSale = {
+    id: saleId,
+    transactionNo: uniqueTxnNo,
+    receiptNumber: receiptNo,
+    schoolName: "SULTAN ATTAHIRU MEMORIAL SCHOOLS",
+    saleDate,
+    time: timeStr,
+    branch: branch || "Main Campus",
+    store: store || "Uniform Depot",
+    customerType: customerType || "Parent",
+    studentId: studentId || "",
+    admissionNo: admissionNo || "",
+    studentName: studentName || "Walk-in Customer",
+    parentName: parentName || studentName || "Walk-in Parent",
+    parentPhone: parentPhone || "",
+    parentEmail: parentEmail || "",
+    grade: grade || "",
+    items: validatedItems,
+    subtotal: calcSubtotal,
+    discountAmount: discount,
+    discountDetail: discountDetail || (discount > 0 ? { permitted: true, type: 'fixed', amount: discount, reason: 'Cashier authorized' } : undefined),
+    totalAmount: grandTotal,
+    amountPaid: grandTotal,
+    balanceDue: 0,
+    paymentMethod: paymentMethod || "Cash",
+    referenceNo: generatedRef,
+    cashierId: cashierId || "usr-cashier-01",
+    cashierName: cashierName || "Store Cashier",
+    notes: notes || "",
+    ledgerCategory: "Store Materials Purchase",
+    schoolFeeIsolated: true, // Guarantees store purchase is isolated from tuition fee balance
+    reprintCount: 0,
+    emailDispatchedTo: [],
+    whatsAppDispatchedTo: [],
+    createdAt: now.toISOString()
+  };
+
+  // 1. Record Sale in Store Sales collection
+  dbState.inventory_store_sales = dbState.inventory_store_sales || [];
+  dbState.inventory_store_sales.unshift(newSale);
+
+  // 2. Record in Student/Family Store Financial History (Dedicated Materials Purchase Ledger)
+  // This is strictly maintained separately from tuition fee invoices
+  dbState.student_store_history = dbState.student_store_history || [];
+  dbState.student_store_history.unshift({
+    id: `HIST-${uniqueTxnNo}`,
+    studentId: studentId || "",
+    admissionNo: admissionNo || "",
+    studentName: studentName || "",
+    parentName: parentName || "",
+    parentPhone: parentPhone || "",
+    transactionNo: uniqueTxnNo,
+    receiptNumber: receiptNo,
+    type: 'Store Materials Purchase',
+    subtotal: calcSubtotal,
+    discountAmount: discount,
+    totalPaid: grandTotal,
+    balanceDue: 0,
+    paymentMethod: paymentMethod || "Cash",
+    referenceNo: generatedRef,
+    date: saleDate,
+    itemsCount: validatedItems.length,
+    schoolFeeIsolated: true,
+    schoolFeeBalanceAffected: 0, // Explicit 0 change to tuition fee balance
+    createdAt: now.toISOString()
+  });
+
+  // 3. Maintain Complete Store Transaction Audit Trail
+  dbState.inventory_store_audit_logs = dbState.inventory_store_audit_logs || [];
+  const auditEntry = {
+    id: `AUD-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+    transactionId: uniqueTxnNo,
+    timestamp: now.toISOString(),
+    date: saleDate,
+    time: timeStr,
+    cashierId: cashierId || "usr-cashier-01",
+    cashierName: cashierName || "Store Cashier",
+    actionType: "STORE_DIRECT_SALE",
+    studentId: studentId || "N/A",
+    admissionNo: admissionNo || "N/A",
+    studentName: studentName || "Walk-in",
+    parentName: parentName || "Walk-in Parent",
+    parentPhone: parentPhone || "N/A",
+    items: auditSnapshots,
+    subtotal: calcSubtotal,
+    discount: discountDetail || (discount > 0 ? { permitted: true, type: 'fixed', amount: discount } : undefined),
+    totalAmount: grandTotal,
+    amountPaid: grandTotal,
+    balanceDue: 0,
+    paymentMethod: paymentMethod || "Cash",
+    referenceNo: generatedRef,
+    branch: branch || "Main Campus",
+    store: store || "Uniform Depot",
+    notes: notes || "Direct store sale to parent",
+    actionDetails: `Original sale processed. Receipt ${receiptNo} issued.`
+  };
+  dbState.inventory_store_audit_logs.unshift(auditEntry);
+
+  saveDB(dbState);
+  res.status(201).json(newSale);
+});
+
+// POST Audit a Receipt Action (Reprint, Download PDF, Share WhatsApp, Send Email)
+app.post('/api/inventory/receipts/audit', (req, res) => {
+  const {
+    transactionId,
+    actionType, // 'REPRINT_RECEIPT' | 'DOWNLOAD_PDF' | 'SHARE_WHATSAPP' | 'SEND_EMAIL'
+    cashierId,
+    cashierName,
+    reprintReason,
+    recipientEmail,
+    recipientPhone,
+    actionDetails
+  } = req.body;
+
+  if (!transactionId) {
+    return res.status(400).json({ error: "transactionId is required" });
+  }
+
+  const now = new Date();
+  const dateStr = now.toISOString().split('T')[0];
+  const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  dbState.inventory_store_sales = dbState.inventory_store_sales || [];
+  const sale = dbState.inventory_store_sales.find((s: any) => s.id === transactionId || s.transactionNo === transactionId);
+
+  if (sale) {
+    if (actionType === 'REPRINT_RECEIPT') {
+      sale.reprintCount = (sale.reprintCount || 0) + 1;
+      sale.lastReprintedAt = now.toISOString();
+      sale.lastReprintedBy = cashierName || "Authorized Cashier";
+      sale.lastReprintReason = reprintReason || "Customer Copy Requested";
+    } else if (actionType === 'SEND_EMAIL' && recipientEmail) {
+      sale.emailDispatchedTo = sale.emailDispatchedTo || [];
+      if (!sale.emailDispatchedTo.includes(recipientEmail)) {
+        sale.emailDispatchedTo.push(recipientEmail);
+      }
+    } else if (actionType === 'SHARE_WHATSAPP' && recipientPhone) {
+      sale.whatsAppDispatchedTo = sale.whatsAppDispatchedTo || [];
+      if (!sale.whatsAppDispatchedTo.includes(recipientPhone)) {
+        sale.whatsAppDispatchedTo.push(recipientPhone);
+      }
+    }
+  }
+
+  dbState.inventory_store_audit_logs = dbState.inventory_store_audit_logs || [];
+  const newAudit = {
+    id: `AUD-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+    transactionId,
+    timestamp: now.toISOString(),
+    date: dateStr,
+    time: timeStr,
+    cashierId: cashierId || "usr-cashier-01",
+    cashierName: cashierName || "Store Cashier",
+    actionType: actionType || 'REPRINT_RECEIPT',
+    studentId: sale?.studentId || "N/A",
+    admissionNo: sale?.admissionNo || "N/A",
+    studentName: sale?.studentName || "N/A",
+    parentName: sale?.parentName || "Parent",
+    parentPhone: sale?.parentPhone || recipientPhone || "N/A",
+    totalAmount: sale?.totalAmount || 0,
+    amountPaid: sale?.totalAmount || 0,
+    balanceDue: 0,
+    paymentMethod: sale?.paymentMethod || "POS",
+    referenceNo: sale?.referenceNo || "",
+    branch: sale?.branch || "Main Campus",
+    store: sale?.store || "Uniform Depot",
+    reprintReason: reprintReason || (actionType === 'REPRINT_RECEIPT' ? "Customer Requested Physical Duplicate" : undefined),
+    reprintCount: sale?.reprintCount || 0,
+    recipientEmail: recipientEmail || undefined,
+    recipientPhone: recipientPhone || undefined,
+    actionDetails: actionDetails || (
+      actionType === 'REPRINT_RECEIPT'
+        ? `Official store receipt reprinted (Copy #${sale?.reprintCount || 1}). Reason: ${reprintReason || 'Customer Request'}`
+        : actionType === 'SEND_EMAIL'
+        ? `Store sales receipt transmitted electronically to ${recipientEmail}`
+        : actionType === 'SHARE_WHATSAPP'
+        ? `Store sales receipt shared via WhatsApp to ${recipientPhone}`
+        : `Store sales receipt PDF document generated and downloaded.`
+    )
+  };
+
+  dbState.inventory_store_audit_logs.unshift(newAudit);
+  saveDB(dbState);
+
+  res.status(200).json({
+    success: true,
+    message: "Receipt action recorded in immutable store audit trail",
+    audit: newAudit,
+    sale
+  });
+});
+
+// POST Send Store Sale Receipt via Email
+app.post('/api/inventory/receipts/send_email', (req, res) => {
+  const { saleId, recipientEmail, cashierName, notes } = req.body;
+  if (!saleId || !recipientEmail) {
+    return res.status(400).json({ error: "saleId and recipientEmail are required" });
+  }
+
+  const sale = (dbState.inventory_store_sales || []).find((s: any) => s.id === saleId || s.transactionNo === saleId);
+  if (!sale) {
+    return res.status(404).json({ error: "Store sale record not found" });
+  }
+
+  const now = new Date();
+  sale.emailDispatchedTo = sale.emailDispatchedTo || [];
+  if (!sale.emailDispatchedTo.includes(recipientEmail)) {
+    sale.emailDispatchedTo.push(recipientEmail);
+  }
+
+  const auditEntry = {
+    id: `AUD-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+    transactionId: sale.transactionNo || sale.id,
+    timestamp: now.toISOString(),
+    date: now.toISOString().split('T')[0],
+    time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    cashierId: "usr-cashier-01",
+    cashierName: cashierName || "Store Cashier",
+    actionType: "SEND_EMAIL" as const,
+    studentId: sale.studentId || "N/A",
+    admissionNo: sale.admissionNo || "N/A",
+    studentName: sale.studentName || "N/A",
+    parentName: sale.parentName || "Parent",
+    parentPhone: sale.parentPhone || "N/A",
+    recipientEmail,
+    totalAmount: sale.totalAmount,
+    amountPaid: sale.totalAmount,
+    balanceDue: 0,
+    paymentMethod: sale.paymentMethod,
+    referenceNo: sale.referenceNo,
+    branch: sale.branch,
+    store: sale.store,
+    actionDetails: `Store receipt officially emailed to ${recipientEmail}. Memo: ${notes || 'Store Purchase Confirmation'}`
+  };
+
+  dbState.inventory_store_audit_logs = dbState.inventory_store_audit_logs || [];
+  dbState.inventory_store_audit_logs.unshift(auditEntry);
+  saveDB(dbState);
+
+  res.status(200).json({
+    success: true,
+    message: `Receipt successfully dispatched to ${recipientEmail}`,
+    auditId: auditEntry.id,
+    sentAt: now.toISOString(),
+    sale
+  });
+});
+
+// -------------------------------------------------------------
+// COMBINED PAYMENT API (Store Purchase + School Fees)
+// -------------------------------------------------------------
+
+// GET all combined payments
+app.get('/api/combined_payments', (req, res) => {
+  res.json(dbState.combined_payments || []);
+});
+
+// GET single combined payment session by ID
+app.get('/api/combined_payments/:id', (req, res) => {
+  const { id } = req.params;
+  const record = (dbState.combined_payments || []).find((c: any) => c.id === id || c.combinedReceiptNo === id);
+  if (!record) {
+    return res.status(404).json({ error: "Combined payment session record not found" });
+  }
+  res.json(record);
+});
+
+// POST process combined payment session (Priority 1: Store Purchase, Priority 2: School Fees, Priority 3: Advance Wallet Credit)
+app.post('/api/combined_payments', (req, res) => {
+  const {
+    studentId,
+    studentName,
+    admissionNo,
+    grade,
+    classSection,
+    branch,
+    parentName,
+    parentPhone,
+    parentEmail,
+    totalPaymentReceived, // e.g. 60000
+    paymentMethod, // 'Cash' | 'POS Card' | 'Bank Transfer' | 'Student Wallet'
+    referenceNo,
+    cashierId,
+    cashierName,
+    notes,
+    store,
+    storeItems, // Array of { itemId, itemCode, itemName, unit, quantity, unitPrice, subtotal }
+    storeDiscountAmount,
+    allocationRule, // 'oldest_first' | 'highest_outstanding' | 'lowest_outstanding' | 'even_distribution'
+    // Manual Override & Policy Fields
+    isManualOverride,
+    overrideReason,
+    overriddenBy,
+    manualStorePaid,
+    manualFeeAllocations // { [ledgerId]: number }
+  } = req.body;
+
+  if (!studentId || totalPaymentReceived === undefined || Number(totalPaymentReceived) <= 0) {
+    return res.status(400).json({ error: "studentId and a positive total payment amount are required." });
+  }
+
+  const P = Number(totalPaymentReceived);
+  const now = new Date();
+  const dateStr = now.toISOString().split('T')[0];
+  const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const uniqueCode = Math.floor(100000 + Math.random() * 900000);
+  const combinedId = `CPAY-${now.getFullYear()}-${uniqueCode}`;
+  const combinedReceiptNo = `RCP-COMB-${now.getFullYear()}-${uniqueCode}`;
+  const refNum = referenceNo || `${(paymentMethod || 'PAY').toUpperCase().replace(/\s+/g, '').slice(0, 3)}-REF-${uniqueCode}`;
+
+  // -------------------------------------------------------------
+  // STEP 1: VALIDATE & DEDUCT INVENTORY (Store Purchase Priority)
+  // -------------------------------------------------------------
+  const inventory = dbState.inventory_store_items || [];
+  const validatedStoreItems: any[] = [];
+  const auditSnapshots: any[] = [];
+
+  const rawItems = Array.isArray(storeItems) ? storeItems : [];
+  for (const line of rawItems) {
+    const qty = Number(line.quantity) || 0;
+    if (qty <= 0) continue;
+
+    const invItem = inventory.find((it: any) => it.id === line.itemId || it.itemCode === line.itemCode);
+    let stockBefore = 0;
+    let stockAfter = 0;
+
+    if (invItem) {
+      stockBefore = invItem.currentStock;
+      if (invItem.currentStock < qty) {
+        return res.status(400).json({
+          error: `Insufficient stock for ${invItem.name}. Available: ${invItem.currentStock} ${invItem.unit}, Requested: ${qty} ${invItem.unit}`
+        });
+      }
+      invItem.currentStock = parseFloat((invItem.currentStock - qty).toFixed(3));
+      stockAfter = invItem.currentStock;
+    }
+
+    const unitPrice = Number(line.unitPrice) || (invItem ? invItem.sellingPrice : 0);
+    const lineSubtotal = parseFloat((qty * unitPrice).toFixed(2));
+
+    const validatedLine = {
+      itemId: line.itemId || (invItem ? invItem.id : `item-${Date.now()}`),
+      itemCode: line.itemCode || (invItem ? invItem.itemCode : "SKU-N/A"),
+      itemName: line.itemName || (invItem ? invItem.name : "Custom Store Item"),
+      unit: line.unit || (invItem ? invItem.unit : "Piece"),
+      quantity: qty,
+      unitPrice,
+      subtotal: lineSubtotal
+    };
+
+    validatedStoreItems.push(validatedLine);
+    auditSnapshots.push({
+      itemId: validatedLine.itemId,
+      itemCode: validatedLine.itemCode,
+      itemName: validatedLine.itemName,
+      unit: validatedLine.unit,
+      qtySold: qty,
+      stockBefore,
+      stockAfter,
+      unitPrice,
+      total: lineSubtotal
+    });
+  }
+
+  const storeSubtotal = validatedStoreItems.reduce((sum, it) => sum + it.subtotal, 0);
+  const storeDiscount = Number(storeDiscountAmount) || 0;
+  const storeGrandTotal = Math.max(0, storeSubtotal - storeDiscount);
+
+  // Student Fee Ledgers Lookup
+  const ledgers = dbState.student_fee_ledgers || [];
+  const studentLedgers = ledgers.filter((l: any) => l.studentId === studentId && (Number(l.outstanding) || 0) > 0);
+  const schoolFeeOutstandingBefore = studentLedgers.reduce((sum: number, l: any) => sum + (Number(l.outstanding) || 0), 0);
+
+  // Baseline / Auto Allocation Computation (Oldest Outstanding Term First)
+  const defaultStorePaid = Math.min(P, storeGrandTotal);
+  let defaultRemForFees = Math.max(0, P - defaultStorePaid);
+  const autoTermSortedLedgers = [...studentLedgers].sort((a: any, b: any) => {
+    const timeA = new Date(a.billingDate || a.createdAt || 0).getTime();
+    const timeB = new Date(b.billingDate || b.createdAt || 0).getTime();
+    return timeA - timeB;
+  });
+
+  const autoTermAllocations: Array<{ ledgerId: string; termName: string; amount: number }> = [];
+  let autoRem = defaultRemForFees;
+  let autoTotalFeeAllocated = 0;
+  for (const l of autoTermSortedLedgers) {
+    if (autoRem <= 0) break;
+    const out = Number(l.outstanding) || 0;
+    const canAlloc = Math.min(out, autoRem);
+    if (canAlloc > 0) {
+      autoTermAllocations.push({
+        ledgerId: l.id,
+        termName: l.termName || l.termId || 'Term Fee',
+        amount: canAlloc
+      });
+      autoTotalFeeAllocated += canAlloc;
+      autoRem -= canAlloc;
+    }
+  }
+
+  // Determine actual allocation amounts based on manual override flag vs default policy
+  let storeAmountPaid = 0;
+  let storeBalanceDue = 0;
+  let storeStatus: 'Paid' | 'Partially Paid' | 'Unpaid' = 'Unpaid';
+  let totalFeeAllocated = 0;
+  const feeLedgerAllocations: any[] = [];
+  const feePaymentItems: any[] = [];
+  const feePaymentId = `pay-fees-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+  let overrideAuditInfo: any = null;
+
+  if (isManualOverride) {
+    // -------------------------------------------------------------
+    // MANUAL OVERRIDE PATH (Authorized Policy Exception)
+    // -------------------------------------------------------------
+    const requestedStorePaid = manualStorePaid !== undefined ? Math.min(Number(manualStorePaid) || 0, storeGrandTotal, P) : defaultStorePaid;
+    storeAmountPaid = requestedStorePaid;
+    storeBalanceDue = Math.max(0, storeGrandTotal - storeAmountPaid);
+    storeStatus = storeGrandTotal === 0 ? 'Paid' : (storeAmountPaid >= storeGrandTotal ? 'Paid' : (storeAmountPaid > 0 ? 'Partially Paid' : 'Unpaid'));
+
+    let remainingFunds = Math.max(0, P - storeAmountPaid);
+    const manualAllocObj = manualFeeAllocations || {};
+
+    // Apply manual allocations per term ledger
+    for (const [ledgerId, requestedAmt] of Object.entries(manualAllocObj)) {
+      const ledger = studentLedgers.find((l: any) => l.id === ledgerId);
+      if (ledger) {
+        const numReq = Math.min(Number(requestedAmt) || 0, remainingFunds, ledger.outstanding || 0);
+        if (numReq > 0) {
+          const outBefore = ledger.outstanding;
+          ledger.outstanding = Number((ledger.outstanding - numReq).toFixed(2));
+          ledger.status = ledger.outstanding === 0 ? 'Paid' : 'Partially Paid';
+          remainingFunds -= numReq;
+          totalFeeAllocated += numReq;
+
+          feeLedgerAllocations.push({
+            ledgerId: ledger.id,
+            name: ledger.id,
+            termName: ledger.termName || ledger.termId || 'Current Term',
+            outstandingBefore: outBefore,
+            amountAllocated: numReq,
+            outstandingAfter: ledger.outstanding,
+            status: ledger.status
+          });
+
+          feePaymentItems.push({
+            id: `payi-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+            paymentId: feePaymentId,
+            ledgerId: ledger.id,
+            name: `Combined Payment Manual Allocation - ${ledger.termName || ledger.id}`,
+            amount: Number(numReq.toFixed(2)),
+            createdAt: now.toISOString()
+          });
+        }
+      }
+    }
+
+    overrideAuditInfo = {
+      isOverridden: true,
+      overrideReason: overrideReason || "Manual adjustment authorized by Cashier / Bursary Desk per school policy",
+      overriddenBy: overriddenBy || cashierName || "Finance Officer",
+      overriddenRole: "Authorized Cashier / Bursar",
+      timestamp: now.toISOString(),
+      originalAutoAllocation: {
+        storePaid: defaultStorePaid,
+        feeAllocated: autoTotalFeeAllocated,
+        termAllocations: autoTermAllocations
+      },
+      manualAllocation: {
+        storePaid: storeAmountPaid,
+        feeAllocated: totalFeeAllocated,
+        termAllocations: feeLedgerAllocations.map(f => ({ ledgerId: f.ledgerId, termName: f.termName, amount: f.amountAllocated }))
+      }
+    };
+
+    // Log to audit log repository
+    dbState.combined_payment_audit_logs = dbState.combined_payment_audit_logs || [];
+    dbState.combined_payment_audit_logs.unshift({
+      id: `AUD-CPAY-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+      combinedPaymentId: combinedId,
+      combinedReceiptNo,
+      timestamp: now.toISOString(),
+      studentId,
+      studentName: studentName || "Student",
+      admissionNo: admissionNo || "N/A",
+      totalPaymentReceived: P,
+      overrideReason: overrideAuditInfo.overrideReason,
+      overriddenBy: overrideAuditInfo.overriddenBy,
+      overriddenRole: overrideAuditInfo.overriddenRole,
+      originalAutoAllocation: overrideAuditInfo.originalAutoAllocation,
+      manualAllocation: overrideAuditInfo.manualAllocation,
+      notes: notes || ""
+    });
+
+  } else {
+    // -------------------------------------------------------------
+    // DEFAULT PRIORITY PATH:
+    // Priority 1: Store Purchase
+    // Priority 2: School Fees (Oldest outstanding term first)
+    // Priority 3: Advance Wallet Credit
+    // -------------------------------------------------------------
+    storeAmountPaid = defaultStorePaid;
+    storeBalanceDue = Math.max(0, storeGrandTotal - storeAmountPaid);
+    storeStatus = storeGrandTotal === 0 ? 'Paid' : (storeAmountPaid >= storeGrandTotal ? 'Paid' : (storeAmountPaid > 0 ? 'Partially Paid' : 'Unpaid'));
+
+    let unallocatedFees = Math.max(0, P - storeAmountPaid);
+
+    // Sort student ledgers according to rule (default is 'oldest_first')
+    let sortedLedgers = [...studentLedgers];
+    if (allocationRule === 'highest_outstanding') {
+      sortedLedgers.sort((a: any, b: any) => (b.outstanding || 0) - (a.outstanding || 0));
+    } else if (allocationRule === 'lowest_outstanding') {
+      sortedLedgers.sort((a: any, b: any) => (a.outstanding || 0) - (b.outstanding || 0));
+    } else {
+      // Default & Standard: Oldest outstanding term first (earliest billing date / created date)
+      sortedLedgers.sort((a: any, b: any) => {
+        const timeA = new Date(a.billingDate || a.createdAt || 0).getTime();
+        const timeB = new Date(b.billingDate || b.createdAt || 0).getTime();
+        return timeA - timeB;
+      });
+    }
+
+    for (const ledger of sortedLedgers) {
+      if (unallocatedFees <= 0) break;
+      const outBefore = ledger.outstanding || 0;
+      if (outBefore <= 0) continue;
+
+      let allocAmt = 0;
+      if (unallocatedFees >= outBefore) {
+        ledger.outstanding = 0;
+        ledger.status = 'Paid';
+        allocAmt = outBefore;
+        unallocatedFees -= outBefore;
+      } else {
+        ledger.outstanding = Number((outBefore - unallocatedFees).toFixed(2));
+        ledger.status = 'Partially Paid';
+        allocAmt = unallocatedFees;
+        unallocatedFees = 0;
+      }
+
+      totalFeeAllocated += allocAmt;
+
+      feeLedgerAllocations.push({
+        ledgerId: ledger.id,
+        name: ledger.id,
+        termName: ledger.termName || ledger.termId || 'Current Term',
+        outstandingBefore: outBefore,
+        amountAllocated: allocAmt,
+        outstandingAfter: ledger.outstanding,
+        status: ledger.status
+      });
+
+      feePaymentItems.push({
+        id: `payi-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+        paymentId: feePaymentId,
+        ledgerId: ledger.id,
+        name: `Combined Payment Fee Allocation - ${ledger.termName || ledger.id}`,
+        amount: Number(allocAmt.toFixed(2)),
+        createdAt: now.toISOString()
+      });
+    }
+  }
+
+  // Create Store Sale Record (Isolated Ledger)
+  let storeSaleRecord: any = null;
+  const storeTxnNo = `STR-TXN-${now.getFullYear()}-${uniqueCode}`;
+  const storeReceiptNo = `RCP-${storeTxnNo}`;
+
+  if (validatedStoreItems.length > 0) {
+    storeSaleRecord = {
+      id: storeTxnNo,
+      transactionNo: storeTxnNo,
+      receiptNumber: storeReceiptNo,
+      schoolName: "SULTAN ATTAHIRU MEMORIAL SCHOOLS",
+      saleDate: dateStr,
+      time: timeStr,
+      branch: branch || "Main Campus",
+      store: store || "Uniform Depot",
+      customerType: "Parent",
+      studentId,
+      admissionNo: admissionNo || "",
+      studentName: studentName || "",
+      parentName: parentName || studentName,
+      parentPhone: parentPhone || "",
+      parentEmail: parentEmail || "",
+      grade: grade || "",
+      items: validatedStoreItems,
+      subtotal: storeSubtotal,
+      discountAmount: storeDiscount,
+      totalAmount: storeGrandTotal,
+      amountPaid: storeAmountPaid,
+      balanceDue: storeBalanceDue,
+      paymentMethod,
+      referenceNo: refNum,
+      cashierId: cashierId || "usr-cashier-01",
+      cashierName: cashierName || "Store Cashier",
+      notes: `Combined Payment Session ${combinedId}. Priority 1 Store Settlement.${isManualOverride ? ' [Manual Override Applied]' : ''}`,
+      ledgerCategory: "Store Materials Purchase",
+      schoolFeeIsolated: true,
+      combinedPaymentId: combinedId,
+      combinedReceiptNo,
+      reprintCount: 0,
+      createdAt: now.toISOString()
+    };
+
+    dbState.inventory_store_sales = dbState.inventory_store_sales || [];
+    dbState.inventory_store_sales.unshift(storeSaleRecord);
+
+    dbState.student_store_history = dbState.student_store_history || [];
+    dbState.student_store_history.unshift({
+      id: `HIST-${storeTxnNo}`,
+      studentId,
+      admissionNo: admissionNo || "",
+      studentName,
+      parentName,
+      parentPhone,
+      transactionNo: storeTxnNo,
+      receiptNumber: storeReceiptNo,
+      type: 'Store Materials Purchase',
+      subtotal: storeSubtotal,
+      discountAmount: storeDiscount,
+      totalPaid: storeAmountPaid,
+      balanceDue: storeBalanceDue,
+      paymentMethod,
+      referenceNo: refNum,
+      date: dateStr,
+      itemsCount: validatedStoreItems.length,
+      schoolFeeIsolated: true,
+      schoolFeeBalanceAffected: 0,
+      combinedPaymentId: combinedId,
+      createdAt: now.toISOString()
+    });
+
+    dbState.inventory_store_audit_logs = dbState.inventory_store_audit_logs || [];
+    dbState.inventory_store_audit_logs.unshift({
+      id: `AUD-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+      transactionId: storeTxnNo,
+      timestamp: now.toISOString(),
+      date: dateStr,
+      time: timeStr,
+      cashierId: cashierId || "usr-cashier-01",
+      cashierName: cashierName || "Store Cashier",
+      actionType: isManualOverride ? "COMBINED_PAYMENT_OVERRIDE_STORE" : "STORE_DIRECT_SALE",
+      studentId,
+      admissionNo: admissionNo || "N/A",
+      studentName: studentName || "Student",
+      parentName: parentName || "Parent",
+      parentPhone: parentPhone || "N/A",
+      items: auditSnapshots,
+      subtotal: storeSubtotal,
+      discount: storeDiscount > 0 ? { permitted: true, type: 'fixed', amount: storeDiscount } : undefined,
+      totalAmount: storeGrandTotal,
+      amountPaid: storeAmountPaid,
+      balanceDue: storeBalanceDue,
+      paymentMethod,
+      referenceNo: refNum,
+      branch: branch || "Main Campus",
+      store: store || "Uniform Depot",
+      notes: `Combined Payment session ${combinedId}. Priority 1 Store Purchase settled: ₦${storeAmountPaid.toLocaleString()}${isManualOverride ? ` (Override Reason: ${overrideReason})` : ''}`,
+      actionDetails: `Original sale processed as part of Combined Payment ${combinedId}.`
+    });
+  }
+
+  const schoolFeeOutstandingAfter = Math.max(0, schoolFeeOutstandingBefore - totalFeeAllocated);
+  const feeStatus = schoolFeeOutstandingBefore === 0 ? 'Paid' : (schoolFeeOutstandingAfter === 0 ? 'Paid' : (totalFeeAllocated > 0 ? 'Partially Paid' : 'Unpaid'));
+
+  // Create Fee Payment Record (Isolated Ledger)
+  if (totalFeeAllocated > 0) {
+    const feePaymentRecord = {
+      id: feePaymentId,
+      studentId,
+      studentName: studentName || 'Student',
+      amount: totalFeeAllocated,
+      paymentMethod,
+      paymentDate: dateStr,
+      referenceNo: refNum,
+      notes: `Combined Payment Session ${combinedId}. Total received: ₦${P.toLocaleString()} (Store: ₦${storeAmountPaid.toLocaleString()}, Tuition: ₦${totalFeeAllocated.toLocaleString()})${isManualOverride ? ' [Manual Override]' : ''}`,
+      combinedPaymentId: combinedId,
+      combinedReceiptNo,
+      items: feePaymentItems,
+      createdAt: now.toISOString()
+    };
+    dbState.student_payments = dbState.student_payments || [];
+    dbState.student_payments.unshift(feePaymentRecord);
+  }
+
+  // -------------------------------------------------------------
+  // STEP 3: ADVANCE CREDIT SURPLUS (Priority 3)
+  // -------------------------------------------------------------
+  let advanceWalletCredit = Math.max(0, P - storeAmountPaid - totalFeeAllocated);
+  let advanceCreditId: string | undefined = undefined;
+
+  if (advanceWalletCredit > 0 && paymentMethod !== 'Student Wallet') {
+    advanceCreditId = `ac-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const newCredit = {
+      id: advanceCreditId,
+      studentId,
+      studentName: studentName || 'Student',
+      amount: advanceWalletCredit,
+      initialAmount: advanceWalletCredit,
+      paymentId: feePaymentId,
+      combinedPaymentId: combinedId,
+      notes: `Surplus advance credit from Combined Payment ${combinedId}`,
+      createdAt: now.toISOString()
+    };
+    dbState.student_advance_credits = dbState.student_advance_credits || [];
+    dbState.student_advance_credits.unshift(newCredit);
+  }
+
+  // -------------------------------------------------------------
+  // STEP 4: MASTER COMBINED PAYMENT SESSION RECORD
+  // -------------------------------------------------------------
+  const combinedRecord = {
+    id: combinedId,
+    combinedReceiptNo,
+    date: dateStr,
+    time: timeStr,
+    studentId,
+    admissionNo: admissionNo || "",
+    studentName: studentName || "Student",
+    grade: grade || "",
+    classSection: classSection || "A",
+    branch: branch || "Main Campus",
+    parentName: parentName || studentName,
+    parentPhone: parentPhone || "",
+    parentEmail: parentEmail || "",
+    totalPaymentReceived: P,
+    paymentMethod,
+    referenceNo: refNum,
+    cashierId: cashierId || "usr-cashier-01",
+    cashierName: cashierName || "Finance Cashier",
+    notes: notes || "",
+    allocationSummary: {
+      storePurchaseTotal: storeGrandTotal,
+      storeAmountPaid,
+      storeBalanceDue,
+      storeStatus,
+      remainingForFees: Math.max(0, P - storeAmountPaid),
+      schoolFeeOutstandingBefore,
+      feeAmountAllocated: totalFeeAllocated,
+      schoolFeeOutstandingAfter,
+      feeStatus,
+      advanceWalletCreditGenerated: advanceWalletCredit
+    },
+    // Audit & Override Data
+    isManualOverride: !!isManualOverride,
+    overrideReason: isManualOverride ? overrideReason : undefined,
+    overriddenBy: isManualOverride ? (overriddenBy || cashierName || "Finance Officer") : undefined,
+    overrideAuditInfo: isManualOverride ? overrideAuditInfo : undefined,
+
+    // Store Component
+    storeSaleId: storeTxnNo,
+    storeReceiptNo,
+    store: store || "Uniform Depot",
+    storeItems: validatedStoreItems,
+    storeSubtotal,
+    storeDiscountAmount: storeDiscount,
+    storeGrandTotal,
+    storeAmountPaid,
+    storeLedgerCategory: "Store Materials Purchase",
+
+    // Fee Component
+    feePaymentId,
+    feeReceiptNo: `RCP-${feePaymentId}`,
+    feeLedgerAllocations,
+    feeAmountAllocated: totalFeeAllocated,
+    schoolFeeLedgerCategory: "Tuition & School Fees",
+    advanceCreditId,
+    createdAt: now.toISOString()
+  };
+
+  dbState.combined_payments = dbState.combined_payments || [];
+  dbState.combined_payments.unshift(combinedRecord);
+
+  saveDB(dbState);
+  res.status(201).json(combinedRecord);
+});
+
+// GET Combined Payment Audit Logs
+app.get('/api/combined_payments/audit_logs', (req, res) => {
+  const { studentId, search } = req.query;
+  let logs = dbState.combined_payment_audit_logs || [];
+
+  if (studentId) {
+    logs = logs.filter((l: any) => l.studentId === studentId);
+  }
+
+  if (search) {
+    const q = (search as string).toLowerCase();
+    logs = logs.filter((l: any) => 
+      (l.studentName || '').toLowerCase().includes(q) ||
+      (l.combinedReceiptNo || '').toLowerCase().includes(q) ||
+      (l.overrideReason || '').toLowerCase().includes(q) ||
+      (l.overriddenBy || '').toLowerCase().includes(q)
+    );
+  }
+
+  res.json(logs);
+});
+
+// -------------------------------------------------------------
 // SCHOOL OPERATIONS DASHBOARD API
 // -------------------------------------------------------------
 app.get('/api/operations/dashboard', (req, res) => {
@@ -7865,8 +9629,13 @@ app.post('/api/family_payments', (req, res) => {
     dbState.student_payment_items = [...(dbState.student_payment_items || []), ...paymentItems];
   }
 
+  // Calculate family remaining balance after payment
+  const famLedgersAfter = (dbState.student_fee_ledgers || []).filter((l: any) => studentIds.includes(l.studentId));
+  const remainingBalance = famLedgersAfter.reduce((sum: number, l: any) => sum + (Number(l.outstanding) || 0), 0);
+  const totalBilled = famLedgersAfter.reduce((sum: number, l: any) => sum + (Number(l.grandTotal) || 0), 0);
+
   saveDB(dbState);
-  res.status(201).json({ ...newPayment, items: paymentItems });
+  res.status(201).json({ ...newPayment, items: paymentItems, remainingBalance, totalBilled });
 });
 
 
@@ -9087,7 +10856,35 @@ app.get('/api/student_payments/:id', (req, res) => {
     return res.status(404).json({ error: "Payment not found." });
   }
   const items = (dbState.student_payment_items || []).filter((x: any) => x.paymentId === id);
-  res.json({ ...p, items });
+
+  // Compute remaining balance to be settled
+  let remainingBalance = 0;
+  let advanceWalletCredit = 0;
+  let totalBilled = 0;
+
+  if (p.isFamilyPayment || p.familyAccountId) {
+    const famId = p.familyAccountId;
+    const members = (dbState.family_members || []).filter((m: any) => m.familyAccountId === famId);
+    const sIds = members.map((m: any) => m.studentId);
+    const famLedgers = (dbState.student_fee_ledgers || []).filter((l: any) => sIds.includes(l.studentId));
+    remainingBalance = famLedgers.reduce((sum: number, l: any) => sum + (Number(l.outstanding) || 0), 0);
+    totalBilled = famLedgers.reduce((sum: number, l: any) => sum + (Number(l.grandTotal) || 0), 0);
+  } else if (p.studentId) {
+    const studentLedgers = (dbState.student_fee_ledgers || []).filter((l: any) => l.studentId === p.studentId);
+    remainingBalance = studentLedgers.reduce((sum: number, l: any) => sum + (Number(l.outstanding) || 0), 0);
+    totalBilled = studentLedgers.reduce((sum: number, l: any) => sum + (Number(l.grandTotal) || 0), 0);
+
+    const credits = (dbState.student_advance_credits || []).filter((c: any) => c.studentId === p.studentId);
+    advanceWalletCredit = credits.reduce((sum: number, c: any) => sum + (Number(c.amount) || 0), 0);
+  }
+
+  res.json({
+    ...p,
+    items,
+    remainingBalance,
+    totalBilled,
+    advanceWalletCredit
+  });
 });
 
 // POST record student payment (with support for Cash, Transfer, POS, Waiver, Advance, Overpayments, Installments)
@@ -9334,8 +11131,16 @@ app.post('/api/student_payments', (req, res) => {
   // Save payment items
   dbState.student_payment_items = [...(dbState.student_payment_items || []), ...paymentItems];
 
+  // Calculate student remaining balance after payment
+  const studentLedgersAfter = (dbState.student_fee_ledgers || []).filter((l: any) => l.studentId === studentId);
+  const remainingBalance = studentLedgersAfter.reduce((sum: number, l: any) => sum + (Number(l.outstanding) || 0), 0);
+  const totalBilled = studentLedgersAfter.reduce((sum: number, l: any) => sum + (Number(l.grandTotal) || 0), 0);
+
+  const credits = (dbState.student_advance_credits || []).filter((c: any) => c.studentId === studentId);
+  const advanceWalletCredit = credits.reduce((sum: number, c: any) => sum + (Number(c.amount) || 0), 0);
+
   saveDB(dbState);
-  res.status(201).json({ ...newPayment, items: paymentItems });
+  res.status(201).json({ ...newPayment, items: paymentItems, remainingBalance, totalBilled, advanceWalletCredit });
 });
 
 // POST record advance credit directly

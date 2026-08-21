@@ -1755,9 +1755,10 @@ export default function App() {
     checkSystemStatus();
   }, []);
 
-  const fetchDatabase = async () => {
+  const fetchDatabase = async (retryCount = 0) => {
     try {
       setLoadingDb(true);
+      setDbError(null);
       const [stdRes, tchRes, clsRes, schRes, currRes, exRes, gsRes, admRes, subRes, sesRes, termRes, holRes, catRes, evtRes, feeTemplatesRes] = await Promise.all([
         fetch('/api/students'),
         fetch('/api/teachers'),
@@ -1776,8 +1777,30 @@ export default function App() {
         fetch('/api/fee_templates')
       ]);
 
-      if (!stdRes.ok || !tchRes.ok || !clsRes.ok || !schRes.ok || !currRes.ok || !exRes.ok || !gsRes.ok || !admRes.ok || !subRes.ok || !sesRes.ok || !termRes.ok || !holRes.ok || !catRes.ok || !evtRes.ok || !feeTemplatesRes.ok) {
-        throw new Error("One or more server components returned errors.");
+      const failedEndpoints: string[] = [];
+      if (!stdRes.ok) failedEndpoints.push('/api/students');
+      if (!tchRes.ok) failedEndpoints.push('/api/teachers');
+      if (!clsRes.ok) failedEndpoints.push('/api/classes');
+      if (!schRes.ok) failedEndpoints.push('/api/schedules');
+      if (!currRes.ok) failedEndpoints.push('/api/curriculums');
+      if (!exRes.ok) failedEndpoints.push('/api/exams');
+      if (!gsRes.ok) failedEndpoints.push('/api/grade-scales');
+      if (!admRes.ok) failedEndpoints.push('/api/admissions');
+      if (!subRes.ok) failedEndpoints.push('/api/subjects');
+      if (!sesRes.ok) failedEndpoints.push('/api/academic-sessions');
+      if (!termRes.ok) failedEndpoints.push('/api/terms');
+      if (!holRes.ok) failedEndpoints.push('/api/holidays');
+      if (!catRes.ok) failedEndpoints.push('/api/event-categories');
+      if (!evtRes.ok) failedEndpoints.push('/api/events');
+      if (!feeTemplatesRes.ok) failedEndpoints.push('/api/fee_templates');
+
+      if (failedEndpoints.length > 0) {
+        if (retryCount < 2) {
+          console.warn(`Initial sync failed on ${failedEndpoints.join(', ')}. Retrying in 1s (attempt ${retryCount + 1})...`);
+          setTimeout(() => fetchDatabase(retryCount + 1), 1000);
+          return;
+        }
+        throw new Error(`Server endpoints unreachable: ${failedEndpoints.join(', ')}`);
       }
 
       const [stdData, tchData, clsData, schData, currData, exData, gsData, admData, subData, sesData, termData, holData, catData, evtData, feeTemplatesData] = await Promise.all([
@@ -1818,9 +1841,15 @@ export default function App() {
       if (stdData.length > 0) {
         setReportStudent(stdData[0]);
       }
+      setDbError(null);
     } catch (err: any) {
       console.error(err);
-      setDbError("Academic database failed to synchronize. Ensure server components are active.");
+      if (retryCount < 2) {
+        console.warn(`Connection error encountered: ${err.message}. Retrying in 1.2s...`);
+        setTimeout(() => fetchDatabase(retryCount + 1), 1200);
+        return;
+      }
+      setDbError(err.message || "Academic database failed to synchronize. Ensure server components are active.");
     } finally {
       setLoadingDb(false);
     }
@@ -3213,10 +3242,11 @@ export default function App() {
               <h3 className="font-bold text-lg text-slate-900 mb-1">Database Disconnected</h3>
               <p className="text-xs mb-4 text-slate-600">{dbError}</p>
               <button 
-                onClick={fetchDatabase}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs px-4 py-2 rounded-lg transition-colors shadow"
+                onClick={() => fetchDatabase(0)}
+                disabled={loadingDb}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs px-4 py-2 rounded-lg transition-colors shadow disabled:opacity-50 cursor-pointer"
               >
-                Retry ERP Connection Check
+                {loadingDb ? "Connecting..." : "Retry ERP Connection Check"}
               </button>
             </div>
           ) : (

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import * as Lucide from 'lucide-react';
 import Toast from './Toast';
+import { CombinedPaymentDesk } from './payment/CombinedPaymentDesk';
 
 interface Student {
   id: string;
@@ -34,7 +35,8 @@ interface PaymentItem {
 
 interface Payment {
   id: string;
-  studentId: string;
+  studentId?: string;
+  familyAccountId?: string;
   studentName: string;
   amount: number;
   paymentMethod: string;
@@ -43,6 +45,10 @@ interface Payment {
   notes: string;
   createdAt: string;
   items?: PaymentItem[];
+  remainingBalance?: number;
+  totalBilled?: number;
+  advanceWalletCredit?: number;
+  isFamilyPayment?: boolean;
 }
 
 interface AdvanceCredit {
@@ -73,7 +79,7 @@ export default function PaymentCollection() {
   // 'desktop' or 'mobile_terminal'
   const [viewMode, setViewMode] = useState<'desktop' | 'mobile_terminal'>('desktop');
   const [simulatedRole, setSimulatedRole] = useState<OperatorRole>('Accountant');
-  const [deskType, setDeskType] = useState<'student' | 'family'>('student');
+  const [deskType, setDeskType] = useState<'student' | 'family' | 'combined'>('student');
 
   // Search and Select States (Shared)
   const [studentSearch, setStudentSearch] = useState<string>('');
@@ -195,6 +201,42 @@ export default function PaymentCollection() {
   const handleCloseReceipt = () => {
     setSelectedPaymentForReceipt(null);
     setReceiptDetails(null);
+  };
+
+  // Helper to get remaining balance for a payment/receipt
+  const getReceiptRemainingBalance = (receipt: Payment | null): number => {
+    if (!receipt) return 0;
+    if (receipt.remainingBalance !== undefined) return Number(receipt.remainingBalance);
+    if (receipt.studentId) {
+      const studentLedgers = ledgers.filter(l => l.studentId === receipt.studentId);
+      return studentLedgers.reduce((sum, l) => sum + (Number(l.outstanding) || 0), 0);
+    }
+    if (receipt.familyAccountId || receipt.isFamilyPayment) {
+      const famId = receipt.familyAccountId;
+      const members = familyMembers.filter(m => m.familyAccountId === famId);
+      const sIds = members.map(m => m.studentId);
+      const famLedgers = ledgers.filter(l => sIds.includes(l.studentId));
+      return famLedgers.reduce((sum, l) => sum + (Number(l.outstanding) || 0), 0);
+    }
+    return 0;
+  };
+
+  // Helper to get total billed for a payment/receipt
+  const getReceiptTotalBilled = (receipt: Payment | null): number => {
+    if (!receipt) return 0;
+    if (receipt.totalBilled !== undefined && Number(receipt.totalBilled) > 0) return Number(receipt.totalBilled);
+    if (receipt.studentId) {
+      const studentLedgers = ledgers.filter(l => l.studentId === receipt.studentId);
+      return studentLedgers.reduce((sum, l) => sum + (Number(l.grandTotal) || 0), 0);
+    }
+    if (receipt.familyAccountId || receipt.isFamilyPayment) {
+      const famId = receipt.familyAccountId;
+      const members = familyMembers.filter(m => m.familyAccountId === famId);
+      const sIds = members.map(m => m.studentId);
+      const famLedgers = ledgers.filter(l => sIds.includes(l.studentId));
+      return famLedgers.reduce((sum, l) => sum + (Number(l.grandTotal) || 0), 0);
+    }
+    return 0;
   };
 
   // Filter families for dropdown lookup
@@ -621,7 +663,12 @@ export default function PaymentCollection() {
   // WhatsApp Deep-link sharing logic
   const initiateWhatsAppShare = (p: Payment) => {
     const parentPhone = selectedStudent?.parentPhone || '234'; // Default Nigerian prefix if none
-    const msg = `Dear parent, this is an official SAMS update from Stanford Academy. We have received payment of ₦${p.amount.toLocaleString()} on ${p.paymentDate} via ${p.paymentMethod} for student ${p.studentName}. Receipt Reference ID: ${p.id}. Thank you for your support.`;
+    const remBal = getReceiptRemainingBalance(p);
+    const balanceNote = remBal === 0 
+      ? "\nAccount Status: FULLY SETTLED (₦0.00 Remaining Balance)." 
+      : `\nRemaining Balance to be Settled: ₦${remBal.toLocaleString()}.`;
+
+    const msg = `Dear parent, this is an official SAMS update from Stanford Academy. We have received payment of ₦${p.amount.toLocaleString()} on ${p.paymentDate} via ${p.paymentMethod} for student ${p.studentName}. Receipt Reference ID: ${p.id}.${balanceNote}\nThank you for your support.`;
     
     setWhatsappPhone(parentPhone);
     setWhatsappMessage(msg);
@@ -639,8 +686,10 @@ export default function PaymentCollection() {
   // Email Sharing Logic
   const initiateEmailShare = (p: Payment) => {
     const pEmail = selectedStudent?.parentEmail || '';
+    const remBal = getReceiptRemainingBalance(p);
+    const balanceStatusText = remBal === 0 ? "₦0.00 (Fully Settled / Cleared)" : `₦${remBal.toLocaleString()} (Pending Settlement)`;
     const subject = `Official School Fees Payment Receipt - ${selectedStudent?.name}`;
-    const body = `Dear Parent/Guardian,\n\nThis is to acknowledge receipt of school fees payment for ${selectedStudent?.name} (${selectedStudent?.grade}).\n\nTransaction Details:\n- Receipt ID: ${p.id}\n- Date Received: ${p.paymentDate}\n- Payment Method: ${p.paymentMethod}\n- Amount Settled: ₦${p.amount.toLocaleString()}\n\nThank you for choosing Stanford Academy.\n\nWarm regards,\nStanford Academy Financial Desk`;
+    const body = `Dear Parent/Guardian,\n\nThis is to acknowledge receipt of school fees payment for ${selectedStudent?.name} (${selectedStudent?.grade}).\n\nTransaction Details:\n- Receipt ID: ${p.id}\n- Date Received: ${p.paymentDate}\n- Payment Method: ${p.paymentMethod}\n- Amount Settled: ₦${p.amount.toLocaleString()}\n- Remaining Balance to Settle: ${balanceStatusText}\n\nThank you for choosing Stanford Academy.\n\nWarm regards,\nStanford Academy Financial Desk`;
     
     setParentEmailAddress(pEmail);
     setEmailSubject(subject);
@@ -738,12 +787,59 @@ export default function PaymentCollection() {
                 Payment Collection Desk
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Collect school fees, apply waivers, record bank transfers/POS reference numbers, and generate dual printer-optimized receipts.
+                Collect school fees, apply waivers, record bank transfers/POS reference numbers, and process combined fee + store purchases.
               </p>
+            </div>
+
+            {/* DESK MODE SWITCHER TABS */}
+            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0 self-start lg:self-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeskType('student');
+                  setStudentSearch('');
+                  setSelectedStudent(null);
+                  setSelectedFamily(null);
+                  setAmount('');
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer text-center flex items-center gap-1.5 ${deskType === 'student' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}
+              >
+                <span>👧</span> Single Student
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeskType('family');
+                  setFamilySearch('');
+                  setSelectedStudent(null);
+                  setSelectedFamily(null);
+                  setAmount('');
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer text-center flex items-center gap-1.5 ${deskType === 'family' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}
+              >
+                <span>👨‍👩‍👧</span> Family Account
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeskType('combined');
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer text-center flex items-center gap-1.5 ${deskType === 'combined' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                <Lucide.Layers className="w-3.5 h-3.5" />
+                Combined (Fees + Store)
+              </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {deskType === 'combined' ? (
+            <CombinedPaymentDesk
+              onSessionComplete={() => {
+                loadData();
+              }}
+            />
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             {/* LEFT COLUMN: STUDENT LOOKUP & NEW TRANSACTION FORM */}
             <div className="lg:col-span-2 space-y-6">
@@ -1401,6 +1497,7 @@ export default function PaymentCollection() {
             </div>
 
           </div>
+          )}
         </motion.div>
       )}
 
@@ -2029,12 +2126,21 @@ export default function PaymentCollection() {
                         <p className="font-bold">OFFICIAL DESK RECEIPT</p>
                       </div>
 
-                      <div className="space-y-0.5 font-bold">
-                        <p>REF NO : {createdPaymentMobile.id}</p>
-                        <p>STUDENT: {createdPaymentMobile.studentName}</p>
-                        <p>GRADE  : {selectedStudent?.grade}</p>
-                        <p>VAL    : ₦{createdPaymentMobile.amount.toLocaleString()}</p>
-                        <p>METHOD : {createdPaymentMobile.paymentMethod}</p>
+                      <div className="space-y-1 font-bold">
+                        <p>REF NO   : {createdPaymentMobile.id}</p>
+                        <p>STUDENT  : {createdPaymentMobile.studentName}</p>
+                        <p>GRADE    : {selectedStudent?.grade || 'N/A'}</p>
+                        <p>PAID     : ₦{createdPaymentMobile.amount.toLocaleString()}</p>
+                        <p>METHOD   : {createdPaymentMobile.paymentMethod}</p>
+                        
+                        <div className="border-t border-dashed border-slate-300 my-1 pt-1 space-y-0.5">
+                          <p className="text-indigo-950 font-black">
+                            REMAINING BAL: ₦{getReceiptRemainingBalance(createdPaymentMobile).toLocaleString()}
+                          </p>
+                          <p className={`text-[8px] uppercase tracking-tight font-extrabold ${getReceiptRemainingBalance(createdPaymentMobile) === 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                            STATUS: {getReceiptRemainingBalance(createdPaymentMobile) === 0 ? 'CLEAR / FULLY SETTLED' : 'PARTIALLY SETTLED'}
+                          </p>
+                        </div>
                       </div>
 
                       <p className="text-center text-[7px] text-slate-500 border-t border-slate-300 pt-1.5 uppercase font-bold">
@@ -2307,216 +2413,296 @@ export default function PaymentCollection() {
               <div className="p-6 md:p-8 bg-slate-100 max-h-[550px] overflow-y-auto flex justify-center">
                 
                 {/* 1. STANDARD A4 PRINT-READY FORMAT */}
-                {receiptTab === 'a4' && (
-                  <div id="print-area-a4" className="bg-white w-full max-w-2xl p-8 border border-slate-200 shadow-sm rounded-lg text-slate-800 space-y-6">
-                    <div className="flex justify-between items-start pb-6 border-b border-slate-200">
-                      <div>
-                        <h1 className="text-xl font-black text-indigo-950 tracking-tight">STANFORD ACADEMY</h1>
-                        <p className="text-[9px] text-slate-500 uppercase tracking-wider font-extrabold">SCHOOL ACCOUNTING DEPT / OFFICIAL RECEIPT</p>
-                        <p className="text-[10px] text-slate-400 mt-1 max-w-xs leading-normal">
-                          Plot 12, SAMS Boulevard, Ikeja Campus, Lagos State, Nigeria. info@stanford.edu
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-xs bg-indigo-50 border border-indigo-100 text-indigo-700 font-extrabold px-3 py-1 rounded">
-                          RECEIPT DUPLICATE
-                        </span>
-                        <p className="text-[10px] text-slate-400 font-mono mt-3 uppercase">NO: {receiptDetails.id}</p>
-                        <p className="text-[10px] text-slate-500 mt-1 font-semibold">DATE: {receiptDetails.paymentDate}</p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 text-xs">
-                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-150">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Received From (Student)</p>
-                        <p className="font-extrabold text-slate-800 mt-1">{receiptDetails.studentName}</p>
-                        <p className="text-[10px] text-slate-500 mt-0.5">Student ID: {receiptDetails.studentId}</p>
+                {receiptTab === 'a4' && (() => {
+                  const remBal = getReceiptRemainingBalance(receiptDetails);
+                  const totalBilled = getReceiptTotalBilled(receiptDetails);
+                  return (
+                    <div id="print-area-a4" className="bg-white w-full max-w-2xl p-8 border border-slate-200 shadow-sm rounded-lg text-slate-800 space-y-6">
+                      <div className="flex justify-between items-start pb-6 border-b border-slate-200">
+                        <div>
+                          <h1 className="text-xl font-black text-indigo-950 tracking-tight">STANFORD ACADEMY</h1>
+                          <p className="text-[9px] text-slate-500 uppercase tracking-wider font-extrabold">SCHOOL ACCOUNTING DEPT / OFFICIAL RECEIPT</p>
+                          <p className="text-[10px] text-slate-400 mt-1 max-w-xs leading-normal">
+                            Plot 12, SAMS Boulevard, Ikeja Campus, Lagos State, Nigeria. info@stanford.edu
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs bg-indigo-50 border border-indigo-100 text-indigo-700 font-extrabold px-3 py-1 rounded">
+                            RECEIPT DUPLICATE
+                          </span>
+                          <p className="text-[10px] text-slate-400 font-mono mt-3 uppercase">NO: {receiptDetails.id}</p>
+                          <p className="text-[10px] text-slate-500 mt-1 font-semibold">DATE: {receiptDetails.paymentDate}</p>
+                        </div>
                       </div>
 
-                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-150">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Transaction Specification</p>
-                        <p className="font-extrabold text-slate-800 mt-1">Method: {receiptDetails.paymentMethod}</p>
-                        {receiptDetails.referenceNo && (
-                          <p className="text-[10px] text-slate-500 mt-0.5 font-mono">Ref No: {receiptDetails.referenceNo}</p>
-                        )}
-                      </div>
-                    </div>
+                      <div className="grid grid-cols-2 gap-4 text-xs">
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-150">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Received From (Student)</p>
+                          <p className="font-extrabold text-slate-800 mt-1">{receiptDetails.studentName}</p>
+                          <p className="text-[10px] text-slate-500 mt-0.5">Student ID: {receiptDetails.studentId || 'N/A'}</p>
+                        </div>
 
-                    <div className="space-y-2">
-                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Allocated Funds Summary</h4>
-                      <table className="w-full text-left text-xs border-collapse">
-                        <thead>
-                          <tr className="bg-slate-100 border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
-                            <th className="p-2.5">Allocation item / description</th>
-                            <th className="p-2.5 text-right">Settled Amount (₦)</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {receiptDetails.items && receiptDetails.items.length > 0 ? (
-                            receiptDetails.items.map(item => (
-                              <tr key={item.id} className="text-slate-700 font-semibold">
-                                <td className="p-2.5">{item.name}</td>
-                                <td className="p-2.5 text-right text-slate-900">₦{item.amount.toLocaleString()}</td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr className="text-slate-500 italic">
-                              <td className="p-2.5">Pure Advance Deposit Credit Pool (No active invoice allocation)</td>
-                              <td className="p-2.5 text-right">₦{receiptDetails.amount.toLocaleString()}</td>
-                            </tr>
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-150">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Transaction Specification</p>
+                          <p className="font-extrabold text-slate-800 mt-1">Method: {receiptDetails.paymentMethod}</p>
+                          {receiptDetails.referenceNo && (
+                            <p className="text-[10px] text-slate-500 mt-0.5 font-mono">Ref No: {receiptDetails.referenceNo}</p>
                           )}
-                          
-                          <tr className="border-t-2 border-slate-200 text-slate-900 font-extrabold bg-slate-50/50">
-                            <td className="p-2.5 text-right font-black">TOTAL SETTLED CASH</td>
-                            <td className="p-2.5 text-right text-sm">₦{receiptDetails.amount.toLocaleString()}</td>
-                          </tr>
-                        </tbody>
-                      </table>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Allocated Funds Summary</h4>
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead>
+                            <tr className="bg-slate-100 border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
+                              <th className="p-2.5">Allocation item / description</th>
+                              <th className="p-2.5 text-right">Settled Amount (₦)</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {receiptDetails.items && receiptDetails.items.length > 0 ? (
+                              receiptDetails.items.map(item => (
+                                <tr key={item.id} className="text-slate-700 font-semibold">
+                                  <td className="p-2.5">{item.name}</td>
+                                  <td className="p-2.5 text-right text-slate-900">₦{item.amount.toLocaleString()}</td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr className="text-slate-500 italic">
+                                <td className="p-2.5">Pure Advance Deposit Credit Pool (No active invoice allocation)</td>
+                                <td className="p-2.5 text-right">₦{receiptDetails.amount.toLocaleString()}</td>
+                              </tr>
+                            )}
+                            
+                            <tr className="border-t-2 border-slate-200 text-slate-900 font-extrabold bg-slate-50/50">
+                              <td className="p-2.5 text-right font-black">TOTAL SETTLED CASH</td>
+                              <td className="p-2.5 text-right text-sm">₦{receiptDetails.amount.toLocaleString()}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* ACCOUNT BALANCE & REMAINING SETTLEMENT STATUS CARD */}
+                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                        <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Account Balance &amp; Settlement Overview</h4>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs pt-1">
+                          <div>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Total Fees Billed</p>
+                            <p className="text-sm font-extrabold text-slate-900 mt-0.5">
+                              {totalBilled > 0 ? `₦${totalBilled.toLocaleString()}` : `₦${receiptDetails.amount.toLocaleString()}`}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Amount Paid (This Receipt)</p>
+                            <p className="text-sm font-extrabold text-indigo-950 mt-0.5">₦{receiptDetails.amount.toLocaleString()}</p>
+                          </div>
+                          <div className="col-span-2 sm:col-span-1">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Remaining Balance to Settle</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className={`text-sm font-black ${remBal === 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                ₦{remBal.toLocaleString()}
+                              </span>
+                              <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-tight ${
+                                remBal === 0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-amber-100 text-amber-900 border border-amber-200'
+                              }`}>
+                                {remBal === 0 ? 'Fully Cleared' : 'Balance Due'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        {receiptDetails.advanceWalletCredit && Number(receiptDetails.advanceWalletCredit) > 0 ? (
+                          <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-[10px]">
+                            <span className="text-slate-500 font-medium">Available Advance Wallet Credit:</span>
+                            <span className="font-bold text-emerald-800">₦{Number(receiptDetails.advanceWalletCredit).toLocaleString()}</span>
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {receiptDetails.notes && (
+                        <div className="p-3 bg-indigo-50/40 border border-indigo-100/50 rounded-xl">
+                          <p className="text-[9px] font-black text-indigo-950 uppercase tracking-widest">Memo Comments / Auditor Notes</p>
+                          <p className="text-[11px] text-indigo-800 italic mt-1 leading-normal font-semibold">"{receiptDetails.notes}"</p>
+                        </div>
+                      )}
+
+                      <div className="flex justify-between items-end pt-10 border-t border-dashed border-slate-200">
+                        <div className="text-center w-36">
+                          <div className="border-b border-slate-300 pb-1 font-mono text-[10px] text-slate-600">SAMS Financial Desk</div>
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">Authorized Cashier</p>
+                        </div>
+
+                        <div className="text-right text-[10px] text-slate-400 font-medium">
+                          <p>Stanford Academy Financial Automation Console.</p>
+                          <p className="mt-0.5">SAMS Safe Ledger Cryptographic Signature Verified.</p>
+                        </div>
+                      </div>
                     </div>
-
-                    {receiptDetails.notes && (
-                      <div className="p-3 bg-indigo-50/40 border border-indigo-100/50 rounded-xl">
-                        <p className="text-[9px] font-black text-indigo-950 uppercase tracking-widest">Memo Comments / Auditor Notes</p>
-                        <p className="text-[11px] text-indigo-800 italic mt-1 leading-normal font-semibold">"{receiptDetails.notes}"</p>
-                      </div>
-                    )}
-
-                    <div className="flex justify-between items-end pt-10 border-t border-dashed border-slate-200">
-                      <div className="text-center w-36">
-                        <div className="border-b border-slate-300 pb-1 font-mono text-[10px] text-slate-600">SAMS Financial Desk</div>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">Authorized Cashier</p>
-                      </div>
-
-                      <div className="text-right text-[10px] text-slate-400 font-medium">
-                        <p>Stanford Academy Financial Automation Console.</p>
-                        <p className="mt-0.5">SAMS Safe Ledger Cryptographic Signature Verified.</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* 2. POS THERMAL 80MM LAYOUT */}
-                {receiptTab === 'pos' && (
-                  <div id="print-area-pos" className="bg-[#fcfbf9] text-black w-72 p-4 border border-slate-300 shadow-xs font-mono text-xs space-y-4 text-left">
-                    <div className="text-center space-y-1">
-                      <h2 className="font-bold text-sm tracking-tight">*** STANFORD ACADEMY ***</h2>
-                      <p className="text-[10px]">IKEJA CAMPUS, LAGOS</p>
-                      <p className="text-[10px]">TEL: +234-802-SAMS-FUNDS</p>
-                      <p className="text-[9px] text-slate-600">--------------------------------</p>
-                      <p className="font-bold">OFFICIAL RECEIPT</p>
-                      <p className="text-[9px] text-slate-600">--------------------------------</p>
-                    </div>
+                {receiptTab === 'pos' && (() => {
+                  const remBal = getReceiptRemainingBalance(receiptDetails);
+                  const totalBilled = getReceiptTotalBilled(receiptDetails);
+                  return (
+                    <div id="print-area-pos" className="bg-[#fcfbf9] text-black w-72 p-4 border border-slate-300 shadow-xs font-mono text-xs space-y-4 text-left">
+                      <div className="text-center space-y-1">
+                        <h2 className="font-bold text-sm tracking-tight">*** STANFORD ACADEMY ***</h2>
+                        <p className="text-[10px]">IKEJA CAMPUS, LAGOS</p>
+                        <p className="text-[10px]">TEL: +234-802-SAMS-FUNDS</p>
+                        <p className="text-[9px] text-slate-600">--------------------------------</p>
+                        <p className="font-bold">OFFICIAL RECEIPT</p>
+                        <p className="text-[9px] text-slate-600">--------------------------------</p>
+                      </div>
 
-                    <div className="space-y-1 text-[11px]">
-                      <p>REF NO: {receiptDetails.id}</p>
-                      <p>DATE: {receiptDetails.paymentDate}</p>
-                      <p>STUDENT: {receiptDetails.studentName}</p>
-                      <p>ID: {receiptDetails.studentId}</p>
-                      <p>CASHIER: SAMS-SYSTEM</p>
-                    </div>
+                      <div className="space-y-1 text-[11px]">
+                        <p>REF NO: {receiptDetails.id}</p>
+                        <p>DATE: {receiptDetails.paymentDate}</p>
+                        <p>STUDENT: {receiptDetails.studentName}</p>
+                        <p>ID: {receiptDetails.studentId || 'N/A'}</p>
+                        <p>CASHIER: SAMS-SYSTEM</p>
+                      </div>
 
-                    <p className="text-[9px] text-slate-600">================================</p>
+                      <p className="text-[9px] text-slate-600">================================</p>
 
-                    <div className="space-y-1.5 text-[11px]">
-                      {receiptDetails.items && receiptDetails.items.length > 0 ? (
-                        receiptDetails.items.map(item => (
-                          <div key={item.id} className="flex justify-between">
-                            <span className="max-w-[160px] truncate">{item.name.replace('Payment Allocation - ', 'ALLOC ')}</span>
-                            <span>₦{item.amount.toLocaleString()}</span>
+                      <div className="space-y-1.5 text-[11px]">
+                        {receiptDetails.items && receiptDetails.items.length > 0 ? (
+                          receiptDetails.items.map(item => (
+                            <div key={item.id} className="flex justify-between">
+                              <span className="max-w-[160px] truncate">{item.name.replace('Payment Allocation - ', 'ALLOC ')}</span>
+                              <span>₦{item.amount.toLocaleString()}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="flex justify-between font-bold">
+                            <span>ADVANCE CREDIT DEPOSIT</span>
+                            <span>₦{receiptDetails.amount.toLocaleString()}</span>
                           </div>
-                        ))
-                      ) : (
+                        )}
+                      </div>
+
+                      <p className="text-[9px] text-slate-600">================================</p>
+
+                      <div className="space-y-1 text-right">
                         <div className="flex justify-between font-bold">
-                          <span>ADVANCE CREDIT DEPOSIT</span>
+                          <span>TOTAL PAID</span>
                           <span>₦{receiptDetails.amount.toLocaleString()}</span>
                         </div>
-                      )}
-                    </div>
-
-                    <p className="text-[9px] text-slate-600">================================</p>
-
-                    <div className="space-y-1 text-right">
-                      <div className="flex justify-between font-bold">
-                        <span>TOTAL PAID</span>
-                        <span>₦{receiptDetails.amount.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between text-[11px]">
-                        <span>METHOD</span>
-                        <span>{receiptDetails.paymentMethod}</span>
-                      </div>
-                      {receiptDetails.referenceNo && (
-                        <div className="flex justify-between text-[11px] truncate">
-                          <span>REF/STAN</span>
-                          <span className="font-mono text-[10px]">{receiptDetails.referenceNo}</span>
+                        <div className="flex justify-between text-[11px]">
+                          <span>METHOD</span>
+                          <span>{receiptDetails.paymentMethod}</span>
                         </div>
-                      )}
-                    </div>
+                        {receiptDetails.referenceNo && (
+                          <div className="flex justify-between text-[11px] truncate">
+                            <span>REF/STAN</span>
+                            <span className="font-mono text-[10px]">{receiptDetails.referenceNo}</span>
+                          </div>
+                        )}
+                      </div>
 
-                    <p className="text-[9px] text-slate-600">--------------------------------</p>
+                      <p className="text-[9px] text-slate-600">--------------------------------</p>
 
-                    <div className="text-center space-y-1 text-[10px]">
-                      <p className="font-bold">THANK YOU FOR YOUR PAYMENT</p>
-                      <p>Education is the key to the future</p>
-                      <p className="text-[8px] text-slate-500 mt-1">SAMS v2.1-LE SER: #0912</p>
+                      {/* REMAINING BALANCE SUMMARY IN POS SLIP */}
+                      <div className="space-y-1 font-bold text-[11px]">
+                        {totalBilled > 0 && (
+                          <div className="flex justify-between text-slate-700">
+                            <span>TOTAL BILLED:</span>
+                            <span>₦{totalBilled.toLocaleString()}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-indigo-950 font-black">
+                          <span>REMAINING BAL:</span>
+                          <span>₦{remBal.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-[10px]">
+                          <span>STATUS:</span>
+                          <span className={remBal === 0 ? 'text-emerald-700 font-extrabold' : 'text-amber-700 font-extrabold'}>
+                            {remBal === 0 ? 'CLEARED / FULLY PAID' : 'BALANCE DUE'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <p className="text-[9px] text-slate-600">--------------------------------</p>
+
+                      <div className="text-center space-y-1 text-[10px]">
+                        <p className="font-bold">THANK YOU FOR YOUR PAYMENT</p>
+                        <p>Education is the key to the future</p>
+                        <p className="text-[8px] text-slate-500 mt-1">SAMS v2.1-LE SER: #0912</p>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* 3. EMAIL NOTIFICATION PREVIEW */}
-                {receiptTab === 'email' && (
-                  <div className="bg-white w-full max-w-xl rounded-xl border border-slate-200 overflow-hidden shadow-xs text-slate-700 text-left">
-                    <div className="bg-slate-100 p-4 border-b border-slate-200 text-xs font-semibold text-slate-600 space-y-1">
-                      <p><span className="text-slate-400">From:</span> Stanford Billing &lt;no-reply@stanford.edu&gt;</p>
-                      <p><span className="text-slate-400">To:</span> Sibling Parent &lt;parent-notifications@example.com&gt;</p>
-                      <p><span className="text-slate-400">Subject:</span> School Fees Payment Acknowledgment: {receiptDetails.studentName}</p>
+                {receiptTab === 'email' && (() => {
+                  const remBal = getReceiptRemainingBalance(receiptDetails);
+                  return (
+                    <div className="bg-white w-full max-w-xl rounded-xl border border-slate-200 overflow-hidden shadow-xs text-slate-700 text-left">
+                      <div className="bg-slate-100 p-4 border-b border-slate-200 text-xs font-semibold text-slate-600 space-y-1">
+                        <p><span className="text-slate-400">From:</span> Stanford Billing &lt;no-reply@stanford.edu&gt;</p>
+                        <p><span className="text-slate-400">To:</span> Sibling Parent &lt;parent-notifications@example.com&gt;</p>
+                        <p><span className="text-slate-400">Subject:</span> School Fees Payment Acknowledgment: {receiptDetails.studentName}</p>
+                      </div>
+
+                      <div className="p-6 md:p-8 space-y-4">
+                        <div className="flex items-center space-x-2">
+                          <Lucide.Sparkles className="w-5 h-5 text-indigo-600" />
+                          <span className="text-xs font-black text-indigo-950 uppercase tracking-widest">Official Email Notice</span>
+                        </div>
+
+                        <div className="space-y-3 text-xs leading-relaxed">
+                          <p className="font-semibold text-slate-800">Dear Parent / Guardian,</p>
+                          <p>
+                            We are pleased to inform you that we have successfully received and processed a school fees payment on behalf of your dependent child, <strong className="text-slate-900 font-extrabold">{receiptDetails.studentName}</strong>.
+                          </p>
+                          <p>
+                            Below is a summarized overview of the transaction records logged inside SAMS Financial Desk.
+                          </p>
+                        </div>
+
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-150 space-y-2.5 text-xs">
+                          <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Receipt No</span>
+                            <span className="font-mono text-slate-800 font-bold">{receiptDetails.id}</span>
+                          </div>
+                          <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Payment Method</span>
+                            <span className="font-bold text-slate-800">{receiptDetails.paymentMethod}</span>
+                          </div>
+                          <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Amount Received</span>
+                            <span className="font-black text-indigo-950">₦{receiptDetails.amount.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Remaining Balance to Settle</span>
+                            <div className="text-right">
+                              <span className={`font-black ${remBal === 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                ₦{remBal.toLocaleString()}
+                              </span>
+                              <span className="text-[9px] text-slate-400 block font-normal">
+                                {remBal === 0 ? 'Account Fully Settled' : 'Outstanding Balance Pending'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Date Logged</span>
+                            <span className="font-semibold text-slate-800">{receiptDetails.paymentDate}</span>
+                          </div>
+                        </div>
+
+                        <div className="text-[11px] text-slate-500 leading-normal text-center bg-slate-50 p-3 rounded-lg border border-dashed border-slate-300">
+                          A full printable PDF attachment of receipt <strong className="text-slate-700">{receiptDetails.id}.pdf</strong> is attached to this email broadcast.
+                        </div>
+
+                        <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-4">
+                          <p className="font-bold">Stanford Academy Finance Team</p>
+                          <p className="mt-0.5">Please do not reply directly to this automated email system broadcast.</p>
+                        </div>
+                      </div>
                     </div>
-
-                    <div className="p-6 md:p-8 space-y-4">
-                      <div className="flex items-center space-x-2">
-                        <Lucide.Sparkles className="w-5 h-5 text-indigo-600" />
-                        <span className="text-xs font-black text-indigo-950 uppercase tracking-widest">Official Email Notice</span>
-                      </div>
-
-                      <div className="space-y-3 text-xs leading-relaxed">
-                        <p className="font-semibold text-slate-800">Dear Parent / Guardian,</p>
-                        <p>
-                          We are pleased to inform you that we have successfully received and processed a school fees payment on behalf of your dependent child, <strong className="text-slate-900 font-extrabold">{receiptDetails.studentName}</strong>.
-                        </p>
-                        <p>
-                          Below is a summarized overview of the transaction records logged inside SAMS Financial Desk.
-                        </p>
-                      </div>
-
-                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-150 space-y-2.5 text-xs">
-                        <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Receipt No</span>
-                          <span className="font-mono text-slate-800 font-bold">{receiptDetails.id}</span>
-                        </div>
-                        <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Payment Method</span>
-                          <span className="font-bold text-slate-800">{receiptDetails.paymentMethod}</span>
-                        </div>
-                        <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Amount Received</span>
-                          <span className="font-black text-indigo-950">₦{receiptDetails.amount.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Date Logged</span>
-                          <span className="font-semibold text-slate-800">{receiptDetails.paymentDate}</span>
-                        </div>
-                      </div>
-
-                      <div className="text-[11px] text-slate-500 leading-normal text-center bg-slate-50 p-3 rounded-lg border border-dashed border-slate-300">
-                        A full printable PDF attachment of receipt <strong className="text-slate-700">{receiptDetails.id}.pdf</strong> is attached to this email broadcast.
-                      </div>
-
-                      <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-4">
-                        <p className="font-bold">Stanford Academy Finance Team</p>
-                        <p className="mt-0.5">Please do not reply directly to this automated email system broadcast.</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
 
               </div>
             </motion.div>

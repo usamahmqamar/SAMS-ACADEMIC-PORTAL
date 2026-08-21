@@ -1753,103 +1753,123 @@ export default function App() {
   useEffect(() => {
     fetchDatabase();
     checkSystemStatus();
+
+    // Background keepalive re-sync every 30 seconds
+    const interval = setInterval(() => {
+      fetchDatabase(0, true);
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
-  const fetchDatabase = async (retryCount = 0) => {
+  const fetchDatabase = async (retryCount = 0, isBackground = false) => {
     try {
-      setLoadingDb(true);
-      setDbError(null);
-      const [stdRes, tchRes, clsRes, schRes, currRes, exRes, gsRes, admRes, subRes, sesRes, termRes, holRes, catRes, evtRes, feeTemplatesRes] = await Promise.all([
-        fetch('/api/students'),
-        fetch('/api/teachers'),
-        fetch('/api/classes'),
-        fetch('/api/schedules'),
-        fetch('/api/curriculums'),
-        fetch('/api/exams'),
-        fetch('/api/grade-scales'),
-        fetch('/api/admissions'),
-        fetch('/api/subjects'),
-        fetch('/api/academic-sessions'),
-        fetch('/api/terms'),
-        fetch('/api/holidays'),
-        fetch('/api/event-categories'),
-        fetch('/api/events'),
-        fetch('/api/fee_templates')
-      ]);
+      if (!isBackground) {
+        setLoadingDb(true);
+      }
 
-      const failedEndpoints: string[] = [];
-      if (!stdRes.ok) failedEndpoints.push('/api/students');
-      if (!tchRes.ok) failedEndpoints.push('/api/teachers');
-      if (!clsRes.ok) failedEndpoints.push('/api/classes');
-      if (!schRes.ok) failedEndpoints.push('/api/schedules');
-      if (!currRes.ok) failedEndpoints.push('/api/curriculums');
-      if (!exRes.ok) failedEndpoints.push('/api/exams');
-      if (!gsRes.ok) failedEndpoints.push('/api/grade-scales');
-      if (!admRes.ok) failedEndpoints.push('/api/admissions');
-      if (!subRes.ok) failedEndpoints.push('/api/subjects');
-      if (!sesRes.ok) failedEndpoints.push('/api/academic-sessions');
-      if (!termRes.ok) failedEndpoints.push('/api/terms');
-      if (!holRes.ok) failedEndpoints.push('/api/holidays');
-      if (!catRes.ok) failedEndpoints.push('/api/event-categories');
-      if (!evtRes.ok) failedEndpoints.push('/api/events');
-      if (!feeTemplatesRes.ok) failedEndpoints.push('/api/fee_templates');
+      // Fast path: Consolidated academic endpoint
+      let success = false;
+      try {
+        const unifiedRes = await fetch('/api/all_academic_data');
+        if (unifiedRes.ok) {
+          const contentType = unifiedRes.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const data = await unifiedRes.json();
+            if (data && typeof data === 'object') {
+              if (Array.isArray(data.students)) setStudents(data.students);
+              if (Array.isArray(data.teachers)) setTeachers(data.teachers);
+              if (Array.isArray(data.classes)) setClasses(data.classes);
+              if (Array.isArray(data.schedules)) setSchedules(data.schedules);
+              if (Array.isArray(data.curriculums)) setCurriculums(data.curriculums);
+              if (Array.isArray(data.exams)) setExams(data.exams);
+              if (Array.isArray(data.gradeScales)) setGradeScales(data.gradeScales);
+              if (Array.isArray(data.admissions)) setAdmissions(data.admissions);
+              if (Array.isArray(data.subjects)) setSubjects(data.subjects);
+              if (Array.isArray(data.academicSessions)) setAcademicSessions(data.academicSessions);
+              if (Array.isArray(data.terms)) setTerms(data.terms);
+              if (Array.isArray(data.holidays)) setHolidays(data.holidays);
+              if (Array.isArray(data.eventCategories)) setEventCategories(data.eventCategories);
+              if (Array.isArray(data.events)) setEvents(data.events);
+              if (Array.isArray(data.feeTemplates)) setFeeTemplates(data.feeTemplates);
 
-      if (failedEndpoints.length > 0) {
-        if (retryCount < 2) {
-          console.warn(`Initial sync failed on ${failedEndpoints.join(', ')}. Retrying in 1s (attempt ${retryCount + 1})...`);
-          setTimeout(() => fetchDatabase(retryCount + 1), 1000);
-          return;
+              if (Array.isArray(data.students) && data.students.length > 0) {
+                setReportStudent((prev: any) => prev || data.students[0]);
+              }
+              setDbError(null);
+              success = true;
+            }
+          }
         }
-        throw new Error(`Server endpoints unreachable: ${failedEndpoints.join(', ')}`);
+      } catch (fastErr) {
+        console.warn("Fast-path fetch failed, attempting parallel fallback...", fastErr);
       }
 
-      const [stdData, tchData, clsData, schData, currData, exData, gsData, admData, subData, sesData, termData, holData, catData, evtData, feeTemplatesData] = await Promise.all([
-        stdRes.json(),
-        tchRes.json(),
-        clsRes.json(),
-        schRes.json(),
-        currRes.json(),
-        exRes.json(),
-        gsRes.json(),
-        admRes.json(),
-        subRes.json(),
-        sesRes.json(),
-        termRes.json(),
-        holRes.json(),
-        catRes.json(),
-        evtRes.json(),
-        feeTemplatesRes.json()
-      ]);
+      if (!success) {
+        // Individual endpoints fallback with Promise.allSettled
+        const fetchJsonSafe = async (url: string) => {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`HTTP ${res.status} on ${url}`);
+          const ct = res.headers.get('content-type') || '';
+          if (!ct.includes('application/json')) throw new Error(`Non-JSON response on ${url}`);
+          return res.json();
+        };
 
-      setStudents(stdData);
-      setTeachers(tchData);
-      setClasses(clsData);
-      setSchedules(schData);
-      setCurriculums(currData);
-      setExams(exData);
-      setGradeScales(gsData);
-      setAdmissions(admData);
-      setSubjects(subData);
-      setAcademicSessions(sesData);
-      setTerms(termData);
-      setHolidays(holData);
-      setEventCategories(catData);
-      setEvents(evtData);
-      setFeeTemplates(feeTemplatesData);
-      
-      // Auto-focus first student for Report Card Tab
-      if (stdData.length > 0) {
-        setReportStudent(stdData[0]);
+        const results = await Promise.allSettled([
+          fetchJsonSafe('/api/students'),
+          fetchJsonSafe('/api/teachers'),
+          fetchJsonSafe('/api/classes'),
+          fetchJsonSafe('/api/schedules'),
+          fetchJsonSafe('/api/curriculums'),
+          fetchJsonSafe('/api/exams'),
+          fetchJsonSafe('/api/grade-scales'),
+          fetchJsonSafe('/api/admissions'),
+          fetchJsonSafe('/api/subjects'),
+          fetchJsonSafe('/api/academic-sessions'),
+          fetchJsonSafe('/api/terms'),
+          fetchJsonSafe('/api/holidays'),
+          fetchJsonSafe('/api/event-categories'),
+          fetchJsonSafe('/api/events'),
+          fetchJsonSafe('/api/fee_templates')
+        ]);
+
+        let successCount = 0;
+        const getVal = (r: PromiseSettledResult<any>) => (r.status === 'fulfilled' ? r.value : null);
+
+        const r0 = getVal(results[0]); if (r0) { setStudents(r0); successCount++; if (r0.length > 0) setReportStudent((p: any) => p || r0[0]); }
+        const r1 = getVal(results[1]); if (r1) { setTeachers(r1); successCount++; }
+        const r2 = getVal(results[2]); if (r2) { setClasses(r2); successCount++; }
+        const r3 = getVal(results[3]); if (r3) { setSchedules(r3); successCount++; }
+        const r4 = getVal(results[4]); if (r4) { setCurriculums(r4); successCount++; }
+        const r5 = getVal(results[5]); if (r5) { setExams(r5); successCount++; }
+        const r6 = getVal(results[6]); if (r6) { setGradeScales(r6); successCount++; }
+        const r7 = getVal(results[7]); if (r7) { setAdmissions(r7); successCount++; }
+        const r8 = getVal(results[8]); if (r8) { setSubjects(r8); successCount++; }
+        const r9 = getVal(results[9]); if (r9) { setAcademicSessions(r9); successCount++; }
+        const r10 = getVal(results[10]); if (r10) { setTerms(r10); successCount++; }
+        const r11 = getVal(results[11]); if (r11) { setHolidays(r11); successCount++; }
+        const r12 = getVal(results[12]); if (r12) { setEventCategories(r12); successCount++; }
+        const r13 = getVal(results[13]); if (r13) { setEvents(r13); successCount++; }
+        const r14 = getVal(results[14]); if (r14) { setFeeTemplates(r14); successCount++; }
+
+        if (successCount > 0) {
+          setDbError(null);
+        } else {
+          if (retryCount < 3) {
+            console.warn(`Database sync attempt ${retryCount + 1} incomplete. Retrying in 1.5s...`);
+            setTimeout(() => fetchDatabase(retryCount + 1, isBackground), 1500);
+            return;
+          }
+          setDbError("Academic database stream is currently synchronizing with server storage.");
+        }
       }
-      setDbError(null);
     } catch (err: any) {
-      console.error(err);
-      if (retryCount < 2) {
-        console.warn(`Connection error encountered: ${err.message}. Retrying in 1.2s...`);
-        setTimeout(() => fetchDatabase(retryCount + 1), 1200);
+      console.error("fetchDatabase error:", err);
+      if (retryCount < 3) {
+        setTimeout(() => fetchDatabase(retryCount + 1, isBackground), 1500);
         return;
       }
-      setDbError(err.message || "Academic database failed to synchronize. Ensure server components are active.");
+      setDbError(err?.message || "Academic database connection stream interrupted.");
     } finally {
       setLoadingDb(false);
     }
@@ -3230,13 +3250,13 @@ export default function App() {
         {/* ----- CONTENT CONTAINER ----- */}
         <main id="erp-content-panel" className="flex-1 p-3 md:p-4 overflow-y-auto max-w-7xl mx-auto w-full transition-all">
           
-          {loadingDb ? (
+          {loadingDb && students.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 text-slate-500">
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mb-4" />
               <p className="font-medium text-slate-700">Syncing centralized academic data streams...</p>
               <p className="text-xs text-slate-400 mt-1">Contacting system container instances on port 3000</p>
             </div>
-          ) : dbError ? (
+          ) : dbError && students.length === 0 ? (
             <div className="bg-rose-50 border border-rose-100 rounded-2xl p-6 text-center max-w-lg mx-auto my-12 text-rose-800">
               <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-3" />
               <h3 className="font-bold text-lg text-slate-900 mb-1">Database Disconnected</h3>
@@ -3251,6 +3271,20 @@ export default function App() {
             </div>
           ) : (
             <>
+              {dbError && (
+                <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between text-amber-800 text-xs">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Working in cached offline mode. Background sync is retrying connection...</span>
+                  </div>
+                  <button
+                    onClick={() => fetchDatabase(0)}
+                    className="underline font-semibold hover:text-amber-900 ml-3 shrink-0 cursor-pointer"
+                  >
+                    Sync Now
+                  </button>
+                </div>
+              )}
               {/* --- TOP HEADER BAR: BREADCRUMBS, SEARCH, THEME TOGGLER --- */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 mb-4 border-b border-slate-200/60 dark:border-slate-800/80">
                 {/* Breadcrumbs Navigation with literal human labels */}

@@ -3362,6 +3362,30 @@ if (migrationNeeded) {
 // REST API ENDPOINTS
 // -------------------------------------------------------------
 
+app.get('/api/health', (req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+app.get('/api/all_academic_data', (req, res) => {
+  res.json({
+    students: dbState.students || [],
+    teachers: dbState.teachers || [],
+    classes: dbState.classes || [],
+    schedules: dbState.schedules || [],
+    curriculums: dbState.curriculums || [],
+    exams: dbState.exams || [],
+    gradeScales: dbState.gradeScales || [],
+    admissions: dbState.admissions || [],
+    subjects: dbState.subjects || [],
+    academicSessions: dbState.academicSessions || [],
+    terms: dbState.terms || [],
+    holidays: dbState.holidays || [],
+    eventCategories: dbState.eventCategories || [],
+    events: dbState.events || [],
+    feeTemplates: dbState.fee_templates || []
+  });
+});
+
 // Student CRUD
 app.get('/api/students', (req, res) => {
   res.json(dbState.students);

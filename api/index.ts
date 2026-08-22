@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import app from '../server.ts';
+import app from '../server';
 
 export default function handler(req: IncomingMessage, res: ServerResponse) {
   if (req.url && !req.url.startsWith('/api')) {
@@ -7,4 +7,5 @@ export default function handler(req: IncomingMessage, res: ServerResponse) {
   }
   return (app as any)(req, res);
 }
+
 

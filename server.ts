@@ -1,16 +1,23 @@
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import INITIAL_DB_STATE from './db_seed.ts';
+import INITIAL_DB_STATE from './db_seed';
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const getDirname = () => {
+  if (typeof __dirname !== 'undefined') return __dirname;
+  try {
+    if (typeof import.meta !== 'undefined' && import.meta.url) {
+      return path.dirname(fileURLToPath(import.meta.url));
+    }
+  } catch (_) {}
+  return process.cwd();
+};
+const __currentDir = getDirname();
 
 const isProd = process.env.NODE_ENV === 'production';
 const isVercel = !!process.env.VERCEL;
@@ -675,8 +682,8 @@ function resolveDbPath(): string | null {
   const possiblePaths = [
     path.join(process.cwd(), 'school_db.json'),
     path.resolve('./school_db.json'),
-    path.join(__dirname, 'school_db.json'),
-    path.join(__dirname, '../school_db.json'),
+    path.join(__currentDir, 'school_db.json'),
+    path.join(__currentDir, '../school_db.json'),
     '/var/task/school_db.json'
   ];
   for (const p of possiblePaths) {
@@ -12099,7 +12106,8 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // -------------------------------------------------------------
 async function startServer() {
   if (!isProd) {
-    // Vite developer middleware
+    // Vite developer middleware (dynamically loaded for local dev)
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
@@ -12120,7 +12128,16 @@ async function startServer() {
   });
 }
 
-if (!isVercel) {
+// In local dev/production containers, boot server. In Vercel serverless functions, do NOT execute app.listen()
+const shouldStartServer = () => {
+  if (isVercel) return false;
+  if (process.env.NODE_ENV === 'test') return false;
+  if (!process.argv || !process.argv[1]) return false;
+  const script = process.argv[1];
+  return script.endsWith('server.ts') || script.endsWith('server.cjs') || script.endsWith('server.js');
+};
+
+if (shouldStartServer()) {
   startServer();
 }
 

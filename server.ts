@@ -8,11 +8,20 @@ import path from 'path';
 dotenv.config();
 
 const isProd = process.env.NODE_ENV === 'production';
+const isVercel = !!process.env.VERCEL;
 const PORT = 3000;
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// Normalize URL prefix for Vercel Serverless Function rewrites
+app.use((req, res, next) => {
+  if (!req.url.startsWith('/api') && !req.url.startsWith('/assets') && !req.url.startsWith('/@') && req.url !== '/' && !req.url.startsWith('/index.html')) {
+    req.url = '/api' + (req.url.startsWith('/') ? req.url : '/' + req.url);
+  }
+  next();
+});
 
 // Initialize Gemini SDK with User-Agent telemetry headers
 let ai: GoogleGenAI | null = null;
@@ -28,7 +37,9 @@ if (process.env.GEMINI_API_KEY) {
 }
 
 // Durable local state file configuration
-const DB_FILE = path.resolve('./school_db.json');
+const DB_FILE = isVercel
+  ? path.join('/tmp', 'school_db.json')
+  : path.resolve('./school_db.json');
 
 const DEFAULT_DB = {
   students: [
@@ -588,6 +599,21 @@ const DEFAULT_DB = {
 
 // Database local loader
 function loadDB() {
+  if (isVercel && !fs.existsSync(DB_FILE)) {
+    const bundledDb = path.resolve('./school_db.json');
+    if (fs.existsSync(bundledDb)) {
+      try {
+        const data = fs.readFileSync(bundledDb, 'utf8');
+        fs.writeFileSync(DB_FILE, data, 'utf8');
+        return JSON.parse(data);
+      } catch (e) {
+        console.warn("Could not copy bundled DB to /tmp, using parsed fallback:", e);
+        try {
+          return JSON.parse(fs.readFileSync(bundledDb, 'utf8'));
+        } catch (_) {}
+      }
+    }
+  }
   if (fs.existsSync(DB_FILE)) {
     try {
       return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
@@ -602,7 +628,7 @@ function saveDB(state: any) {
   try {
     fs.writeFileSync(DB_FILE, JSON.stringify(state, null, 2), 'utf8');
   } catch (e) {
-    console.error("Database file save aborted", e);
+    console.error("Database file save note:", e);
   }
 }
 
@@ -11899,4 +11925,9 @@ async function startServer() {
   });
 }
 
-startServer();
+if (!isVercel) {
+  startServer();
+}
+
+export default app;
+export { app };

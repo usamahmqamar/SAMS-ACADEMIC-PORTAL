@@ -684,13 +684,20 @@ export default function OperationsDashboard({ activeBranch }: { activeBranch: 'G
       // Fetch dynamic operations dashboard metrics based on simulated date and active branch filter
       const res = await fetch(`/api/operations/dashboard?date=${simulatedDate}&branch=${activeBranch}`);
       if (!res.ok) {
-        throw new Error("Failed to load school operations telemetry");
+        let errorDetail = `HTTP ${res.status} ${res.statusText || ''}`.trim();
+        try {
+          const errorJson = await res.json();
+          if (errorJson && errorJson.error) {
+            errorDetail += ` - ${errorJson.error}`;
+          }
+        } catch (_) {}
+        throw new Error(errorDetail);
       }
       const json = await res.json();
       setData(json);
     } catch (err: any) {
-      console.error(err);
-      setError("Operations telemetry could not be resolved from the server.");
+      console.error("Operations telemetry fetch failed:", err);
+      setError(err?.message ? `Operations telemetry could not be resolved from the server (${err.message}).` : "Operations telemetry could not be resolved from the server.");
     } finally {
       setLoading(false);
     }

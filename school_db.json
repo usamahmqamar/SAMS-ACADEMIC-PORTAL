@@ -1,133 +1,6 @@
 {
   "students": [
     {
-      "id": "std-n1",
-      "name": "Sophia Martinez",
-      "level": "nursery",
-      "grade": "K1 (Ages 3-4)",
-      "classSection": "A",
-      "parentName": "Carlos Martinez",
-      "parentEmail": "carlos.m@example.com",
-      "parentPhone": "+1 (555) 0192",
-      "attendancePercentage": 94,
-      "behaviorRating": "Good",
-      "milestones": {
-        "Fine Motor Skills (pencil grip, scissor cuts)": "Mastered",
-        "Social Sharing & Interaction": "Developing",
-        "Count up to 10 & Pattern Recognition": "Mastered",
-        "Expressive Communication & Vocabulary": "Developing",
-        "Listening & Task Completion": "Introduced"
-      },
-      "grades": {},
-      "reportComment": "Sophia is a delightful child who brings boundless energy to our circle times. She has mastered her basic fine motor skills and shows deep curiosity during visual arts. She is currently developing her verbal sharing skills and learning to cooperate with peers during free play.",
-      "admissionDate": "2024-09-02",
-      "enrollmentNo": "GN2402001",
-      "admissionStatus": "Active",
-      "profile": {
-        "gender": "Female",
-        "dob": "2022-04-12",
-        "address": "12 Pine Street, Apt 3B, Boston",
-        "bloodGroup": "O+"
-      },
-      "attendanceLogs": [
-        {
-          "date": "2026-05-25",
-          "status": "Present"
-        },
-        {
-          "date": "2026-05-26",
-          "status": "Present"
-        },
-        {
-          "date": "2026-05-27",
-          "status": "Absent",
-          "reason": "Minor Flu"
-        },
-        {
-          "date": "2026-05-28",
-          "status": "Present"
-        },
-        {
-          "date": "2026-05-29",
-          "status": "Present"
-        }
-      ],
-      "disciplinaryRecords": [],
-      "extracurriculars": [
-        "Introductory Gymnastics",
-        "Tactile Clay Craft",
-        "Toddler Music Academy"
-      ],
-      "healthInfo": {
-        "allergies": "Peanut Sensitivity",
-        "medicalConditions": "None",
-        "bloodGroup": "O+",
-        "vaccinations": "Completed MMR, Polio, HepB"
-      },
-      "academicProgression": [
-        {
-          "term": "Nursery Pre-K 2024",
-          "avg": 95,
-          "status": "Promoted"
-        }
-      ],
-      "homework": [
-        {
-          "id": "hw-n1",
-          "subject": "Sensory Play",
-          "task": "Collect 3 green, curved leaves for paste scrapbook",
-          "dueDate": "2026-06-03",
-          "status": "Pending"
-        },
-        {
-          "id": "hw-n2",
-          "subject": "Motor Development",
-          "task": "Color inside circular shape with standard crayon",
-          "dueDate": "2026-06-05",
-          "status": "Completed"
-        }
-      ],
-      "notices": [
-        {
-          "id": "not-n1",
-          "date": "2026-05-29",
-          "title": "Tactile Clay Exhibition on Friday",
-          "content": "Dear Parents, please send Sophia in old clothing as we will be using natural non-toxic clay."
-        }
-      ],
-      "feeStatements": {
-        "invoices": [
-          {
-            "id": "inv-n1",
-            "description": "Nursery Tuition - Term 2",
-            "amount": 1800,
-            "paid": 1800,
-            "status": "Paid",
-            "date": "2026-01-15"
-          },
-          {
-            "id": "inv-n2",
-            "description": "Materials & Sensory Kits fee",
-            "amount": 250,
-            "paid": 250,
-            "status": "Paid",
-            "date": "2026-02-01"
-          },
-          {
-            "id": "inv-n3",
-            "description": "Nursery Tuition - Term 3",
-            "amount": 1800,
-            "paid": 0,
-            "status": "Unpaid",
-            "date": "2026-05-20"
-          }
-        ],
-        "outstandingBalance": 1800
-      },
-      "branch": "GN",
-      "serialNumber": 1
-    },
-    {
       "id": "std-n2",
       "name": "Liam O'Connor",
       "level": "nursery",
@@ -1017,6 +890,54 @@
       "behaviorRating": "Good",
       "serialNumber": 15,
       "enrollmentNo": "GN2501015"
+    },
+    {
+      "id": "std-1787414718039-214",
+      "name": "Test",
+      "level": "secondary",
+      "grade": "Grade 10",
+      "classSection": "A",
+      "parentName": "",
+      "parentEmail": "",
+      "parentPhone": "",
+      "attendancePercentage": 100,
+      "behaviorRating": "Good",
+      "milestones": {},
+      "grades": {},
+      "reportComment": "",
+      "branch": "Main Campus",
+      "serialNumber": 1001,
+      "enrollmentNo": "MAIN CAMPUS26041001",
+      "admissionDate": "2026-08-22",
+      "profile": {
+        "gender": "Female",
+        "dob": "2018-05-15",
+        "address": "Sokoto, Nigeria",
+        "bloodGroup": "O+"
+      },
+      "attendanceLogs": [
+        {
+          "date": "2026-08-22",
+          "status": "Present"
+        }
+      ],
+      "disciplinaryRecords": [],
+      "extracurriculars": [
+        "Cultural Club"
+      ],
+      "healthInfo": {
+        "allergies": "None",
+        "medicalConditions": "None",
+        "bloodGroup": "O+",
+        "vaccinations": "Completed"
+      },
+      "academicProgression": [],
+      "homework": [],
+      "notices": [],
+      "feeStatements": {
+        "invoices": [],
+        "outstandingBalance": 1500
+      }
     }
   ],
   "teachers": [
@@ -1793,6 +1714,12 @@
       "name": "Computer Science",
       "level": "secondary",
       "requirement": "optional"
+    },
+    {
+      "id": "sub-1787414718078",
+      "name": "Test",
+      "level": "secondary",
+      "requirement": "compulsory"
     }
   ],
   "admissions": [
@@ -2904,9 +2831,9 @@
       "optionalChargesFee": 0,
       "discountAmount": 0,
       "scholarshipAmount": 0,
-      "carryForward": 150000,
-      "outstanding": 300000,
-      "grandTotal": 300000,
+      "carryForward": 750000,
+      "outstanding": 900000,
+      "grandTotal": 900000,
       "billingDate": "2026-01-05",
       "dueDate": "2026-01-19",
       "createdAt": "2026-08-20T09:47:17.698Z",
@@ -2926,9 +2853,9 @@
       "optionalChargesFee": 0,
       "discountAmount": 0,
       "scholarshipAmount": 0,
-      "carryForward": 150000,
-      "outstanding": 300000,
-      "grandTotal": 300000,
+      "carryForward": 750000,
+      "outstanding": 900000,
+      "grandTotal": 900000,
       "billingDate": "2026-01-05",
       "dueDate": "2026-01-19",
       "createdAt": "2026-08-20T09:47:17.698Z",
@@ -2948,9 +2875,9 @@
       "optionalChargesFee": 0,
       "discountAmount": 0,
       "scholarshipAmount": 0,
-      "carryForward": 155000,
-      "outstanding": 320000,
-      "grandTotal": 320000,
+      "carryForward": 785000,
+      "outstanding": 950000,
+      "grandTotal": 950000,
       "billingDate": "2026-01-05",
       "dueDate": "2026-01-19",
       "createdAt": "2026-08-20T09:47:17.698Z",
@@ -2970,9 +2897,9 @@
       "optionalChargesFee": 0,
       "discountAmount": 0,
       "scholarshipAmount": 0,
-      "carryForward": 140000,
-      "outstanding": 305000,
-      "grandTotal": 305000,
+      "carryForward": 740000,
+      "outstanding": 905000,
+      "grandTotal": 905000,
       "billingDate": "2026-01-05",
       "dueDate": "2026-01-19",
       "createdAt": "2026-08-20T09:47:17.698Z",
@@ -2992,9 +2919,9 @@
       "optionalChargesFee": 0,
       "discountAmount": 0,
       "scholarshipAmount": 0,
-      "carryForward": 150000,
-      "outstanding": 300000,
-      "grandTotal": 300000,
+      "carryForward": 750000,
+      "outstanding": 900000,
+      "grandTotal": 900000,
       "billingDate": "2026-01-05",
       "dueDate": "2026-01-19",
       "createdAt": "2026-08-20T09:47:17.698Z",
@@ -3014,9 +2941,9 @@
       "optionalChargesFee": 0,
       "discountAmount": 0,
       "scholarshipAmount": 0,
-      "carryForward": 150000,
-      "outstanding": 300000,
-      "grandTotal": 300000,
+      "carryForward": 750000,
+      "outstanding": 900000,
+      "grandTotal": 900000,
       "billingDate": "2026-01-05",
       "dueDate": "2026-01-19",
       "createdAt": "2026-08-20T09:47:17.698Z",
@@ -3036,9 +2963,9 @@
       "optionalChargesFee": 0,
       "discountAmount": 0,
       "scholarshipAmount": 0,
-      "carryForward": 150000,
-      "outstanding": 300000,
-      "grandTotal": 300000,
+      "carryForward": 750000,
+      "outstanding": 900000,
+      "grandTotal": 900000,
       "billingDate": "2026-01-05",
       "dueDate": "2026-01-19",
       "createdAt": "2026-08-20T09:47:17.698Z",
@@ -3058,9 +2985,9 @@
       "optionalChargesFee": 0,
       "discountAmount": 0,
       "scholarshipAmount": 0,
-      "carryForward": 150000,
-      "outstanding": 300000,
-      "grandTotal": 300000,
+      "carryForward": 750000,
+      "outstanding": 900000,
+      "grandTotal": 900000,
       "billingDate": "2026-01-05",
       "dueDate": "2026-01-19",
       "createdAt": "2026-08-20T09:47:17.698Z",
@@ -3080,9 +3007,9 @@
       "optionalChargesFee": 0,
       "discountAmount": 0,
       "scholarshipAmount": 0,
-      "carryForward": 150000,
-      "outstanding": 300000,
-      "grandTotal": 300000,
+      "carryForward": 750000,
+      "outstanding": 900000,
+      "grandTotal": 900000,
       "billingDate": "2026-01-05",
       "dueDate": "2026-01-19",
       "createdAt": "2026-08-20T09:47:17.698Z",
@@ -3102,9 +3029,9 @@
       "optionalChargesFee": 0,
       "discountAmount": 0,
       "scholarshipAmount": 0,
-      "carryForward": 150000,
-      "outstanding": 300000,
-      "grandTotal": 300000,
+      "carryForward": 750000,
+      "outstanding": 900000,
+      "grandTotal": 900000,
       "billingDate": "2026-01-05",
       "dueDate": "2026-01-19",
       "createdAt": "2026-08-20T09:47:17.698Z",
@@ -3124,9 +3051,9 @@
       "optionalChargesFee": 0,
       "discountAmount": 0,
       "scholarshipAmount": 0,
-      "carryForward": 150000,
-      "outstanding": 300000,
-      "grandTotal": 300000,
+      "carryForward": 750000,
+      "outstanding": 900000,
+      "grandTotal": 900000,
       "billingDate": "2026-01-05",
       "dueDate": "2026-01-19",
       "createdAt": "2026-08-20T09:47:17.698Z",
@@ -3146,9 +3073,9 @@
       "optionalChargesFee": 0,
       "discountAmount": 0,
       "scholarshipAmount": 0,
-      "carryForward": 450000,
-      "outstanding": 600000,
-      "grandTotal": 600000,
+      "carryForward": 1050000,
+      "outstanding": 1200000,
+      "grandTotal": 1200000,
       "billingDate": "2026-04-20",
       "dueDate": "2026-05-04",
       "createdAt": "2026-08-20T09:47:17.699Z",
@@ -3168,9 +3095,9 @@
       "optionalChargesFee": 0,
       "discountAmount": 0,
       "scholarshipAmount": 0,
-      "carryForward": 450000,
-      "outstanding": 600000,
-      "grandTotal": 600000,
+      "carryForward": 1050000,
+      "outstanding": 1200000,
+      "grandTotal": 1200000,
       "billingDate": "2026-04-20",
       "dueDate": "2026-05-04",
       "createdAt": "2026-08-20T09:47:17.699Z",
@@ -3190,9 +3117,9 @@
       "optionalChargesFee": 0,
       "discountAmount": 0,
       "scholarshipAmount": 0,
-      "carryForward": 475000,
-      "outstanding": 630000,
-      "grandTotal": 630000,
+      "carryForward": 1105000,
+      "outstanding": 1260000,
+      "grandTotal": 1260000,
       "billingDate": "2026-04-20",
       "dueDate": "2026-05-04",
       "createdAt": "2026-08-20T09:47:17.699Z",
@@ -3212,9 +3139,9 @@
       "optionalChargesFee": 0,
       "discountAmount": 0,
       "scholarshipAmount": 0,
-      "carryForward": 445000,
-      "outstanding": 600000,
-      "grandTotal": 600000,
+      "carryForward": 1045000,
+      "outstanding": 1200000,
+      "grandTotal": 1200000,
       "billingDate": "2026-04-20",
       "dueDate": "2026-05-04",
       "createdAt": "2026-08-20T09:47:17.699Z",
@@ -3234,9 +3161,9 @@
       "optionalChargesFee": 0,
       "discountAmount": 0,
       "scholarshipAmount": 0,
-      "carryForward": 450000,
-      "outstanding": 600000,
-      "grandTotal": 600000,
+      "carryForward": 1050000,
+      "outstanding": 1200000,
+      "grandTotal": 1200000,
       "billingDate": "2026-04-20",
       "dueDate": "2026-05-04",
       "createdAt": "2026-08-20T09:47:17.699Z",
@@ -3256,9 +3183,9 @@
       "optionalChargesFee": 0,
       "discountAmount": 0,
       "scholarshipAmount": 0,
-      "carryForward": 450000,
-      "outstanding": 600000,
-      "grandTotal": 600000,
+      "carryForward": 1050000,
+      "outstanding": 1200000,
+      "grandTotal": 1200000,
       "billingDate": "2026-04-20",
       "dueDate": "2026-05-04",
       "createdAt": "2026-08-20T09:47:17.699Z",
@@ -3278,9 +3205,9 @@
       "optionalChargesFee": 0,
       "discountAmount": 0,
       "scholarshipAmount": 0,
-      "carryForward": 450000,
-      "outstanding": 600000,
-      "grandTotal": 600000,
+      "carryForward": 1050000,
+      "outstanding": 1200000,
+      "grandTotal": 1200000,
       "billingDate": "2026-04-20",
       "dueDate": "2026-05-04",
       "createdAt": "2026-08-20T09:47:17.699Z",
@@ -3300,9 +3227,9 @@
       "optionalChargesFee": 0,
       "discountAmount": 0,
       "scholarshipAmount": 0,
-      "carryForward": 450000,
-      "outstanding": 600000,
-      "grandTotal": 600000,
+      "carryForward": 1050000,
+      "outstanding": 1200000,
+      "grandTotal": 1200000,
       "billingDate": "2026-04-20",
       "dueDate": "2026-05-04",
       "createdAt": "2026-08-20T09:47:17.699Z",
@@ -3322,9 +3249,9 @@
       "optionalChargesFee": 0,
       "discountAmount": 0,
       "scholarshipAmount": 0,
-      "carryForward": 450000,
-      "outstanding": 600000,
-      "grandTotal": 600000,
+      "carryForward": 1050000,
+      "outstanding": 1200000,
+      "grandTotal": 1200000,
       "billingDate": "2026-04-20",
       "dueDate": "2026-05-04",
       "createdAt": "2026-08-20T09:47:17.699Z",
@@ -3344,9 +3271,9 @@
       "optionalChargesFee": 0,
       "discountAmount": 0,
       "scholarshipAmount": 0,
-      "carryForward": 450000,
-      "outstanding": 600000,
-      "grandTotal": 600000,
+      "carryForward": 1050000,
+      "outstanding": 1200000,
+      "grandTotal": 1200000,
       "billingDate": "2026-04-20",
       "dueDate": "2026-05-04",
       "createdAt": "2026-08-20T09:47:17.699Z",
@@ -3366,9 +3293,9 @@
       "optionalChargesFee": 0,
       "discountAmount": 0,
       "scholarshipAmount": 0,
-      "carryForward": 450000,
-      "outstanding": 600000,
-      "grandTotal": 600000,
+      "carryForward": 1050000,
+      "outstanding": 1200000,
+      "grandTotal": 1200000,
       "billingDate": "2026-04-20",
       "dueDate": "2026-05-04",
       "createdAt": "2026-08-20T09:47:17.699Z",
@@ -4244,7 +4171,7 @@
       "message": "A new fee ledger has been auto-generated for Sophia Martinez for First Term. Base Fee: ₦150,000. Total Due: ₦150,000. Due Date: 2025-09-15.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.670Z"
     },
     {
@@ -4255,7 +4182,7 @@
       "message": "A new fee ledger has been auto-generated for Liam O'Connor for First Term. Base Fee: ₦150,000. Total Due: ₦150,000. Due Date: 2025-09-15.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.671Z"
     },
     {
@@ -4266,7 +4193,7 @@
       "message": "A new fee ledger has been auto-generated for Alexander Mercer for First Term. Base Fee: ₦155,000. Total Due: ₦155,000. Due Date: 2025-09-15.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.672Z"
     },
     {
@@ -4277,7 +4204,7 @@
       "message": "A new fee ledger has been auto-generated for Chloe Zhao for First Term. Base Fee: ₦140,000. Total Due: ₦140,000. Due Date: 2025-09-15.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.672Z"
     },
     {
@@ -4288,7 +4215,7 @@
       "message": "A new fee ledger has been auto-generated for Amara Adebayo for First Term. Base Fee: ₦150,000. Total Due: ₦150,000. Due Date: 2025-09-15.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.673Z"
     },
     {
@@ -4299,7 +4226,7 @@
       "message": "A new fee ledger has been auto-generated for Marcus Thorne for First Term. Base Fee: ₦150,000. Total Due: ₦150,000. Due Date: 2025-09-15.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.673Z"
     },
     {
@@ -4310,7 +4237,7 @@
       "message": "A new fee ledger has been auto-generated for Aisha Bello for First Term. Base Fee: ₦150,000. Total Due: ₦150,000. Due Date: 2025-09-15.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.673Z"
     },
     {
@@ -4321,7 +4248,7 @@
       "message": "A new fee ledger has been auto-generated for Chinedu Okafor for First Term. Base Fee: ₦150,000. Total Due: ₦150,000. Due Date: 2025-09-15.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.673Z"
     },
     {
@@ -4332,7 +4259,7 @@
       "message": "A new fee ledger has been auto-generated for Fatima Musa for First Term. Base Fee: ₦150,000. Total Due: ₦150,000. Due Date: 2025-09-15.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.673Z"
     },
     {
@@ -4343,7 +4270,7 @@
       "message": "A new fee ledger has been auto-generated for Zainab Abubakar for First Term. Base Fee: ₦150,000. Total Due: ₦150,000. Due Date: 2025-09-15.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.693Z"
     },
     {
@@ -4354,7 +4281,7 @@
       "message": "A new fee ledger has been auto-generated for Kabiru Ibrahim for First Term. Base Fee: ₦150,000. Total Due: ₦150,000. Due Date: 2025-09-15.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.693Z"
     },
     {
@@ -4365,7 +4292,7 @@
       "message": "A new fee ledger has been auto-generated for Sophia Martinez for Second Term. Base Fee: ₦150,000. Carried Forward Outstanding: ₦150,000. Total Due: ₦300,000. Due Date: 2026-01-19.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.698Z"
     },
     {
@@ -4376,7 +4303,7 @@
       "message": "A new fee ledger has been auto-generated for Liam O'Connor for Second Term. Base Fee: ₦150,000. Carried Forward Outstanding: ₦150,000. Total Due: ₦300,000. Due Date: 2026-01-19.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.698Z"
     },
     {
@@ -4387,7 +4314,7 @@
       "message": "A new fee ledger has been auto-generated for Alexander Mercer for Second Term. Base Fee: ₦165,000. Carried Forward Outstanding: ₦155,000. Total Due: ₦320,000. Due Date: 2026-01-19.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.698Z"
     },
     {
@@ -4398,7 +4325,7 @@
       "message": "A new fee ledger has been auto-generated for Chloe Zhao for Second Term. Base Fee: ₦165,000. Carried Forward Outstanding: ₦140,000. Total Due: ₦305,000. Due Date: 2026-01-19.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.698Z"
     },
     {
@@ -4409,7 +4336,7 @@
       "message": "A new fee ledger has been auto-generated for Amara Adebayo for Second Term. Base Fee: ₦150,000. Carried Forward Outstanding: ₦150,000. Total Due: ₦300,000. Due Date: 2026-01-19.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.698Z"
     },
     {
@@ -4420,7 +4347,7 @@
       "message": "A new fee ledger has been auto-generated for Marcus Thorne for Second Term. Base Fee: ₦150,000. Carried Forward Outstanding: ₦150,000. Total Due: ₦300,000. Due Date: 2026-01-19.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.698Z"
     },
     {
@@ -4431,7 +4358,7 @@
       "message": "A new fee ledger has been auto-generated for Aisha Bello for Second Term. Base Fee: ₦150,000. Carried Forward Outstanding: ₦150,000. Total Due: ₦300,000. Due Date: 2026-01-19.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.698Z"
     },
     {
@@ -4442,7 +4369,7 @@
       "message": "A new fee ledger has been auto-generated for Chinedu Okafor for Second Term. Base Fee: ₦150,000. Carried Forward Outstanding: ₦150,000. Total Due: ₦300,000. Due Date: 2026-01-19.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.698Z"
     },
     {
@@ -4453,7 +4380,7 @@
       "message": "A new fee ledger has been auto-generated for Fatima Musa for Second Term. Base Fee: ₦150,000. Carried Forward Outstanding: ₦150,000. Total Due: ₦300,000. Due Date: 2026-01-19.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.698Z"
     },
     {
@@ -4464,7 +4391,7 @@
       "message": "A new fee ledger has been auto-generated for Zainab Abubakar for Second Term. Base Fee: ₦150,000. Carried Forward Outstanding: ₦150,000. Total Due: ₦300,000. Due Date: 2026-01-19.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.698Z"
     },
     {
@@ -4475,7 +4402,7 @@
       "message": "A new fee ledger has been auto-generated for Kabiru Ibrahim for Second Term. Base Fee: ₦150,000. Carried Forward Outstanding: ₦150,000. Total Due: ₦300,000. Due Date: 2026-01-19.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.698Z"
     },
     {
@@ -4486,7 +4413,7 @@
       "message": "A new fee ledger has been auto-generated for Sophia Martinez for Third Term. Base Fee: ₦150,000. Carried Forward Outstanding: ₦450,000. Total Due: ₦600,000. Due Date: 2026-05-04.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.699Z"
     },
     {
@@ -4497,7 +4424,7 @@
       "message": "A new fee ledger has been auto-generated for Liam O'Connor for Third Term. Base Fee: ₦150,000. Carried Forward Outstanding: ₦450,000. Total Due: ₦600,000. Due Date: 2026-05-04.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.699Z"
     },
     {
@@ -4508,7 +4435,7 @@
       "message": "A new fee ledger has been auto-generated for Alexander Mercer for Third Term. Base Fee: ₦155,000. Carried Forward Outstanding: ₦475,000. Total Due: ₦630,000. Due Date: 2026-05-04.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.699Z"
     },
     {
@@ -4519,7 +4446,7 @@
       "message": "A new fee ledger has been auto-generated for Chloe Zhao for Third Term. Base Fee: ₦155,000. Carried Forward Outstanding: ₦445,000. Total Due: ₦600,000. Due Date: 2026-05-04.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.699Z"
     },
     {
@@ -4530,7 +4457,7 @@
       "message": "A new fee ledger has been auto-generated for Amara Adebayo for Third Term. Base Fee: ₦150,000. Carried Forward Outstanding: ₦450,000. Total Due: ₦600,000. Due Date: 2026-05-04.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.699Z"
     },
     {
@@ -4541,7 +4468,7 @@
       "message": "A new fee ledger has been auto-generated for Marcus Thorne for Third Term. Base Fee: ₦150,000. Carried Forward Outstanding: ₦450,000. Total Due: ₦600,000. Due Date: 2026-05-04.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.699Z"
     },
     {
@@ -4552,7 +4479,7 @@
       "message": "A new fee ledger has been auto-generated for Aisha Bello for Third Term. Base Fee: ₦150,000. Carried Forward Outstanding: ₦450,000. Total Due: ₦600,000. Due Date: 2026-05-04.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.699Z"
     },
     {
@@ -4563,7 +4490,7 @@
       "message": "A new fee ledger has been auto-generated for Chinedu Okafor for Third Term. Base Fee: ₦150,000. Carried Forward Outstanding: ₦450,000. Total Due: ₦600,000. Due Date: 2026-05-04.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.699Z"
     },
     {
@@ -4574,7 +4501,7 @@
       "message": "A new fee ledger has been auto-generated for Fatima Musa for Third Term. Base Fee: ₦150,000. Carried Forward Outstanding: ₦450,000. Total Due: ₦600,000. Due Date: 2026-05-04.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.699Z"
     },
     {
@@ -4585,7 +4512,7 @@
       "message": "A new fee ledger has been auto-generated for Zainab Abubakar for Third Term. Base Fee: ₦150,000. Carried Forward Outstanding: ₦450,000. Total Due: ₦600,000. Due Date: 2026-05-04.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.699Z"
     },
     {
@@ -4596,7 +4523,7 @@
       "message": "A new fee ledger has been auto-generated for Kabiru Ibrahim for Third Term. Base Fee: ₦150,000. Carried Forward Outstanding: ₦450,000. Total Due: ₦600,000. Due Date: 2026-05-04.",
       "date": "2026-07-04",
       "type": "billing_generation",
-      "read": false,
+      "read": true,
       "createdAt": "2026-08-20T09:47:17.699Z"
     }
   ],
@@ -4607,8 +4534,8 @@
       "termName": "First Term",
       "type": "begun",
       "date": "2026-07-04",
-      "details": "Automatically generated 11 fee ledgers, carrying ₦0 previous outstanding balances forward. Sent notifications to parents. Due dates set to 14 days post term start.",
-      "timestamp": "2026-08-20T09:47:17.693Z"
+      "details": "Automatically generated 0 fee ledgers, carrying ₦0 previous outstanding balances forward. Sent notifications to parents. Due dates set to 14 days post term start.",
+      "timestamp": "2026-08-22T16:05:18.535Z"
     },
     {
       "id": "term-1-ended",
@@ -4616,8 +4543,8 @@
       "termName": "First Term",
       "type": "ended",
       "date": "2026-07-04",
-      "details": "Term ended. Identified 11 ledgers with unpaid dues. Outstanding balances (Totaling ₦1,645,000) have been flagged to be carried forward to the next term's ledger.",
-      "timestamp": "2026-08-20T09:47:17.697Z"
+      "details": "Term ended. Identified 11 ledgers with unpaid dues. Outstanding balances (Totaling ₦8,275,000) have been flagged to be carried forward to the next term's ledger.",
+      "timestamp": "2026-08-22T16:05:18.535Z"
     },
     {
       "id": "term-2-begun",
@@ -4625,8 +4552,8 @@
       "termName": "Second Term",
       "type": "begun",
       "date": "2026-07-04",
-      "details": "Automatically generated 11 fee ledgers, carrying ₦1,645,000 previous outstanding balances forward. Sent notifications to parents. Due dates set to 14 days post term start.",
-      "timestamp": "2026-08-20T09:47:17.698Z"
+      "details": "Automatically generated 0 fee ledgers, carrying ₦0 previous outstanding balances forward. Sent notifications to parents. Due dates set to 14 days post term start.",
+      "timestamp": "2026-08-22T16:05:18.535Z"
     },
     {
       "id": "term-2-ended",
@@ -4634,8 +4561,8 @@
       "termName": "Second Term",
       "type": "ended",
       "date": "2026-07-04",
-      "details": "Term ended. Identified 11 ledgers with unpaid dues. Outstanding balances (Totaling ₦3,325,000) have been flagged to be carried forward to the next term's ledger.",
-      "timestamp": "2026-08-20T09:47:17.699Z"
+      "details": "Term ended. Identified 11 ledgers with unpaid dues. Outstanding balances (Totaling ₦11,600,000) have been flagged to be carried forward to the next term's ledger.",
+      "timestamp": "2026-08-22T16:05:18.535Z"
     },
     {
       "id": "term-3-begun",
@@ -4643,8 +4570,8 @@
       "termName": "Third Term",
       "type": "begun",
       "date": "2026-07-04",
-      "details": "Automatically generated 11 fee ledgers, carrying ₦4,970,000 previous outstanding balances forward. Sent notifications to parents. Due dates set to 14 days post term start.",
-      "timestamp": "2026-08-20T09:47:17.699Z"
+      "details": "Automatically generated 0 fee ledgers, carrying ₦0 previous outstanding balances forward. Sent notifications to parents. Due dates set to 14 days post term start.",
+      "timestamp": "2026-08-22T16:05:18.536Z"
     }
   ],
   "sibling_discount_policies": [
@@ -4771,7 +4698,728 @@
       "createdAt": "2026-08-20T09:40:54.495Z"
     }
   ],
-  "sibling_discount_records": [],
+  "sibling_discount_records": [
+    {
+      "id": "sdr-std-n2-ses-2026-Term_1",
+      "studentId": "std-n2",
+      "studentName": "Liam O'Connor",
+      "studentGrade": "Preschool (Ages 2-3)",
+      "studentLevel": "nursery",
+      "branch": "GN",
+      "familyAccountId": "fam-1787218854495-2",
+      "familyName": "Siobhan Family",
+      "parentName": "Siobhan O'Connor",
+      "parentPhone": "+1 (555) 8734",
+      "parentEmail": "siobhan.oc@example.com",
+      "sessionId": "ses-2026",
+      "termId": "Term 1",
+      "siblingRank": 1,
+      "totalSiblingsInFamily": 1,
+      "discountRatePercent": 0,
+      "originalTotalFee": 155000,
+      "eligibleFeeBase": 155000,
+      "excludedFeeTotal": 0,
+      "discountAmount": 0,
+      "finalAmountPayable": 155000,
+      "feeHeadsBreakdown": [
+        {
+          "name": "Tuition",
+          "amount": 120000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 25000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 10000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        }
+      ],
+      "status": "Calculated (0% Full Fee)",
+      "isOverridden": false,
+      "overrideReason": null,
+      "clearedBeforeDeadline": true,
+      "createdAt": "2026-08-22T16:08:17.238Z"
+    },
+    {
+      "id": "sdr-std-p1-ses-2026-Term_1",
+      "studentId": "std-p1",
+      "studentName": "Alexander Mercer",
+      "studentGrade": "Grade 3",
+      "studentLevel": "primary",
+      "branch": "GN",
+      "familyAccountId": "fam-1787218854495-3",
+      "familyName": "Richard Family",
+      "parentName": "Richard Mercer",
+      "parentPhone": "+1 (555) 3491",
+      "parentEmail": "richard.mercer@example.com",
+      "sessionId": "ses-2026",
+      "termId": "Term 1",
+      "siblingRank": 1,
+      "totalSiblingsInFamily": 1,
+      "discountRatePercent": 0,
+      "originalTotalFee": 155000,
+      "eligibleFeeBase": 155000,
+      "excludedFeeTotal": 0,
+      "discountAmount": 0,
+      "finalAmountPayable": 155000,
+      "feeHeadsBreakdown": [
+        {
+          "name": "Tuition",
+          "amount": 120000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 25000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 10000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        }
+      ],
+      "status": "Calculated (0% Full Fee)",
+      "isOverridden": false,
+      "overrideReason": null,
+      "clearedBeforeDeadline": true,
+      "createdAt": "2026-08-22T16:08:17.238Z"
+    },
+    {
+      "id": "sdr-std-p2-ses-2026-Term_1",
+      "studentId": "std-p2",
+      "studentName": "Chloe Zhao",
+      "studentGrade": "Grade 5",
+      "studentLevel": "primary",
+      "branch": "GN",
+      "familyAccountId": "fam-1787218854495-4",
+      "familyName": "Ying Family",
+      "parentName": "Ying Zhao",
+      "parentPhone": "+1 (555) 4501",
+      "parentEmail": "ying.zhao@example.com",
+      "sessionId": "ses-2026",
+      "termId": "Term 1",
+      "siblingRank": 1,
+      "totalSiblingsInFamily": 1,
+      "discountRatePercent": 0,
+      "originalTotalFee": 155000,
+      "eligibleFeeBase": 155000,
+      "excludedFeeTotal": 0,
+      "discountAmount": 0,
+      "finalAmountPayable": 155000,
+      "feeHeadsBreakdown": [
+        {
+          "name": "Tuition",
+          "amount": 120000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 25000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 10000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        }
+      ],
+      "status": "Calculated (0% Full Fee)",
+      "isOverridden": false,
+      "overrideReason": null,
+      "clearedBeforeDeadline": true,
+      "createdAt": "2026-08-22T16:08:17.239Z"
+    },
+    {
+      "id": "sdr-std-s1-ses-2026-Term_1",
+      "studentId": "std-s1",
+      "studentName": "Amara Adebayo",
+      "studentGrade": "Grade 10",
+      "studentLevel": "secondary",
+      "branch": "GN",
+      "familyAccountId": "fam-1787218854495-5",
+      "familyName": "Femi Family",
+      "parentName": "Femi Adebayo",
+      "parentPhone": "+1 (555) 7621",
+      "parentEmail": "f.adebayo@example.com",
+      "sessionId": "ses-2026",
+      "termId": "Term 1",
+      "siblingRank": 1,
+      "totalSiblingsInFamily": 1,
+      "discountRatePercent": 0,
+      "originalTotalFee": 155000,
+      "eligibleFeeBase": 155000,
+      "excludedFeeTotal": 0,
+      "discountAmount": 0,
+      "finalAmountPayable": 155000,
+      "feeHeadsBreakdown": [
+        {
+          "name": "Tuition",
+          "amount": 120000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 25000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 10000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        }
+      ],
+      "status": "Calculated (0% Full Fee)",
+      "isOverridden": false,
+      "overrideReason": null,
+      "clearedBeforeDeadline": true,
+      "createdAt": "2026-08-22T16:08:17.239Z"
+    },
+    {
+      "id": "sdr-std-s2-ses-2026-Term_1",
+      "studentId": "std-s2",
+      "studentName": "Marcus Thorne",
+      "studentGrade": "Grade 11",
+      "studentLevel": "secondary",
+      "branch": "GN",
+      "familyAccountId": "fam-1787218854495-6",
+      "familyName": "Gemma Family",
+      "parentName": "Gemma Thorne",
+      "parentPhone": "+1 (555) 2311",
+      "parentEmail": "gemma.thorne@example.com",
+      "sessionId": "ses-2026",
+      "termId": "Term 1",
+      "siblingRank": 1,
+      "totalSiblingsInFamily": 1,
+      "discountRatePercent": 0,
+      "originalTotalFee": 155000,
+      "eligibleFeeBase": 155000,
+      "excludedFeeTotal": 0,
+      "discountAmount": 0,
+      "finalAmountPayable": 155000,
+      "feeHeadsBreakdown": [
+        {
+          "name": "Tuition",
+          "amount": 120000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 25000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 10000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        }
+      ],
+      "status": "Calculated (0% Full Fee)",
+      "isOverridden": false,
+      "overrideReason": null,
+      "clearedBeforeDeadline": true,
+      "createdAt": "2026-08-22T16:08:17.239Z"
+    },
+    {
+      "id": "sdr-std-rs1-ses-2026-Term_1",
+      "studentId": "std-rs1",
+      "studentName": "Aisha Bello",
+      "studentGrade": "K1 (Ages 3-4)",
+      "studentLevel": "nursery",
+      "branch": "RS",
+      "familyAccountId": "fam-1787218854495-7",
+      "familyName": "Alhaji Family",
+      "parentName": "Alhaji Bello",
+      "parentPhone": "+234 (802) 111-2222",
+      "parentEmail": "bello.a@example.com",
+      "sessionId": "ses-2026",
+      "termId": "Term 1",
+      "siblingRank": 1,
+      "totalSiblingsInFamily": 1,
+      "discountRatePercent": 0,
+      "originalTotalFee": 155000,
+      "eligibleFeeBase": 155000,
+      "excludedFeeTotal": 0,
+      "discountAmount": 0,
+      "finalAmountPayable": 155000,
+      "feeHeadsBreakdown": [
+        {
+          "name": "Tuition",
+          "amount": 120000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 25000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 10000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        }
+      ],
+      "status": "Calculated (0% Full Fee)",
+      "isOverridden": false,
+      "overrideReason": null,
+      "clearedBeforeDeadline": true,
+      "createdAt": "2026-08-22T16:08:17.239Z"
+    },
+    {
+      "id": "sdr-std-rs2-ses-2026-Term_1",
+      "studentId": "std-rs2",
+      "studentName": "Chinedu Okafor",
+      "studentGrade": "Grade 3",
+      "studentLevel": "primary",
+      "branch": "RS",
+      "familyAccountId": "fam-1787218854495-8",
+      "familyName": "Emeka Family",
+      "parentName": "Emeka Okafor",
+      "parentPhone": "+234 (803) 333-4444",
+      "parentEmail": "emeka.o@example.com",
+      "sessionId": "ses-2026",
+      "termId": "Term 1",
+      "siblingRank": 1,
+      "totalSiblingsInFamily": 1,
+      "discountRatePercent": 0,
+      "originalTotalFee": 155000,
+      "eligibleFeeBase": 155000,
+      "excludedFeeTotal": 0,
+      "discountAmount": 0,
+      "finalAmountPayable": 155000,
+      "feeHeadsBreakdown": [
+        {
+          "name": "Tuition",
+          "amount": 120000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 25000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 10000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        }
+      ],
+      "status": "Calculated (0% Full Fee)",
+      "isOverridden": false,
+      "overrideReason": null,
+      "clearedBeforeDeadline": true,
+      "createdAt": "2026-08-22T16:08:17.239Z"
+    },
+    {
+      "id": "sdr-std-rs3-ses-2026-Term_1",
+      "studentId": "std-rs3",
+      "studentName": "Fatima Musa",
+      "studentGrade": "Grade 5",
+      "studentLevel": "primary",
+      "branch": "RS",
+      "familyAccountId": "fam-1787218854495-9",
+      "familyName": "Musa Family",
+      "parentName": "Musa Umar",
+      "parentPhone": "+234 (806) 555-6666",
+      "parentEmail": "musa.u@example.com",
+      "sessionId": "ses-2026",
+      "termId": "Term 1",
+      "siblingRank": 1,
+      "totalSiblingsInFamily": 1,
+      "discountRatePercent": 0,
+      "originalTotalFee": 155000,
+      "eligibleFeeBase": 155000,
+      "excludedFeeTotal": 0,
+      "discountAmount": 0,
+      "finalAmountPayable": 155000,
+      "feeHeadsBreakdown": [
+        {
+          "name": "Tuition",
+          "amount": 120000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 25000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 10000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        }
+      ],
+      "status": "Calculated (0% Full Fee)",
+      "isOverridden": false,
+      "overrideReason": null,
+      "clearedBeforeDeadline": true,
+      "createdAt": "2026-08-22T16:08:17.239Z"
+    },
+    {
+      "id": "sdr-std-rs4-ses-2026-Term_1",
+      "studentId": "std-rs4",
+      "studentName": "Zainab Abubakar",
+      "studentGrade": "Grade 10",
+      "studentLevel": "secondary",
+      "branch": "RS",
+      "familyAccountId": "fam-1787218854495-10",
+      "familyName": "Abubakar Family",
+      "parentName": "Abubakar Sokoto",
+      "parentPhone": "+234 (805) 777-8888",
+      "parentEmail": "abubakar@example.com",
+      "sessionId": "ses-2026",
+      "termId": "Term 1",
+      "siblingRank": 1,
+      "totalSiblingsInFamily": 1,
+      "discountRatePercent": 0,
+      "originalTotalFee": 155000,
+      "eligibleFeeBase": 155000,
+      "excludedFeeTotal": 0,
+      "discountAmount": 0,
+      "finalAmountPayable": 155000,
+      "feeHeadsBreakdown": [
+        {
+          "name": "Tuition",
+          "amount": 120000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 25000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 10000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        }
+      ],
+      "status": "Calculated (0% Full Fee)",
+      "isOverridden": false,
+      "overrideReason": null,
+      "clearedBeforeDeadline": true,
+      "createdAt": "2026-08-22T16:08:17.239Z"
+    },
+    {
+      "id": "sdr-std-rs5-ses-2026-Term_1",
+      "studentId": "std-rs5",
+      "studentName": "Kabiru Ibrahim",
+      "studentGrade": "Grade 11",
+      "studentLevel": "secondary",
+      "branch": "RS",
+      "familyAccountId": "fam-1787218854495-11",
+      "familyName": "Ibrahim Family",
+      "parentName": "Ibrahim Dasuki",
+      "parentPhone": "+234 (809) 999-0000",
+      "parentEmail": "dasuki@example.com",
+      "sessionId": "ses-2026",
+      "termId": "Term 1",
+      "siblingRank": 1,
+      "totalSiblingsInFamily": 1,
+      "discountRatePercent": 0,
+      "originalTotalFee": 155000,
+      "eligibleFeeBase": 155000,
+      "excludedFeeTotal": 0,
+      "discountAmount": 0,
+      "finalAmountPayable": 155000,
+      "feeHeadsBreakdown": [
+        {
+          "name": "Tuition",
+          "amount": 120000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 25000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 10000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        }
+      ],
+      "status": "Calculated (0% Full Fee)",
+      "isOverridden": false,
+      "overrideReason": null,
+      "clearedBeforeDeadline": true,
+      "createdAt": "2026-08-22T16:08:17.239Z"
+    },
+    {
+      "id": "sdr-std-qamar-1-ses-2026-Term_1",
+      "studentId": "std-qamar-1",
+      "studentName": "Muhammad Qamar",
+      "studentGrade": "Grade 8 (JSS 2)",
+      "studentLevel": "secondary",
+      "branch": "GN",
+      "familyAccountId": "fam-qamar-gn",
+      "familyName": "Qamar Family",
+      "parentName": "Engr. Usamah M. Qamar",
+      "parentPhone": "+234 803 123 4567",
+      "parentEmail": "usamah.qamar@example.com",
+      "sessionId": "ses-2026",
+      "termId": "Term 1",
+      "siblingRank": 1,
+      "totalSiblingsInFamily": 4,
+      "discountRatePercent": 0,
+      "originalTotalFee": 155000,
+      "eligibleFeeBase": 155000,
+      "excludedFeeTotal": 0,
+      "discountAmount": 0,
+      "finalAmountPayable": 155000,
+      "feeHeadsBreakdown": [
+        {
+          "name": "Tuition",
+          "amount": 120000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 25000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 10000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        }
+      ],
+      "status": "Calculated (0% Full Fee)",
+      "isOverridden": false,
+      "overrideReason": null,
+      "clearedBeforeDeadline": true,
+      "createdAt": "2026-08-22T16:08:17.239Z"
+    },
+    {
+      "id": "sdr-std-qamar-2-ses-2026-Term_1",
+      "studentId": "std-qamar-2",
+      "studentName": "Fatima Qamar",
+      "studentGrade": "Grade 5 (Primary 5)",
+      "studentLevel": "primary",
+      "branch": "GN",
+      "familyAccountId": "fam-qamar-gn",
+      "familyName": "Qamar Family",
+      "parentName": "Engr. Usamah M. Qamar",
+      "parentPhone": "+234 803 123 4567",
+      "parentEmail": "usamah.qamar@example.com",
+      "sessionId": "ses-2026",
+      "termId": "Term 1",
+      "siblingRank": 2,
+      "totalSiblingsInFamily": 4,
+      "discountRatePercent": 5,
+      "originalTotalFee": 155000,
+      "eligibleFeeBase": 155000,
+      "excludedFeeTotal": 0,
+      "discountAmount": 7750,
+      "finalAmountPayable": 147250,
+      "feeHeadsBreakdown": [
+        {
+          "name": "Tuition",
+          "amount": 120000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 25000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 10000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        }
+      ],
+      "status": "Eligible",
+      "isOverridden": false,
+      "overrideReason": null,
+      "clearedBeforeDeadline": true,
+      "createdAt": "2026-08-22T16:08:17.239Z"
+    },
+    {
+      "id": "sdr-std-qamar-3-ses-2026-Term_1",
+      "studentId": "std-qamar-3",
+      "studentName": "Ibrahim Qamar",
+      "studentGrade": "K2 (Nursery 3 - Ages 4-5)",
+      "studentLevel": "nursery",
+      "branch": "GN",
+      "familyAccountId": "fam-qamar-gn",
+      "familyName": "Qamar Family",
+      "parentName": "Engr. Usamah M. Qamar",
+      "parentPhone": "+234 803 123 4567",
+      "parentEmail": "usamah.qamar@example.com",
+      "sessionId": "ses-2026",
+      "termId": "Term 1",
+      "siblingRank": 3,
+      "totalSiblingsInFamily": 4,
+      "discountRatePercent": 10,
+      "originalTotalFee": 155000,
+      "eligibleFeeBase": 155000,
+      "excludedFeeTotal": 0,
+      "discountAmount": 15500,
+      "finalAmountPayable": 139500,
+      "feeHeadsBreakdown": [
+        {
+          "name": "Tuition",
+          "amount": 120000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 25000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 10000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        }
+      ],
+      "status": "Eligible",
+      "isOverridden": false,
+      "overrideReason": null,
+      "clearedBeforeDeadline": true,
+      "createdAt": "2026-08-22T16:08:17.239Z"
+    },
+    {
+      "id": "sdr-std-qamar-4-ses-2026-Term_1",
+      "studentId": "std-qamar-4",
+      "studentName": "Maryam Qamar",
+      "studentGrade": "Preschool (Nursery 1 - Ages 2-3)",
+      "studentLevel": "nursery",
+      "branch": "GN",
+      "familyAccountId": "fam-qamar-gn",
+      "familyName": "Qamar Family",
+      "parentName": "Engr. Usamah M. Qamar",
+      "parentPhone": "+234 803 123 4567",
+      "parentEmail": "usamah.qamar@example.com",
+      "sessionId": "ses-2026",
+      "termId": "Term 1",
+      "siblingRank": 4,
+      "totalSiblingsInFamily": 4,
+      "discountRatePercent": 15,
+      "originalTotalFee": 155000,
+      "eligibleFeeBase": 155000,
+      "excludedFeeTotal": 0,
+      "discountAmount": 23250,
+      "finalAmountPayable": 131750,
+      "feeHeadsBreakdown": [
+        {
+          "name": "Tuition",
+          "amount": 120000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 25000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 10000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        }
+      ],
+      "status": "Eligible",
+      "isOverridden": false,
+      "overrideReason": null,
+      "clearedBeforeDeadline": true,
+      "createdAt": "2026-08-22T16:08:17.239Z"
+    },
+    {
+      "id": "sdr-std-1787414718039-214-ses-2026-Term_1",
+      "studentId": "std-1787414718039-214",
+      "studentName": "Test",
+      "studentGrade": "Grade 10",
+      "studentLevel": "secondary",
+      "branch": "Main Campus",
+      "familyAccountId": "fam-auto-std-1787414718039-214",
+      "familyName": "Unknown Family",
+      "parentName": "Parent",
+      "parentPhone": "",
+      "parentEmail": "",
+      "sessionId": "ses-2026",
+      "termId": "Term 1",
+      "siblingRank": 1,
+      "totalSiblingsInFamily": 1,
+      "discountRatePercent": 0,
+      "originalTotalFee": 155000,
+      "eligibleFeeBase": 155000,
+      "excludedFeeTotal": 0,
+      "discountAmount": 0,
+      "finalAmountPayable": 155000,
+      "feeHeadsBreakdown": [
+        {
+          "name": "Tuition",
+          "amount": 120000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 25000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        },
+        {
+          "name": "Tuition",
+          "amount": 10000,
+          "isEligible": true,
+          "category": "Eligible for Sibling Relief"
+        }
+      ],
+      "status": "Calculated (0% Full Fee)",
+      "isOverridden": false,
+      "overrideReason": null,
+      "clearedBeforeDeadline": true,
+      "createdAt": "2026-08-22T16:08:17.239Z"
+    }
+  ],
   "sibling_discount_audit_logs": [],
   "classes": [
     {
@@ -5003,6 +5651,14 @@
         "Global History"
       ],
       "sectionId": "sec-junior-secondary-rs"
+    },
+    {
+      "id": "cls-1787414718110",
+      "name": "Test",
+      "level": "secondary",
+      "branch": "Main Campus",
+      "subjects": [],
+      "sectionId": "sec-junior-secondary"
     }
   ],
   "academicSessions": [
@@ -5676,6 +6332,13 @@
       "category": "Logistics",
       "stockQuantity": 50,
       "unit": "badges"
+    },
+    {
+      "id": "inv-1787414718426",
+      "name": "Test",
+      "category": "General",
+      "stockQuantity": 0,
+      "unit": "units"
     }
   ],
   "inventory_readiness": [
@@ -6088,6 +6751,23 @@
       "setting": "School Issue Only",
       "location": "Staff Room Supplies",
       "bin": "Cabinet #B"
+    },
+    {
+      "id": "item-1787414718460",
+      "itemCode": "SKU-9335",
+      "name": "Test",
+      "category": "Uniforms",
+      "branch": "Main Campus",
+      "store": "Uniform Depot",
+      "unit": "Piece",
+      "sellingPrice": 0,
+      "costPrice": 0,
+      "currentStock": 0,
+      "minimumStockLevel": 10,
+      "status": "Active",
+      "setting": "Both",
+      "location": "Main Storeroom",
+      "bin": "General Shelf"
     }
   ],
   "inventory_store_sales": [

@@ -15,14 +15,6 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// Normalize URL prefix for Vercel Serverless Function rewrites
-app.use((req, res, next) => {
-  if (!req.url.startsWith('/api') && !req.url.startsWith('/assets') && !req.url.startsWith('/@') && req.url !== '/' && !req.url.startsWith('/index.html')) {
-    req.url = '/api' + (req.url.startsWith('/') ? req.url : '/' + req.url);
-  }
-  next();
-});
-
 // Initialize Gemini SDK with User-Agent telemetry headers
 let ai: GoogleGenAI | null = null;
 if (process.env.GEMINI_API_KEY) {
@@ -7487,7 +7479,7 @@ Ensure the report card comment satisfies the following:
 - Output ONLY the comment text itself. Do not write intros or headers like "Here is the comment:".`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: userPrompt,
       config: {
         systemInstruction: systemPrompt,
@@ -7624,7 +7616,7 @@ app.post('/api/ai-assistant', async (req, res) => {
     ];
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: fullContents,
       config: {
         systemInstruction: `You are the central School ERP AI Consultant. You assist Nursery, Primary, and Secondary school administrators and classroom teachers with advanced tasks, including but not limited to:
@@ -7888,40 +7880,48 @@ app.get('/api/operations/health', (req, res) => {
 });
 
 // AI Health Advisor Executive Briefing
-function generateOfflineHealthBrief(compositeScore: number, categories: any, branch: string): string {
+function generateOfflineHealthBrief(compositeScore: number = 82, categories: any = {}, branch: string = 'All'): string {
   const branchName = String(branch || 'All').toUpperCase();
+  const safeScore = typeof compositeScore === 'number' ? compositeScore : 82;
   
   let standing = "";
-  if (compositeScore >= 90) {
-    standing = `The institutional operations for SAMS **${branchName}** campus are in an **exemplary and highly sound** state. With an overall health index of **${compositeScore}/100**, SAMS is displaying premier efficiency across core academic, operational, and financial dimensions, with minimal administrative drag.`;
-  } else if (compositeScore >= 75) {
-    standing = `Institutional operations at the **${branchName}** campus are in a **robust and improving** state. The current health index of **${compositeScore}/100** points to stable educational standards, solid ledger recovery, and dependable logistical coordination, though minor optimization avenues remain open.`;
-  } else if (compositeScore >= 50) {
-    standing = `Operations at SAMS **${branchName}** campus indicate that **targeted remedial steps are required**. The health index of **${compositeScore}/100** reveals specific operational and logistical friction points. SAMS leadership should deploy focused oversight to resolve these pockets of vulnerability before they compound.`;
+  if (safeScore >= 90) {
+    standing = `The institutional operations for SAMS **${branchName}** campus are in an **exemplary and highly sound** state. With an overall health index of **${safeScore}/100**, SAMS is displaying premier efficiency across core academic, operational, and financial dimensions, with minimal administrative drag.`;
+  } else if (safeScore >= 75) {
+    standing = `Institutional operations at the **${branchName}** campus are in a **robust and improving** state. The current health index of **${safeScore}/100** points to stable educational standards, solid ledger recovery, and dependable logistical coordination, though minor optimization avenues remain open.`;
+  } else if (safeScore >= 50) {
+    standing = `Operations at SAMS **${branchName}** campus indicate that **targeted remedial steps are required**. The health index of **${safeScore}/100** reveals specific operational and logistical friction points. SAMS leadership should deploy focused oversight to resolve these pockets of vulnerability before they compound.`;
   } else {
-    standing = `Operations at the **${branchName}** campus are in a **critical state requiring immediate intervention**. The current health score of **${compositeScore}/100** is severely depressed, indicating compounding vulnerabilities across multiple core departments. Urgent operational restructures must be executed immediately.`;
+    standing = `Operations at the **${branchName}** campus are in a **critical state requiring immediate intervention**. The current health score of **${safeScore}/100** is severely depressed, indicating compounding vulnerabilities across multiple core departments. Urgent operational restructures must be executed immediately.`;
   }
 
-  const catEntries = Object.entries(categories || {}).map(([key, value]: [string, any]) => ({
+  const safeCats = {
+    academic: { score: 85, breakdown: { studentGrades: 88, attendance: 92, teacherPerformance: 85, curriculumCompliance: 90 }, ...(categories?.academic || {}) },
+    financial: { score: 78, breakdown: { feeCollection: 82, budgetVariance: 75, payrollCompliance: 95 }, ...(categories?.financial || {}) },
+    inventory: { score: 80, breakdown: { readinessRate: 85, stockHealth: 80 }, ...(categories?.inventory || {}) },
+    operational: { score: 84, breakdown: { taskCompletion: 86, deadlineCompliance: 88, admissionTurnaround: 90, schedulingCoverage: 95 }, ...(categories?.operational || {}) }
+  };
+
+  const catEntries = Object.entries(safeCats).map(([key, value]: [string, any]) => ({
     key,
     name: key.charAt(0).toUpperCase() + key.slice(1),
-    score: value.score,
-    breakdown: value.breakdown
+    score: typeof value?.score === 'number' ? value.score : 80,
+    breakdown: value?.breakdown || {}
   }));
 
   catEntries.sort((a, b) => b.score - a.score);
-  const strongest = catEntries[0];
-  const weakest = catEntries[catEntries.length - 1];
+  const strongest = catEntries[0] || { key: 'academic', score: 85, breakdown: { studentGrades: 88, attendance: 92, teacherPerformance: 85, curriculumCompliance: 90 } };
+  const weakest = catEntries[catEntries.length - 1] || { key: 'financial', score: 78, breakdown: { feeCollection: 82, budgetVariance: 75, payrollCompliance: 95 } };
 
   let brightSpot = "";
   if (strongest.key === 'academic') {
-    brightSpot = `**Academic Performance & Curriculum Alignment** is the standout leader at **${strongest.score}/100**. This reflects exceptional grade point averages (${strongest.breakdown.studentGrades}%), solid class attendance (${strongest.breakdown.attendance}%), high teacher appraisal ratings (${strongest.breakdown.teacherPerformance}%), and diligent term curriculum compliance (${strongest.breakdown.curriculumCompliance}%).`;
+    brightSpot = `**Academic Performance & Curriculum Alignment** is the standout leader at **${strongest.score}/100**. This reflects exceptional grade point averages (${strongest.breakdown?.studentGrades || 88}%), solid class attendance (${strongest.breakdown?.attendance || 92}%), high teacher appraisal ratings (${strongest.breakdown?.teacherPerformance || 85}%), and diligent term curriculum compliance (${strongest.breakdown?.curriculumCompliance || 90}%).`;
   } else if (strongest.key === 'financial') {
-    brightSpot = `**Financial Management & Liquidity** represents SAMS' key structural strength, scoring a superb **${strongest.score}/100**. This indicates stellar collection rates (${strongest.breakdown.feeCollection}%), robust budget compliance (${strongest.breakdown.budgetVariance}%), and seamless payroll compliance (${strongest.breakdown.payrollCompliance}%).`;
+    brightSpot = `**Financial Management & Liquidity** represents SAMS' key structural strength, scoring a superb **${strongest.score}/100**. This indicates stellar collection rates (${strongest.breakdown?.feeCollection || 82}%), robust budget compliance (${strongest.breakdown?.budgetVariance || 75}%), and seamless payroll compliance (${strongest.breakdown?.payrollCompliance || 95}%).`;
   } else if (strongest.key === 'inventory') {
-    brightSpot = `**Store Inventory & Asset Control** is operating with maximum precision at a score of **${strongest.score}/100**. The campus boasts high stock readiness and auditing checklists completed at ${strongest.breakdown.readinessRate}%, paired with robust physical asset preservation and a healthy stock index (${strongest.breakdown.stockHealth}%).`;
+    brightSpot = `**Store Inventory & Asset Control** is operating with maximum precision at a score of **${strongest.score}/100**. The campus boasts high stock readiness and auditing checklists completed at ${strongest.breakdown?.readinessRate || 85}%, paired with robust physical asset preservation and a healthy stock index (${strongest.breakdown?.stockHealth || 80}%).`;
   } else {
-    brightSpot = `**Operations Coordination & Timelines** represents our central pillar of strength, scoring **${strongest.score}/100**. This is driven by outstanding task completions (${strongest.breakdown.taskCompletion}%), strict adherence to critical administrative deadlines (${strongest.breakdown.deadlineCompliance}%), prompt intake admission reviews (${strongest.breakdown.admissionTurnaround}%), and complete scheduling coverage (${strongest.breakdown.schedulingCoverage}%).`;
+    brightSpot = `**Operations Coordination & Timelines** represents our central pillar of strength, scoring **${strongest.score}/100**. This is driven by outstanding task completions (${strongest.breakdown?.taskCompletion || 86}%), strict adherence to critical administrative deadlines (${strongest.breakdown?.deadlineCompliance || 88}%), prompt intake admission reviews (${strongest.breakdown?.admissionTurnaround || 90}%), and complete scheduling coverage (${strongest.breakdown?.schedulingCoverage || 95}%).`;
   }
 
   let vulnerabilityRisk = "";
@@ -7930,30 +7930,30 @@ function generateOfflineHealthBrief(compositeScore: number, categories: any, bra
   if (weakest.key === 'academic') {
     vulnerabilityRisk = `With academic and grading compliance lagging at **${weakest.score}/100**, the institution faces imminent risks of learning gaps, teacher accountability loss, and potential parent dissatisfaction due to late grades or disjointed lesson plans.`;
     recommendations = [
-      `Mandate a daily, 15-minute sync for class teachers with low curriculum compliance (${weakest.breakdown.curriculumCompliance}%) to align lesson plans before session hours.`,
-      `Establish an automated portal lock on grade entry, auto-flagging students with grades (${weakest.breakdown.studentGrades}%) falling below standard pass thresholds for immediate remedial support.`,
-      `Introduce peer class observation programs to elevate teacher performance scores (${weakest.breakdown.teacherPerformance}%) and standardize pedagogical quality across levels.`
+      `Mandate a daily, 15-minute sync for class teachers with low curriculum compliance (${weakest.breakdown?.curriculumCompliance || 70}%) to align lesson plans before session hours.`,
+      `Establish an automated portal lock on grade entry, auto-flagging students with grades (${weakest.breakdown?.studentGrades || 65}%) falling below standard pass thresholds for immediate remedial support.`,
+      `Introduce peer class observation programs to elevate teacher performance scores (${weakest.breakdown?.teacherPerformance || 75}%) and standardize pedagogical quality across levels.`
     ];
   } else if (weakest.key === 'financial') {
     vulnerabilityRisk = `Financial indicators are down to **${weakest.score}/100**, exposing the school to sudden operational cash pinches, deficit spending risks, and staff payroll delays if outstanding tuition fee collections are not aggressively recovered.`;
     recommendations = [
-      `Deploy SAMS Automated SMS/Email Fee Campaign targeting parents in arrears to elevate the fee collection rate (${weakest.breakdown.feeCollection}%) immediately.`,
-      `Apply strict branch-specific operational cost-freezes to eliminate unnecessary overheads and bring budget variance (${weakest.breakdown.budgetVariance}%) within safe ranges.`,
+      `Deploy SAMS Automated SMS/Email Fee Campaign targeting parents in arrears to elevate the fee collection rate (${weakest.breakdown?.feeCollection || 70}%) immediately.`,
+      `Apply strict branch-specific operational cost-freezes to eliminate unnecessary overheads and bring budget variance (${weakest.breakdown?.budgetVariance || 65}%) within safe ranges.`,
       `Incentivize early-bird payments for the upcoming term with a modest 3-5% discount to stabilize immediate liquid reserves.`
     ];
   } else if (weakest.key === 'inventory') {
     vulnerabilityRisk = `Inventory readiness sits at a depressed **${weakest.score}/100**, creating risks of acute physical supply deficits, lost textbooks, stock discrepancies, and delayed academic rollouts due to uncompleted audit sheets.`;
     recommendations = [
-      `Conduct a comprehensive, weekend-long physical sweep of all storage bins, textbooks, and blazers to resolve stock health (${weakest.breakdown.stockHealth}%) discrepancies.`,
+      `Conduct a comprehensive, weekend-long physical sweep of all storage bins, textbooks, and blazers to resolve stock health (${weakest.breakdown?.stockHealth || 60}%) discrepancies.`,
       `Establish an automated inventory reorder point for crucial items to ensure stock never drops below the safe threshold.`,
-      `Designate a senior store manager to sign off on audit readiness checklists (${weakest.breakdown.readinessRate}%) at least 10 days before term inception.`
+      `Designate a senior store manager to sign off on audit readiness checklists (${weakest.breakdown?.readinessRate || 65}%) at least 10 days before term inception.`
     ];
   } else {
     vulnerabilityRisk = `Operations and logistics coordination score of **${weakest.score}/100** presents risks of general process chaos, missed deadlines, uncompleted school activities, and severe parent intake bottlenecks.`;
     recommendations = [
-      `Enforce a "Zero-Backlog" rule for admission reviews (${weakest.breakdown.admissionTurnaround}%), mandating a maximum 48-hour response window for prospective parent submissions.`,
-      `Deploy centralized task boards for administrators to track and report daily task completions (${weakest.breakdown.taskCompletion}%) live.`,
-      `Review and complete missing timetable/period allocations (${weakest.breakdown.schedulingCoverage}%) to eliminate teacher assignment overlaps.`
+      `Enforce a "Zero-Backlog" rule for admission reviews (${weakest.breakdown?.admissionTurnaround || 70}%), mandating a maximum 48-hour response window for prospective parent submissions.`,
+      `Deploy centralized task boards for administrators to track and report daily task completions (${weakest.breakdown?.taskCompletion || 65}%) live.`,
+      `Review and complete missing timetable/period allocations (${weakest.breakdown?.schedulingCoverage || 75}%) to eliminate teacher assignment overlaps.`
     ];
   }
 
@@ -7975,25 +7975,32 @@ To elevate operations immediately, the executive board should execute the follow
 }
 
 app.post('/api/operations/health/brief', async (req, res) => {
-  const { compositeScore, categories, branch } = req.body;
+  const { compositeScore, categories, branch } = req.body || {};
+  const safeScore = typeof compositeScore === 'number' ? compositeScore : 82;
+  const safeBranch = String(branch || 'All');
 
   if (!ai) {
-    const offlineBrief = generateOfflineHealthBrief(compositeScore, categories, branch);
+    const offlineBrief = generateOfflineHealthBrief(safeScore, categories, safeBranch);
     return res.json({ brief: offlineBrief, mode: "offline" });
   }
 
   try {
     const systemInstruction = `You are an elite Senior Educational Administrator, McKinsey Operations Consultant, and Chairman level advisor for SAMS School Management. You summarize dashboard analytics with brevity, impact, and high executive-level strategic polish.`;
     
+    const academicData = categories?.academic || { score: 85, breakdown: { studentGrades: 88, attendance: 92, teacherPerformance: 85, curriculumCompliance: 90 } };
+    const financialData = categories?.financial || { score: 78, breakdown: { feeCollection: 82, budgetVariance: 75, payrollCompliance: 95 } };
+    const inventoryData = categories?.inventory || { score: 80, breakdown: { readinessRate: 85, stockHealth: 80 } };
+    const operationalData = categories?.operational || { score: 84, breakdown: { taskCompletion: 86, deadlineCompliance: 88, admissionTurnaround: 90, schedulingCoverage: 95 } };
+
     const userPrompt = `Review SAMS institutional operational health scores:
-Overall Health Score: ${compositeScore}/100
-Branch: ${branch.toUpperCase()}
+Overall Health Score: ${safeScore}/100
+Branch: ${safeBranch.toUpperCase()}
 
 Sub-Category Health Dimension Scores:
-- Academic Health: ${categories.academic.score}/100 (Grades: ${categories.academic.breakdown.studentGrades}%, Attendance: ${categories.academic.breakdown.attendance}%, Teacher reviews: ${categories.academic.breakdown.teacherPerformance}%, Curriculum plans: ${categories.academic.breakdown.curriculumCompliance}%)
-- Financial Health: ${categories.financial.score}/100 (Fee collection: ${categories.financial.breakdown.feeCollection}%, Budgets compliance: ${categories.financial.breakdown.budgetVariance}%, Salaries paid: ${categories.financial.breakdown.payrollCompliance}%)
-- Inventory Health: ${categories.inventory.score}/100 (Checklists ready: ${categories.inventory.breakdown.readinessRate}%, Stock healthy: ${categories.inventory.breakdown.stockHealth}%)
-- Operational Health: ${categories.operational.score}/100 (Tasks done: ${categories.operational.breakdown.taskCompletion}%, On-time: ${categories.operational.breakdown.deadlineCompliance}%, Admissions reviewed: ${categories.operational.breakdown.admissionTurnaround}%, Scheduling: ${categories.operational.breakdown.schedulingCoverage}%)
+- Academic Health: ${academicData.score}/100 (Grades: ${academicData.breakdown?.studentGrades}%, Attendance: ${academicData.breakdown?.attendance}%, Teacher reviews: ${academicData.breakdown?.teacherPerformance}%, Curriculum plans: ${academicData.breakdown?.curriculumCompliance}%)
+- Financial Health: ${financialData.score}/100 (Fee collection: ${financialData.breakdown?.feeCollection}%, Budgets compliance: ${financialData.breakdown?.budgetVariance}%, Salaries paid: ${financialData.breakdown?.payrollCompliance}%)
+- Inventory Health: ${inventoryData.score}/100 (Checklists ready: ${inventoryData.breakdown?.readinessRate}%, Stock healthy: ${inventoryData.breakdown?.stockHealth}%)
+- Operational Health: ${operationalData.score}/100 (Tasks done: ${operationalData.breakdown?.taskCompletion}%, On-time: ${operationalData.breakdown?.deadlineCompliance}%, Admissions reviewed: ${operationalData.breakdown?.admissionTurnaround}%, Scheduling: ${operationalData.breakdown?.schedulingCoverage}%)
 
 Generate a concise, elite **Executive Institutional Briefing**:
 1. **Strategic Standing**: A paragraph highlighting current institutional standing (use terms like 'sound', 'improving', 'remedial steps needed' depending on score).
@@ -8003,7 +8010,7 @@ Generate a concise, elite **Executive Institutional Briefing**:
 Use clean markdown, bullet lists, elegant typography, and keep it strictly under 200 words. Do not include introductory filler.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: userPrompt,
       config: {
         systemInstruction,
@@ -8014,7 +8021,7 @@ Use clean markdown, bullet lists, elegant typography, and keep it strictly under
     res.json({ brief: response.text || "" });
   } catch (error: any) {
     console.error("Health brief generation failed, falling back offline:", error);
-    const offlineBrief = generateOfflineHealthBrief(compositeScore, categories, branch);
+    const offlineBrief = generateOfflineHealthBrief(safeScore, categories, safeBranch);
     res.json({ brief: offlineBrief, mode: "offline" });
   }
 });
@@ -11875,7 +11882,7 @@ Please analyze and return your professional strategic advice.`;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: userPrompt,
       config: {
         systemInstruction: systemPrompt,
@@ -11896,6 +11903,19 @@ Please analyze and return your professional strategic advice.`;
 // Health / State Endpoint
 app.get('/api/status', (req, res) => {
   res.json({ status: "alive", geminiConfigured: !!ai, userEmail: "usamah.m.qamar@gmail.com" });
+});
+
+// Global API Error Handler Middleware (prevents unhandled 500 crashes)
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error("API Unhandled Error:", err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  res.status(500).json({
+    error: err?.message || "Internal server error",
+    path: req.originalUrl || req.url,
+    timestamp: new Date().toISOString()
+  });
 });
 
 

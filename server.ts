@@ -11864,35 +11864,29 @@ app.get('/api/status', (req, res) => {
 
 
 // -------------------------------------------------------------
-// VITE CLIENT INTEGRATION
+// VITE CLIENT INTEGRATION & SERVER BOOT
 // -------------------------------------------------------------
-if (!isProd) {
-  // Vite developer middleware
-  const vite = await createViteServer({
-    server: { middlewareMode: true },
-    appType: 'custom',
-  });
-  app.use(vite.middlewares);
-  app.get('*', async (req, res, next) => {
-    const url = req.originalUrl;
-    try {
-      let template = fs.readFileSync(path.resolve('./index.html'), 'utf-8');
-      template = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
-    } catch (e) {
-      vite.ssrFixStacktrace(e as Error);
-      next(e);
-    }
-  });
-} else {
-  // Production server static build
-  app.use(express.static(path.resolve('./dist')));
-  app.get('*', (req, res) => {
-    res.sendFile(path.resolve('./dist/index.html'));
+async function startServer() {
+  if (!isProd) {
+    // Vite developer middleware
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
+  } else {
+    // Production server static build
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
+
+  // Boot application
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[ERP Engine] Running full-stack environment at http://0.0.0.0:${PORT}`);
   });
 }
 
-// Boot application
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`[ERP Engine] Running full-stack environment at http://0.0.0.0:${PORT}`);
-});
+startServer();

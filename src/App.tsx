@@ -73,6 +73,7 @@ import { InventoryCatalog } from './components/InventoryCatalog';
 import { AnalyticsReports } from './components/AnalyticsReports';
 import { QuickActionMenu } from './components/QuickActionMenu';
 import TerminalGradesControl from './components/TerminalGradesControl';
+import { DEFAULT_ACADEMIC_DB } from './data/defaultDatabase';
 
 interface AttendanceLog {
   date: string;
@@ -663,20 +664,20 @@ export default function App() {
   const [selectedSubLevel, setSelectedSubLevel] = useState<'nursery' | 'primary' | 'secondary' | 'islamia'>('primary');
 
   // DB States
-  const [students, setStudents] = useState<Student[]>([]);
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [classes, setClasses] = useState<ClassRecord[]>([]);
-  const [schedules, setSchedules] = useState<ScheduleEntry[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [students, setStudents] = useState<Student[]>(() => (DEFAULT_ACADEMIC_DB.students as any) || []);
+  const [teachers, setTeachers] = useState<Teacher[]>(() => (DEFAULT_ACADEMIC_DB.teachers as any) || []);
+  const [classes, setClasses] = useState<ClassRecord[]>(() => (DEFAULT_ACADEMIC_DB.classes as any) || []);
+  const [schedules, setSchedules] = useState<ScheduleEntry[]>(() => (DEFAULT_ACADEMIC_DB.schedules as any) || []);
+  const [subjects, setSubjects] = useState<Subject[]>(() => (DEFAULT_ACADEMIC_DB.subjects as any) || []);
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newSubjectLevel, setNewSubjectLevel] = useState<'nursery' | 'primary' | 'secondary' | 'islamia'>('primary');
   const [subjectInputMode, setSubjectInputMode] = useState<'preset' | 'custom'>('preset');
   const [newSubjectRequirement, setNewSubjectRequirement] = useState<'compulsory' | 'optional'>('compulsory');
-  const [curriculums, setCurriculums] = useState<CurriculumPlan[]>([]);
-  const [exams, setExams] = useState<Exam[]>([]);
-  const [gradeScales, setGradeScales] = useState<GradeScale[]>([]);
-  const [admissions, setAdmissions] = useState<AdmissionApplication[]>([]);
-  const [loadingDb, setLoadingDb] = useState<boolean>(true);
+  const [curriculums, setCurriculums] = useState<CurriculumPlan[]>(() => (DEFAULT_ACADEMIC_DB.curriculums as any) || []);
+  const [exams, setExams] = useState<Exam[]>(() => (DEFAULT_ACADEMIC_DB.exams as any) || []);
+  const [gradeScales, setGradeScales] = useState<GradeScale[]>(() => (DEFAULT_ACADEMIC_DB.gradeScales as any) || []);
+  const [admissions, setAdmissions] = useState<AdmissionApplication[]>(() => (DEFAULT_ACADEMIC_DB.admissions as any) || []);
+  const [loadingDb, setLoadingDb] = useState<boolean>(false);
   const [dbError, setDbError] = useState<string | null>(null);
 
   // Curriculum Checklists & Lesson Plans states
@@ -993,7 +994,7 @@ export default function App() {
   const [paymentSuccessReport, setPaymentSuccessReport] = useState<string | null>(null);
 
   // Report Card Generator state
-  const [reportStudent, setReportStudent] = useState<Student | null>(null);
+  const [reportStudent, setReportStudent] = useState<Student | null>(() => (DEFAULT_ACADEMIC_DB.students[0] as any) || null);
   const [customAiFocus, setCustomAiFocus] = useState<string>('');
   const [generatingReportComment, setGeneratingReportComment] = useState<boolean>(false);
   const [aiErrorMsg, setAiErrorMsg] = useState<string | null>(null);
@@ -1054,7 +1055,7 @@ export default function App() {
   // Chairman form
   const [chairmanNotes, setChairmanNotes] = useState('');
   const [allocatedSection, setAllocatedSection] = useState('A');
-  const [feeTemplates, setFeeTemplates] = useState<any[]>([]);
+  const [feeTemplates, setFeeTemplates] = useState<any[]>(() => (DEFAULT_ACADEMIC_DB as any).fee_templates || []);
   const [selectedFeeTemplateId, setSelectedFeeTemplateId] = useState('');
 
   // Admissions feedback state
@@ -1743,11 +1744,11 @@ export default function App() {
   const [submittingAssistant, setSubmittingAssistant] = useState<boolean>(false);
 
   // Schedule Calendar Academic Session states
-  const [academicSessions, setAcademicSessions] = useState<any[]>([]);
-  const [terms, setTerms] = useState<any[]>([]);
-  const [holidays, setHolidays] = useState<any[]>([]);
-  const [eventCategories, setEventCategories] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
+  const [academicSessions, setAcademicSessions] = useState<any[]>(() => (DEFAULT_ACADEMIC_DB as any).academicSessions || []);
+  const [terms, setTerms] = useState<any[]>(() => (DEFAULT_ACADEMIC_DB as any).terms || []);
+  const [holidays, setHolidays] = useState<any[]>(() => (DEFAULT_ACADEMIC_DB as any).holidays || []);
+  const [eventCategories, setEventCategories] = useState<any[]>(() => (DEFAULT_ACADEMIC_DB as any).eventCategories || []);
+  const [events, setEvents] = useState<any[]>(() => (DEFAULT_ACADEMIC_DB as any).events || []);
 
   // Load All database sets from JSON REST API on init
   useEffect(() => {

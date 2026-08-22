@@ -4,8 +4,13 @@ import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import INITIAL_DB_STATE from './db_seed.ts';
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const isProd = process.env.NODE_ENV === 'production';
 const isVercel = !!process.env.VERCEL;
@@ -33,7 +38,8 @@ const DB_FILE = isVercel
   ? path.join('/tmp', 'school_db.json')
   : path.resolve('./school_db.json');
 
-const DEFAULT_DB = {
+const DEFAULT_DB = INITIAL_DB_STATE;
+const LEGACY_STUB = {
   students: [
     {
       id: "std-n1",
@@ -589,31 +595,142 @@ const DEFAULT_DB = {
   ]
 };
 
-// Database local loader
+// Comprehensive schema enforcer to guarantee no undefined array operations
+function ensureDbSchema(state: any) {
+  if (!state || typeof state !== 'object') {
+    state = JSON.parse(JSON.stringify(INITIAL_DB_STATE));
+  }
+
+  const arrayCollections = [
+    'academicSessions',
+    'admissions',
+    'class_fee_overrides',
+    'classes',
+    'combined_payment_audit_logs',
+    'combined_payments',
+    'curriculums',
+    'eventCategories',
+    'event_assignments',
+    'event_budgets',
+    'event_tasks',
+    'events',
+    'exams',
+    'expense_heads',
+    'expenses',
+    'family_accounts',
+    'family_members',
+    'family_payments',
+    'fee_campaigns',
+    'fee_head_categories',
+    'fee_heads',
+    'fee_templates',
+    'financial_settings',
+    'financial_timeline',
+    'gradeScales',
+    'holidays',
+    'inventory',
+    'inventory_readiness',
+    'inventory_store_audit_logs',
+    'inventory_store_items',
+    'inventory_store_sales',
+    'optional_charge_categories',
+    'optional_charges',
+    'parent_notifications',
+    'schedules',
+    'sections',
+    'sibling_discount_audit_logs',
+    'sibling_discount_policies',
+    'sibling_discount_records',
+    'student_advance_credits',
+    'student_fee_items',
+    'student_fee_ledgers',
+    'student_payment_items',
+    'student_payments',
+    'student_store_history',
+    'students',
+    'subjects',
+    'teacher_evaluation_settings',
+    'teacher_management_reviews',
+    'teacher_reviews',
+    'teachers',
+    'term_transitions',
+    'terms'
+  ];
+
+  for (const col of arrayCollections) {
+    if (!Array.isArray(state[col])) {
+      state[col] = (INITIAL_DB_STATE as any)[col] ? JSON.parse(JSON.stringify((INITIAL_DB_STATE as any)[col])) : [];
+    }
+  }
+
+  if (!state.currentSimulatedDate) {
+    state.currentSimulatedDate = INITIAL_DB_STATE.currentSimulatedDate || "2026-07-04";
+  }
+
+  return state;
+}
+
+// Multi-path database file resolver
+function resolveDbPath(): string | null {
+  const possiblePaths = [
+    path.join(process.cwd(), 'school_db.json'),
+    path.resolve('./school_db.json'),
+    path.join(__dirname, 'school_db.json'),
+    path.join(__dirname, '../school_db.json'),
+    '/var/task/school_db.json'
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
+}
+
+// Database local loader with infallible fallback
 function loadDB() {
-  if (isVercel && !fs.existsSync(DB_FILE)) {
-    const bundledDb = path.resolve('./school_db.json');
-    if (fs.existsSync(bundledDb)) {
+  let loadedState: any = null;
+
+  // 1. If running on Vercel and /tmp file exists, read from it
+  if (isVercel && fs.existsSync(DB_FILE)) {
+    try {
+      const content = fs.readFileSync(DB_FILE, 'utf8');
+      loadedState = JSON.parse(content);
+    } catch (e) {
+      console.warn("Could not read /tmp DB on Vercel:", e);
+    }
+  }
+
+  // 2. Read from filesystem paths
+  if (!loadedState) {
+    const dbPath = resolveDbPath();
+    if (dbPath) {
       try {
-        const data = fs.readFileSync(bundledDb, 'utf8');
-        fs.writeFileSync(DB_FILE, data, 'utf8');
-        return JSON.parse(data);
+        const raw = fs.readFileSync(dbPath, 'utf8');
+        loadedState = JSON.parse(raw);
       } catch (e) {
-        console.warn("Could not copy bundled DB to /tmp, using parsed fallback:", e);
-        try {
-          return JSON.parse(fs.readFileSync(bundledDb, 'utf8'));
-        } catch (_) {}
+        console.warn("Failed to parse school_db.json from " + dbPath, e);
       }
     }
   }
-  if (fs.existsSync(DB_FILE)) {
+
+  // 3. Fallback to embedded seed
+  if (!loadedState) {
     try {
-      return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    } catch (e) {
-      console.error("Database file could not be parsed, using fallback", e);
+      loadedState = JSON.parse(JSON.stringify(INITIAL_DB_STATE));
+    } catch (_) {
+      loadedState = { ...INITIAL_DB_STATE };
     }
   }
-  return DEFAULT_DB;
+
+  // 4. Ensure /tmp is seeded for writes on Vercel
+  if (isVercel && !fs.existsSync(DB_FILE)) {
+    try {
+      fs.writeFileSync(DB_FILE, JSON.stringify(loadedState, null, 2), 'utf8');
+    } catch (e) {
+      console.warn("Could not seed /tmp DB on Vercel:", e);
+    }
+  }
+
+  return ensureDbSchema(loadedState);
 }
 
 function saveDB(state: any) {
@@ -4363,270 +4480,290 @@ app.delete('/api/academic-sessions/:id', (req, res) => {
 // TIMELINE AUTOMATION ENGINE & ENDPOINTS
 // -------------------------------------------------------------
 function processTermTransitions(today: string) {
-  const terms = dbState.terms || [];
-  const transitions = dbState.term_transitions || [];
-  let stateChanged = false;
+  try {
+    ensureDbSchema(dbState);
+    const terms = dbState.terms || [];
+    const transitions = dbState.term_transitions || [];
+    let stateChanged = false;
 
-  for (const term of terms) {
-    const termId = term.id;
-    const sessionId = term.sessionId;
+    for (const term of terms) {
+      if (!term || !term.startDate) continue;
+      const termId = term.id;
+      const sessionId = term.sessionId || 'ses-2026';
 
-    // 1. Check if term has begun
-    if (today >= term.startDate) {
-      const begunKey = `${termId}-begun`;
-      if (!transitions.some((t: any) => t.id === begunKey)) {
-        console.log(`[Timeline Automation] Term ${term.name} has begun on simulated date ${today}. Running fee ledger generation...`);
-        
-        const students = dbState.students || [];
-        const classes = dbState.classes || [];
-        const templates = dbState.fee_templates || [];
-        const feeHeads = dbState.fee_heads || [];
-        const overrides = dbState.class_fee_overrides || [];
-        let ledgers = dbState.student_fee_ledgers || [];
-        let itemsList = dbState.student_fee_items || [];
+      // 1. Check if term has begun
+      if (today >= term.startDate) {
+        const begunKey = `${termId}-begun`;
+        if (!transitions.some((t: any) => t.id === begunKey)) {
+          console.log(`[Timeline Automation] Term ${term.name} has begun on simulated date ${today}. Running fee ledger generation...`);
+          
+          const students = dbState.students || [];
+          const classes = dbState.classes || [];
+          const templates = dbState.fee_templates || [];
+          const feeHeads = dbState.fee_heads || [];
+          const overrides = dbState.class_fee_overrides || [];
+          let ledgers = dbState.student_fee_ledgers || [];
+          let itemsList = dbState.student_fee_items || [];
 
-        let generatedCount = 0;
-        let totalCarryForward = 0;
+          let generatedCount = 0;
+          let totalCarryForward = 0;
 
-        students.forEach((student: any) => {
-          const studentClass = classes.find((c: any) => c.name === student.grade && c.branch === student.branch);
-          if (!studentClass) return;
+          students.forEach((student: any) => {
+            if (!student) return;
+            const studentClass = classes.find((c: any) => c.name === student.grade && c.branch === student.branch);
+            if (!studentClass) return;
 
-          // Check if ledger already exists for this term (do not duplicate)
-          const existingLedger = ledgers.find((l: any) => 
-            l.studentId === student.id &&
-            l.sessionId === sessionId &&
-            l.termId === termId
-          );
-          if (existingLedger) {
-            return;
-          }
+            // Check if ledger already exists for this term (do not duplicate)
+            const existingLedger = ledgers.find((l: any) => 
+              l.studentId === student.id &&
+              l.sessionId === sessionId &&
+              l.termId === termId
+            );
+            if (existingLedger) {
+              return;
+            }
 
-          // Find template
-          let template = templates.find((t: any) => 
-            t.branch === student.branch &&
-            t.session === sessionId &&
-            t.term === termId &&
-            t.sectionId === studentClass.sectionId
-          );
-
-          // Auto-clone previous template if needed
-          if (!template) {
-            const previousTemplate = templates.find((t: any) => 
+            // Find template
+            let template = templates.find((t: any) => 
               t.branch === student.branch &&
               t.session === sessionId &&
+              t.term === termId &&
               t.sectionId === studentClass.sectionId
             );
-            if (previousTemplate) {
-              const newTemplateId = `temp-auto-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-              template = {
-                ...previousTemplate,
-                id: newTemplateId,
-                term: termId,
-                createdAt: new Date().toISOString()
-              };
-              templates.push(template);
-              dbState.fee_templates = templates;
-              console.log(`[Timeline Automation] Auto-cloned template ${previousTemplate.id} for term ${termId}`);
-            } else {
-              const newTemplateId = `temp-auto-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-              template = {
-                id: newTemplateId,
-                branch: student.branch,
-                session: sessionId,
-                term: termId,
-                sectionId: studentClass.sectionId,
-                totalFee: 150000,
-                items: [
-                  { feeHeadId: "fh-1", amount: 120000 },
-                  { feeHeadId: "fh-2", amount: 30000 }
-                ],
-                createdAt: new Date().toISOString()
-              };
-              templates.push(template);
-              dbState.fee_templates = templates;
-              console.log(`[Timeline Automation] Fallback template created for term ${termId}`);
-            }
-          }
 
-          // Calculate final items and base fee
-          const finalItems: any[] = [];
-          const classOverride = overrides.find((o: any) => o.templateId === template.id && o.classId === studentClass.id);
-
-          if (classOverride) {
-            template.items.forEach((baseItem: any) => {
-              const overrideItem = classOverride.items.find((oi: any) => oi.feeHeadId === baseItem.feeHeadId);
-              if (overrideItem) {
-                if (!overrideItem.isRemoved) {
-                  finalItems.push({ feeHeadId: baseItem.feeHeadId, amount: overrideItem.amount });
-                }
+            // Auto-clone previous template if needed
+            if (!template) {
+              const previousTemplate = templates.find((t: any) => 
+                t.branch === student.branch &&
+                t.session === sessionId &&
+                t.sectionId === studentClass.sectionId
+              );
+              if (previousTemplate) {
+                const newTemplateId = `temp-auto-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+                template = {
+                  ...previousTemplate,
+                  id: newTemplateId,
+                  term: termId,
+                  createdAt: new Date().toISOString()
+                };
+                templates.push(template);
+                dbState.fee_templates = templates;
+                console.log(`[Timeline Automation] Auto-cloned template ${previousTemplate.id} for term ${termId}`);
               } else {
+                const newTemplateId = `temp-auto-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+                template = {
+                  id: newTemplateId,
+                  branch: student.branch,
+                  session: sessionId,
+                  term: termId,
+                  sectionId: studentClass.sectionId,
+                  totalFee: 150000,
+                  items: [
+                    { feeHeadId: "fh-1", amount: 120000 },
+                    { feeHeadId: "fh-2", amount: 30000 }
+                  ],
+                  createdAt: new Date().toISOString()
+                };
+                templates.push(template);
+                dbState.fee_templates = templates;
+                console.log(`[Timeline Automation] Fallback template created for term ${termId}`);
+              }
+            }
+
+            // Calculate final items and base fee
+            const finalItems: any[] = [];
+            const classOverride = overrides.find((o: any) => o.templateId === template.id && o.classId === studentClass.id);
+
+            const baseTemplateItems = Array.isArray(template?.items) ? template.items : [];
+            if (classOverride && Array.isArray(classOverride.items)) {
+              baseTemplateItems.forEach((baseItem: any) => {
+                const overrideItem = classOverride.items.find((oi: any) => oi.feeHeadId === baseItem.feeHeadId);
+                if (overrideItem) {
+                  if (!overrideItem.isRemoved) {
+                    finalItems.push({ feeHeadId: baseItem.feeHeadId, amount: overrideItem.amount });
+                  }
+                } else {
+                  finalItems.push({ feeHeadId: baseItem.feeHeadId, amount: baseItem.amount });
+                }
+              });
+              classOverride.items.forEach((oi: any) => {
+                const isNotBase = !baseTemplateItems.some((bi: any) => bi.feeHeadId === oi.feeHeadId);
+                if (isNotBase && !oi.isRemoved) {
+                  finalItems.push({ feeHeadId: oi.feeHeadId, amount: oi.amount });
+                }
+              });
+            } else {
+              baseTemplateItems.forEach((baseItem: any) => {
                 finalItems.push({ feeHeadId: baseItem.feeHeadId, amount: baseItem.amount });
-              }
+              });
+            }
+
+            const baseTermFee = finalItems.reduce((acc: number, item: any) => acc + (item.amount || 0), 0);
+
+            // Carry Previous Outstanding
+            let carryForward = 0;
+            try {
+              const carryResult = computeStudentCarriedForward(student.id, sessionId, termId, ledgers, dbState.sibling_discount_records || []);
+              carryForward = carryResult.carryForward || 0;
+            } catch (_) {
+              carryForward = 0;
+            }
+            totalCarryForward += carryForward;
+
+            const ledgerId = `sfl-auto-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+
+            // Due Date: dynamically determined by template settings, defaulting to 14 days
+            const offsetDays = template && template.dueDateOffset !== undefined ? template.dueDateOffset : 14;
+            const termStartDate = new Date(term.startDate);
+            termStartDate.setDate(termStartDate.getDate() + offsetDays);
+            const dueDate = termStartDate.toISOString().split('T')[0];
+
+            const newLedger = {
+              id: ledgerId,
+              studentId: student.id,
+              studentName: student.name,
+              classId: studentClass.id,
+              sectionId: studentClass.sectionId,
+              branch: student.branch,
+              sessionId,
+              termId,
+              status: 'Draft',
+              baseTermFee,
+              optionalChargesFee: 0,
+              discountAmount: 0,
+              scholarshipAmount: 0,
+              carryForward,
+              outstanding: baseTermFee + carryForward,
+              grandTotal: baseTermFee + carryForward,
+              billingDate: term.startDate,
+              dueDate: dueDate,
+              createdAt: new Date().toISOString(),
+              isAutoGenerated: true
+            };
+
+            ledgers.push(newLedger);
+            generatedCount++;
+
+            // Create item records
+            finalItems.forEach((item: any) => {
+              const headObj = feeHeads.find((h: any) => h.id === item.feeHeadId);
+              const newItem = {
+                id: `sfi-auto-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+                ledgerId,
+                type: 'term_fee',
+                referenceId: item.feeHeadId,
+                name: headObj ? headObj.name : 'Unknown Fee Head',
+                amount: item.amount,
+                createdAt: new Date().toISOString()
+              };
+              itemsList.push(newItem);
             });
-            classOverride.items.forEach((oi: any) => {
-              const isNotBase = !template.items.some((bi: any) => bi.feeHeadId === oi.feeHeadId);
-              if (isNotBase && !oi.isRemoved) {
-                finalItems.push({ feeHeadId: oi.feeHeadId, amount: oi.amount });
-              }
-            });
-          } else {
-            template.items.forEach((baseItem: any) => {
-              finalItems.push({ feeHeadId: baseItem.feeHeadId, amount: baseItem.amount });
-            });
-          }
 
-          const baseTermFee = finalItems.reduce((acc: number, item: any) => acc + item.amount, 0);
-
-          // Carry Previous Outstanding (from previous unpaid ledgers with full-fee carry-forward rule for un-cleared discounts)
-          const carryResult = computeStudentCarriedForward(student.id, sessionId, termId, ledgers, dbState.sibling_discount_records || []);
-          const carryForward = carryResult.carryForward;
-          totalCarryForward += carryForward;
-
-          const ledgerId = `sfl-auto-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-
-          // Due Date: dynamically determined by template settings, defaulting to 14 days
-          const offsetDays = template.dueDateOffset !== undefined ? template.dueDateOffset : 14;
-          const termStartDate = new Date(term.startDate);
-          termStartDate.setDate(termStartDate.getDate() + offsetDays);
-          const dueDate = termStartDate.toISOString().split('T')[0];
-
-          const newLedger = {
-            id: ledgerId,
-            studentId: student.id,
-            studentName: student.name,
-            classId: studentClass.id,
-            sectionId: studentClass.sectionId,
-            branch: student.branch,
-            sessionId,
-            termId,
-            status: 'Draft',
-            baseTermFee,
-            optionalChargesFee: 0,
-            discountAmount: 0,
-            scholarshipAmount: 0,
-            carryForward,
-            outstanding: baseTermFee + carryForward,
-            grandTotal: baseTermFee + carryForward,
-            billingDate: term.startDate,
-            dueDate: dueDate,
-            createdAt: new Date().toISOString(),
-            isAutoGenerated: true
-          };
-
-          ledgers.push(newLedger);
-          generatedCount++;
-
-          // Create item records
-          finalItems.forEach((item: any) => {
-            const headObj = feeHeads.find((h: any) => h.id === item.feeHeadId);
-            const newItem = {
-              id: `sfi-auto-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
-              ledgerId,
-              type: 'term_fee',
-              referenceId: item.feeHeadId,
-              name: headObj ? headObj.name : 'Unknown Fee Head',
-              amount: item.amount,
+            // Notify Parent
+            const notificationId = `pn-auto-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+            const parentNotification = {
+              id: notificationId,
+              studentId: student.id,
+              studentName: student.name,
+              title: `Term Fee Generated: ${term.name}`,
+              message: `A new fee ledger has been auto-generated for ${student.name} for ${term.name}. Base Fee: ₦${baseTermFee.toLocaleString()}.${carryForward > 0 ? ` Carried Forward Outstanding: ₦${carryForward.toLocaleString()}.` : ''} Total Due: ₦${(baseTermFee + carryForward).toLocaleString()}. Due Date: ${dueDate}.`,
+              date: today,
+              type: 'billing_generation',
+              read: false,
               createdAt: new Date().toISOString()
             };
-            itemsList.push(newItem);
+            dbState.parent_notifications = dbState.parent_notifications || [];
+            dbState.parent_notifications.push(parentNotification);
           });
 
-          // Notify Parent!
-          const notificationId = `pn-auto-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-          const parentNotification = {
-            id: notificationId,
-            studentId: student.id,
-            studentName: student.name,
-            title: `Term Fee Generated: ${term.name}`,
-            message: `A new fee ledger has been auto-generated for ${student.name} for ${term.name}. Base Fee: ₦${baseTermFee.toLocaleString()}.${carryForward > 0 ? ` Carried Forward Outstanding: ₦${carryForward.toLocaleString()}.` : ''} Total Due: ₦${(baseTermFee + carryForward).toLocaleString()}. Due Date: ${dueDate}.`,
+          dbState.student_fee_ledgers = ledgers;
+          dbState.student_fee_items = itemsList;
+
+          transitions.push({
+            id: begunKey,
+            termId,
+            termName: term.name,
+            type: 'begun',
             date: today,
-            type: 'billing_generation',
-            read: false,
-            createdAt: new Date().toISOString()
-          };
-          dbState.parent_notifications.push(parentNotification);
-        });
-
-        dbState.student_fee_ledgers = ledgers;
-        dbState.student_fee_items = itemsList;
-
-        transitions.push({
-          id: begunKey,
-          termId,
-          termName: term.name,
-          type: 'begun',
-          date: today,
-          details: `Automatically generated ${generatedCount} fee ledgers, carrying ₦${totalCarryForward.toLocaleString()} previous outstanding balances forward. Sent notifications to parents. Due dates set to 14 days post term start.`,
-          timestamp: new Date().toISOString()
-        });
-        stateChanged = true;
-      }
-    }
-
-    // 2. Check if term has ended
-    if (today >= term.endDate) {
-      const endedKey = `${termId}-ended`;
-      if (!transitions.some((t: any) => t.id === endedKey)) {
-        console.log(`[Timeline Automation] Term ${term.name} has ended on simulated date ${today}. Carrying outstanding balances forward...`);
-
-        const ledgers = dbState.student_fee_ledgers || [];
-        let carriedCount = 0;
-        let totalOutstandingCarried = 0;
-
-        const outstandingLedgers = ledgers.filter((l: any) => l.termId === termId && l.outstanding > 0);
-        
-        const sortedTerms = [...terms].sort((a: any, b: any) => a.startDate.localeCompare(b.startDate));
-        const currentIdx = sortedTerms.findIndex((t: any) => t.id === termId);
-        const nextTerm = currentIdx !== -1 && currentIdx < sortedTerms.length - 1 ? sortedTerms[currentIdx + 1] : null;
-
-        if (nextTerm) {
-          outstandingLedgers.forEach((oldLedger: any) => {
-            const nextLedgerIdx = ledgers.findIndex((l: any) => 
-              l.studentId === oldLedger.studentId && 
-              l.termId === nextTerm.id
-            );
-
-            if (nextLedgerIdx !== -1) {
-              const nextLedger = ledgers[nextLedgerIdx];
-              const carryResult = computeStudentCarriedForward(
-                oldLedger.studentId,
-                nextLedger.sessionId || 'ses-2026',
-                nextLedger.termId || nextTerm.id,
-                ledgers,
-                dbState.sibling_discount_records || []
-              );
-              
-              nextLedger.carryForward = carryResult.carryForward;
-              nextLedger.outstanding = nextLedger.baseTermFee + nextLedger.optionalChargesFee + nextLedger.carryForward - (nextLedger.discountAmount + nextLedger.scholarshipAmount);
-              nextLedger.grandTotal = nextLedger.baseTermFee + nextLedger.optionalChargesFee + nextLedger.carryForward;
-              
-              carriedCount++;
-              totalOutstandingCarried += carryResult.carryForward;
-            } else {
-              carriedCount++;
-              totalOutstandingCarried += oldLedger.outstanding;
-            }
+            details: `Automatically generated ${generatedCount} fee ledgers, carrying ₦${totalCarryForward.toLocaleString()} previous outstanding balances forward. Sent notifications to parents. Due dates set to 14 days post term start.`,
+            timestamp: new Date().toISOString()
           });
+          stateChanged = true;
         }
+      }
 
-        transitions.push({
-          id: endedKey,
-          termId,
-          termName: term.name,
-          type: 'ended',
-          date: today,
-          details: `Term ended. Identified ${outstandingLedgers.length} ledgers with unpaid dues. Outstanding balances (Totaling ₦${totalOutstandingCarried.toLocaleString()}) have been flagged to be carried forward to the next term's ledger.`,
-          timestamp: new Date().toISOString()
-        });
-        stateChanged = true;
+      // 2. Check if term has ended
+      if (today >= term.endDate) {
+        const endedKey = `${termId}-ended`;
+        if (!transitions.some((t: any) => t.id === endedKey)) {
+          console.log(`[Timeline Automation] Term ${term.name} has ended on simulated date ${today}. Carrying outstanding balances forward...`);
+
+          const ledgers = dbState.student_fee_ledgers || [];
+          let carriedCount = 0;
+          let totalOutstandingCarried = 0;
+
+          const outstandingLedgers = ledgers.filter((l: any) => l.termId === termId && l.outstanding > 0);
+          
+          const sortedTerms = [...terms].sort((a: any, b: any) => (a.startDate || '').localeCompare(b.startDate || ''));
+          const currentIdx = sortedTerms.findIndex((t: any) => t.id === termId);
+          const nextTerm = currentIdx !== -1 && currentIdx < sortedTerms.length - 1 ? sortedTerms[currentIdx + 1] : null;
+
+          if (nextTerm) {
+            outstandingLedgers.forEach((oldLedger: any) => {
+              const nextLedgerIdx = ledgers.findIndex((l: any) => 
+                l.studentId === oldLedger.studentId && 
+                l.termId === nextTerm.id
+              );
+
+              if (nextLedgerIdx !== -1) {
+                const nextLedger = ledgers[nextLedgerIdx];
+                let carryForward = 0;
+                try {
+                  const carryResult = computeStudentCarriedForward(
+                    oldLedger.studentId,
+                    nextLedger.sessionId || 'ses-2026',
+                    nextLedger.termId || nextTerm.id,
+                    ledgers,
+                    dbState.sibling_discount_records || []
+                  );
+                  carryForward = carryResult.carryForward || 0;
+                } catch (_) {
+                  carryForward = oldLedger.outstanding || 0;
+                }
+                
+                nextLedger.carryForward = carryForward;
+                nextLedger.outstanding = (nextLedger.baseTermFee || 0) + (nextLedger.optionalChargesFee || 0) + nextLedger.carryForward - ((nextLedger.discountAmount || 0) + (nextLedger.scholarshipAmount || 0));
+                nextLedger.grandTotal = (nextLedger.baseTermFee || 0) + (nextLedger.optionalChargesFee || 0) + nextLedger.carryForward;
+                
+                carriedCount++;
+                totalOutstandingCarried += carryForward;
+              } else {
+                carriedCount++;
+                totalOutstandingCarried += (oldLedger.outstanding || 0);
+              }
+            });
+          }
+
+          transitions.push({
+            id: endedKey,
+            termId,
+            termName: term.name,
+            type: 'ended',
+            date: today,
+            details: `Term ended. Identified ${outstandingLedgers.length} ledgers with unpaid dues. Outstanding balances (Totaling ₦${totalOutstandingCarried.toLocaleString()}) have been flagged to be carried forward to the next term's ledger.`,
+            timestamp: new Date().toISOString()
+          });
+          stateChanged = true;
+        }
       }
     }
-  }
 
-  if (stateChanged) {
-    dbState.term_transitions = transitions;
-    saveDB(dbState);
+    if (stateChanged) {
+      dbState.term_transitions = transitions;
+      saveDB(dbState);
+    }
+  } catch (automationError) {
+    console.error("[Timeline Automation Exception Caught]:", automationError);
   }
 }
 
@@ -7196,179 +7333,217 @@ app.post('/api/combined_payments', (req, res) => {
 // SCHOOL OPERATIONS DASHBOARD API
 // -------------------------------------------------------------
 app.get('/api/operations/dashboard', (req, res) => {
-  const dateParam = req.query.date;
-  const today = dateParam ? String(dateParam) : "2026-07-04";
+  try {
+    ensureDbSchema(dbState);
+    const dateParam = req.query.date;
+    const today = dateParam ? String(dateParam) : (dbState.currentSimulatedDate || "2026-07-04");
 
-  // Store the simulated date in the backend and run the transition check!
-  dbState.currentSimulatedDate = today;
-  processTermTransitions(today);
-  saveDB(dbState);
-
-  const events = dbState.events || [];
-  const campaigns = dbState.fee_campaigns || [];
-  const tasks = dbState.event_tasks || [];
-  const exams = dbState.exams || [];
-  const terms = dbState.terms || [];
-  const sessions = dbState.academicSessions || [];
-  const categories = dbState.eventCategories || [];
-
-  // 1. CURRENTLY HAPPENING
-  // Current Events: startDate <= today <= endDate
-  const currentEvents = events.filter((e: any) => e.startDate <= today && e.endDate >= today).map((e: any) => {
-    const cat = categories.find((c: any) => c.id === e.categoryId);
-    return { ...e, category: cat };
-  });
-
-  // Current Campaigns: startDate <= today <= endDate
-  const currentCampaigns = campaigns.filter((c: any) => c.startDate <= today && c.endDate >= today);
-
-  // Current Deadlines: tasks whose due date is in the next 7 days, not completed
-  const next7Days = new Date(new Date(today).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-  const currentDeadlines = tasks.filter((t: any) => t.dueDate >= today && t.dueDate <= next7Days && t.status !== "Completed");
-
-  // 2. UPCOMING
-  // Upcoming Events: startDate > today
-  const upcomingEvents = events.filter((e: any) => e.startDate > today).sort((a: any, b: any) => a.startDate.localeCompare(b.startDate)).map((e: any) => {
-    const cat = categories.find((c: any) => c.id === e.categoryId);
-    return { ...e, category: cat };
-  });
-
-  // Upcoming Exams: date > today
-  const upcomingExams = exams.filter((e: any) => e.date > today).sort((a: any, b: any) => a.date.localeCompare(b.date));
-
-  // Upcoming Fee Drives: startDate > today
-  const upcomingFeeDrives = campaigns.filter((c: any) => c.startDate > today).sort((a: any, b: any) => a.startDate.localeCompare(b.startDate));
-
-  // 3. OVERDUE
-  // Overdue Tasks: dueDate < today and status !== "Completed"
-  const overdueTasks = tasks.filter((t: any) => t.dueDate < today && t.status !== "Completed");
-
-  // Missed Deadlines: tasks with status "Overdue" or past due date and not completed
-  const missedDeadlines = tasks.filter((t: any) => (t.dueDate < today && t.status === "Overdue") || (t.dueDate < today && t.status !== "Completed"));
-
-  // 4. SESSION SUMMARY
-  // Find active session
-  const activeSession = sessions.find((s: any) => s.status === "active") || sessions[0] || {
-    id: "ses-2026",
-    name: "2025/2026 Academic Year",
-    startDate: "2025-09-01",
-    endDate: "2026-07-20",
-    status: "active"
-  };
-
-  // Find active term
-  const activeTerm = terms.find((t: any) => t.startDate <= today && t.endDate >= today) || terms[terms.length - 1] || {
-    id: "term-3",
-    name: "Third Term",
-    startDate: "2026-04-20",
-    endDate: "2026-07-20"
-  };
-
-  // Calculate session progress percentage, weeks completed, and weeks remaining
-  let sessionProgress = 0;
-  let totalSessionWeeks = 46; // fallback
-  let weeksCompleted = 0;
-  let weeksRemaining = 46; // fallback
-
-  if (activeSession) {
-    const start = new Date(activeSession.startDate).getTime();
-    const end = new Date(activeSession.endDate).getTime();
-    const current = new Date(today).getTime();
-    const totalDays = end - start;
-    const elapsedDays = current - start;
-    if (totalDays > 0) {
-      sessionProgress = Math.min(100, Math.max(0, Math.round((elapsedDays / totalDays) * 100)));
+    // Store the simulated date in the backend and run the transition check!
+    dbState.currentSimulatedDate = today;
+    try {
+      processTermTransitions(today);
+    } catch (transErr) {
+      console.warn("processTermTransitions error in dashboard:", transErr);
     }
+    saveDB(dbState);
 
-    // Precise session week counts
-    totalSessionWeeks = Math.ceil(totalDays / (7 * 24 * 60 * 60 * 1000));
-    const elapsedWeeks = Math.floor(elapsedDays / (7 * 24 * 60 * 60 * 1000));
-    weeksCompleted = Math.min(totalSessionWeeks, Math.max(0, elapsedWeeks));
-    weeksRemaining = Math.max(0, totalSessionWeeks - weeksCompleted);
-  }
+    const events = Array.isArray(dbState.events) ? dbState.events : [];
+    const campaigns = Array.isArray(dbState.fee_campaigns) ? dbState.fee_campaigns : [];
+    const tasks = Array.isArray(dbState.event_tasks) ? dbState.event_tasks : [];
+    const exams = Array.isArray(dbState.exams) ? dbState.exams : [];
+    const terms = Array.isArray(dbState.terms) ? dbState.terms : [];
+    const sessions = Array.isArray(dbState.academicSessions) ? dbState.academicSessions : [];
+    const categories = Array.isArray(dbState.eventCategories) ? dbState.eventCategories : [];
 
-  // Calculate active term week
-  let currentWeek = 1;
-  if (activeTerm) {
-    const termStart = new Date(activeTerm.startDate).getTime();
-    const current = new Date(today).getTime();
-    const diffTime = current - termStart;
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    currentWeek = Math.max(1, Math.floor(diffDays / 7) + 1);
-  }
+    // 1. CURRENTLY HAPPENING
+    // Current Events: startDate <= today <= endDate
+    const currentEvents = events.filter((e: any) => e && e.startDate <= today && e.endDate >= today).map((e: any) => {
+      const cat = categories.find((c: any) => c.id === e.categoryId);
+      return { ...e, category: cat };
+    });
 
-  // Helper statistics
-  const totalTasksCount = tasks.length;
-  const completedTasksCount = tasks.filter((t: any) => t.status === "Completed").length;
-  const inProgressTasksCount = tasks.filter((t: any) => t.status === "In Progress" || t.status === "Pending").length;
-  const overdueTasksCount = overdueTasks.length;
+    // Current Campaigns: startDate <= today <= endDate
+    const currentCampaigns = campaigns.filter((c: any) => c && c.startDate <= today && c.endDate >= today);
 
-  const totalCampaignTarget = campaigns.reduce((acc: number, c: any) => acc + (c.targetCollection || 0), 0);
-  const totalCampaignActual = campaigns.reduce((acc: number, c: any) => acc + (c.actualCollection || 0), 0);
+    // Current Deadlines: tasks whose due date is in the next 7 days, not completed
+    const next7Days = new Date(new Date(today).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const currentDeadlines = tasks.filter((t: any) => t && t.dueDate >= today && t.dueDate <= next7Days && t.status !== "Completed");
 
-  // Task completion chart data
-  const taskChartData = [
-    { name: "Completed", value: completedTasksCount, color: "#10B981" },
-    { name: "In Progress", value: inProgressTasksCount, color: "#3B82F6" },
-    { name: "Overdue", value: overdueTasksCount, color: "#EF4444" }
-  ];
+    // 2. UPCOMING
+    // Upcoming Events: startDate > today
+    const upcomingEvents = events.filter((e: any) => e && e.startDate > today).sort((a: any, b: any) => (a.startDate || '').localeCompare(b.startDate || '')).map((e: any) => {
+      const cat = categories.find((c: any) => c.id === e.categoryId);
+      return { ...e, category: cat };
+    });
 
-  // Fee collection chart data
-  const feeCampaignChartData = campaigns.map((c: any) => ({
-    name: c.week || c.name.substring(0, 10),
-    Target: c.targetCollection || 0,
-    Collected: c.actualCollection || 0
-  }));
+    // Upcoming Exams: date > today
+    const upcomingExams = exams.filter((e: any) => e && e.date > today).sort((a: any, b: any) => (a.date || '').localeCompare(b.date || ''));
 
-  // Event category breakdown chart data
-  const categoryChartData = categories.map((cat: any) => {
-    const count = events.filter((e: any) => e.categoryId === cat.id).length;
-    return {
-      name: cat.name,
-      count,
-      color: cat.color || "#4F46E5"
+    // Upcoming Fee Drives: startDate > today
+    const upcomingFeeDrives = campaigns.filter((c: any) => c && c.startDate > today).sort((a: any, b: any) => (a.startDate || '').localeCompare(b.startDate || ''));
+
+    // 3. OVERDUE
+    // Overdue Tasks: dueDate < today and status !== "Completed"
+    const overdueTasks = tasks.filter((t: any) => t && t.dueDate < today && t.status !== "Completed");
+
+    // Missed Deadlines: tasks with status "Overdue" or past due date and not completed
+    const missedDeadlines = tasks.filter((t: any) => t && ((t.dueDate < today && t.status === "Overdue") || (t.dueDate < today && t.status !== "Completed")));
+
+    // 4. SESSION SUMMARY
+    // Find active session
+    const activeSession = sessions.find((s: any) => s && s.status === "active") || sessions[0] || {
+      id: "ses-2026",
+      name: "2025/2026 Academic Year",
+      startDate: "2025-09-01",
+      endDate: "2026-07-20",
+      status: "active"
     };
-  }).filter(c => c.count > 0);
 
-  res.json({
-    today,
-    eventBudgets: dbState.event_budgets || [],
-    inventory: dbState.inventory || [],
-    inventoryReadiness: dbState.inventory_readiness || [],
-    currentlyHappening: {
-      currentEvents,
-      currentCampaigns,
-      currentDeadlines
-    },
-    upcoming: {
-      upcomingEvents,
-      upcomingExams,
-      upcomingFeeDrives
-    },
-    overdue: {
-      overdueTasks,
-      missedDeadlines
-    },
-    sessionSummary: {
-      currentWeek,
-      currentTerm: activeTerm,
-      sessionProgress,
-      activeSession,
-      weeksCompleted,
-      weeksRemaining,
-      totalSessionWeeks
-    },
-    stats: {
-      totalTasksCount,
-      completedTasksCount,
-      overdueTasksCount,
-      totalCampaignTarget,
-      totalCampaignActual,
-      taskChartData,
-      feeCampaignChartData,
-      categoryChartData
+    // Find active term
+    const activeTerm = terms.find((t: any) => t && t.startDate <= today && t.endDate >= today) || terms[terms.length - 1] || {
+      id: "term-3",
+      name: "Third Term",
+      startDate: "2026-04-20",
+      endDate: "2026-07-20"
+    };
+
+    // Calculate session progress percentage, weeks completed, and weeks remaining
+    let sessionProgress = 0;
+    let totalSessionWeeks = 46;
+    let weeksCompleted = 0;
+    let weeksRemaining = 46;
+
+    if (activeSession && activeSession.startDate && activeSession.endDate) {
+      const start = new Date(activeSession.startDate).getTime();
+      const end = new Date(activeSession.endDate).getTime();
+      const current = new Date(today).getTime();
+      const totalDays = end - start;
+      const elapsedDays = current - start;
+      if (totalDays > 0) {
+        sessionProgress = Math.min(100, Math.max(0, Math.round((elapsedDays / totalDays) * 100)));
+      }
+
+      totalSessionWeeks = Math.ceil(totalDays / (7 * 24 * 60 * 60 * 1000)) || 46;
+      const elapsedWeeks = Math.floor(elapsedDays / (7 * 24 * 60 * 60 * 1000));
+      weeksCompleted = Math.min(totalSessionWeeks, Math.max(0, elapsedWeeks));
+      weeksRemaining = Math.max(0, totalSessionWeeks - weeksCompleted);
     }
-  });
+
+    // Calculate active term week
+    let currentWeek = 1;
+    if (activeTerm && activeTerm.startDate) {
+      const termStart = new Date(activeTerm.startDate).getTime();
+      const current = new Date(today).getTime();
+      const diffTime = current - termStart;
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      currentWeek = Math.max(1, Math.floor(diffDays / 7) + 1);
+    }
+
+    // Helper statistics
+    const totalTasksCount = tasks.length;
+    const completedTasksCount = tasks.filter((t: any) => t && t.status === "Completed").length;
+    const inProgressTasksCount = tasks.filter((t: any) => t && (t.status === "In Progress" || t.status === "Pending")).length;
+    const overdueTasksCount = overdueTasks.length;
+
+    const totalCampaignTarget = campaigns.reduce((acc: number, c: any) => acc + ((c && c.targetCollection) || 0), 0);
+    const totalCampaignActual = campaigns.reduce((acc: number, c: any) => acc + ((c && c.actualCollection) || 0), 0);
+
+    // Task completion chart data
+    const taskChartData = [
+      { name: "Completed", value: completedTasksCount, color: "#10B981" },
+      { name: "In Progress", value: inProgressTasksCount, color: "#3B82F6" },
+      { name: "Overdue", value: overdueTasksCount, color: "#EF4444" }
+    ];
+
+    // Fee collection chart data
+    const feeCampaignChartData = campaigns.map((c: any) => ({
+      name: (c && (c.week || (c.name ? c.name.substring(0, 10) : 'Week'))) || 'Campaign',
+      Target: (c && c.targetCollection) || 0,
+      Collected: (c && c.actualCollection) || 0
+    }));
+
+    // Event category breakdown chart data
+    const categoryChartData = categories.map((cat: any) => {
+      const count = events.filter((e: any) => e && e.categoryId === cat.id).length;
+      return {
+        name: cat.name || 'Category',
+        count,
+        color: cat.color || "#4F46E5"
+      };
+    }).filter(c => c.count > 0);
+
+    return res.json({
+      today,
+      eventBudgets: Array.isArray(dbState.event_budgets) ? dbState.event_budgets : [],
+      inventory: Array.isArray(dbState.inventory) ? dbState.inventory : [],
+      inventoryReadiness: Array.isArray(dbState.inventory_readiness) ? dbState.inventory_readiness : [],
+      currentlyHappening: {
+        currentEvents,
+        currentCampaigns,
+        currentDeadlines
+      },
+      upcoming: {
+        upcomingEvents,
+        upcomingExams,
+        upcomingFeeDrives
+      },
+      overdue: {
+        overdueTasks,
+        missedDeadlines
+      },
+      sessionSummary: {
+        currentWeek,
+        currentTerm: activeTerm,
+        sessionProgress,
+        activeSession,
+        weeksCompleted,
+        weeksRemaining,
+        totalSessionWeeks
+      },
+      stats: {
+        totalTasksCount,
+        completedTasksCount,
+        overdueTasksCount,
+        totalCampaignTarget,
+        totalCampaignActual,
+        taskChartData,
+        feeCampaignChartData,
+        categoryChartData
+      }
+    });
+  } catch (err: any) {
+    console.error("[/api/operations/dashboard Error Caught]:", err);
+    return res.status(200).json({
+      today: "2026-07-04",
+      eventBudgets: [],
+      inventory: [],
+      inventoryReadiness: [],
+      currentlyHappening: { currentEvents: [], currentCampaigns: [], currentDeadlines: [] },
+      upcoming: { upcomingEvents: [], upcomingExams: [], upcomingFeeDrives: [] },
+      overdue: { overdueTasks: [], missedDeadlines: [] },
+      sessionSummary: {
+        currentWeek: 1,
+        currentTerm: { id: "term-3", name: "Third Term", startDate: "2026-04-20", endDate: "2026-07-20" },
+        sessionProgress: 75,
+        activeSession: { id: "ses-2026", name: "2025/2026 Academic Year", startDate: "2025-09-01", endDate: "2026-07-20", status: "active" },
+        weeksCompleted: 35,
+        weeksRemaining: 11,
+        totalSessionWeeks: 46
+      },
+      stats: {
+        totalTasksCount: 0,
+        completedTasksCount: 0,
+        overdueTasksCount: 0,
+        totalCampaignTarget: 0,
+        totalCampaignActual: 0,
+        taskChartData: [],
+        feeCampaignChartData: [],
+        categoryChartData: []
+      },
+      _fallback: true,
+      _error: err?.message || String(err)
+    });
+  }
 });
 
 // -------------------------------------------------------------

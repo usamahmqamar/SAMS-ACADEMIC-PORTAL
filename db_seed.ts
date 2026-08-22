@@ -1,4 +1,4 @@
-{
+export const INITIAL_DB_STATE = {
   "students": [
     {
       "id": "std-n2",
@@ -7566,7 +7566,6 @@
       "paymentMethod": "Bank Transfer",
       "description": "Quarterly facility lease payment for Annex campus site."
     }
-  ],
-  "combined_payment_audit_logs": [],
-  "teacher_management_reviews": []
-}
+  ]
+};
+export default INITIAL_DB_STATE;

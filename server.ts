@@ -3,21 +3,11 @@ import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import INITIAL_DB_STATE from './db_seed';
 
 dotenv.config();
 
-const getDirname = () => {
-  if (typeof __dirname !== 'undefined') return __dirname;
-  try {
-    if (typeof import.meta !== 'undefined' && import.meta.url) {
-      return path.dirname(fileURLToPath(import.meta.url));
-    }
-  } catch (_) {}
-  return process.cwd();
-};
-const __currentDir = getDirname();
+const __currentDir = typeof __dirname !== 'undefined' ? __dirname : process.cwd();
 
 const isProd = process.env.NODE_ENV === 'production';
 const isVercel = !!process.env.VERCEL;
@@ -8862,8 +8852,18 @@ app.delete('/api/sections/:id', (req, res) => {
 
 
 // -------------------------------------------------------------
-// FEE TEMPLATES CRUD ENDPOINTS
+// FEE TEMPLATES & FEES CRUD ENDPOINTS
 // -------------------------------------------------------------
+app.get('/api/fees', (req, res) => {
+  ensureDbSchema(dbState);
+  res.json({
+    templates: dbState.fee_templates || [],
+    heads: dbState.fee_heads || [],
+    categories: dbState.fee_head_categories || [],
+    campaigns: dbState.fee_campaigns || []
+  });
+});
+
 app.get('/api/fee_templates', (req, res) => {
   res.json(dbState.fee_templates || []);
 });
@@ -12085,6 +12085,15 @@ Please analyze and return your professional strategic advice.`;
 // Health / State Endpoint
 app.get('/api/status', (req, res) => {
   res.json({ status: "alive", geminiConfigured: !!ai, userEmail: "usamah.m.qamar@gmail.com" });
+});
+
+// 404 handler for unmatched /api routes (ensures API always returns JSON, never HTML)
+app.all('/api/*', (req, res) => {
+  res.status(404).json({
+    error: 'API endpoint not found',
+    path: req.originalUrl || req.url,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Global API Error Handler Middleware (prevents unhandled 500 crashes)

@@ -3391,6 +3391,16 @@ app.get('/api/students', (req, res) => {
   res.json(dbState.students);
 });
 
+app.get('/api/students/:id', (req, res, next) => {
+  const { id } = req.params;
+  if (id === 'store_search') return next();
+  const student = dbState.students.find((s: any) => s.id === id);
+  if (!student) {
+    return res.status(404).json({ error: "Student not found" });
+  }
+  res.json(student);
+});
+
 app.get('/api/students/:id/restrictions', (req, res) => {
   const { id } = req.params;
   const student = dbState.students.find((s: any) => s.id === id);
@@ -4632,6 +4642,14 @@ app.get('/api/parent_notifications', (req, res) => {
   res.json(dbState.parent_notifications || []);
 });
 
+app.post('/api/parent_notifications/mark-all-read', (req, res) => {
+  const list = dbState.parent_notifications || [];
+  list.forEach((n: any) => { n.read = true; });
+  dbState.parent_notifications = list;
+  saveDB(dbState);
+  res.json({ success: true, count: list.length });
+});
+
 app.post('/api/parent_notifications/:id/read', (req, res) => {
   const { id } = req.params;
   const list = dbState.parent_notifications || [];
@@ -4643,14 +4661,6 @@ app.post('/api/parent_notifications/:id/read', (req, res) => {
     return res.json({ success: true, notification });
   }
   res.status(404).json({ error: "Notification not found" });
-});
-
-app.post('/api/parent_notifications/mark-all-read', (req, res) => {
-  const list = dbState.parent_notifications || [];
-  list.forEach((n: any) => { n.read = true; });
-  dbState.parent_notifications = list;
-  saveDB(dbState);
-  res.json({ success: true, count: list.length });
 });
 
 app.get('/api/term_transitions', (req, res) => {
@@ -5995,7 +6005,7 @@ app.delete('/api/inventory_readiness/:id', (req, res) => {
 // -------------------------------------------------------------
 
 // GET all store inventory items
-app.get('/api/inventory/items', (req, res) => {
+app.get(['/api/inventory/items', '/api/inventory/store/items'], (req, res) => {
   res.json(dbState.inventory_store_items || []);
 });
 
@@ -6621,6 +6631,28 @@ app.get('/api/combined_payments', (req, res) => {
   res.json(dbState.combined_payments || []);
 });
 
+// GET Combined Payment Audit Logs
+app.get('/api/combined_payments/audit_logs', (req, res) => {
+  const { studentId, search } = req.query;
+  let logs = dbState.combined_payment_audit_logs || [];
+
+  if (studentId) {
+    logs = logs.filter((l: any) => l.studentId === studentId);
+  }
+
+  if (search) {
+    const q = (search as string).toLowerCase();
+    logs = logs.filter((l: any) => 
+      (l.studentName || '').toLowerCase().includes(q) ||
+      (l.combinedReceiptNo || '').toLowerCase().includes(q) ||
+      (l.overrideReason || '').toLowerCase().includes(q) ||
+      (l.overriddenBy || '').toLowerCase().includes(q)
+    );
+  }
+
+  res.json(logs);
+});
+
 // GET single combined payment session by ID
 app.get('/api/combined_payments/:id', (req, res) => {
   const { id } = req.params;
@@ -7140,28 +7172,6 @@ app.post('/api/combined_payments', (req, res) => {
 
   saveDB(dbState);
   res.status(201).json(combinedRecord);
-});
-
-// GET Combined Payment Audit Logs
-app.get('/api/combined_payments/audit_logs', (req, res) => {
-  const { studentId, search } = req.query;
-  let logs = dbState.combined_payment_audit_logs || [];
-
-  if (studentId) {
-    logs = logs.filter((l: any) => l.studentId === studentId);
-  }
-
-  if (search) {
-    const q = (search as string).toLowerCase();
-    logs = logs.filter((l: any) => 
-      (l.studentName || '').toLowerCase().includes(q) ||
-      (l.combinedReceiptNo || '').toLowerCase().includes(q) ||
-      (l.overrideReason || '').toLowerCase().includes(q) ||
-      (l.overriddenBy || '').toLowerCase().includes(q)
-    );
-  }
-
-  res.json(logs);
 });
 
 // -------------------------------------------------------------

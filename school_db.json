@@ -6290,5 +6290,601 @@
       "store": "Uniform Depot",
       "notes": "2.5m navy blue uniform fabric"
     }
+  ],
+  "combined_payments": [
+    {
+      "id": "CPAY-2026-894102",
+      "combinedReceiptNo": "RCP-COMB-2026-894102",
+      "date": "2026-07-22",
+      "time": "10:45 AM",
+      "studentId": "std-n1",
+      "admissionNo": "ADM-2024-N001",
+      "studentName": "Sophia Martinez",
+      "grade": "K1 (Ages 3-4)",
+      "classSection": "A",
+      "branch": "Main Campus",
+      "parentName": "Carlos Martinez",
+      "parentPhone": "+1 (555) 0192",
+      "parentEmail": "carlos.m@example.com",
+      "totalPaymentReceived": 50000,
+      "paymentMethod": "Bank Transfer",
+      "referenceNo": "TRF-ZENITH-883912",
+      "cashierId": "usr-cashier-01",
+      "cashierName": "Hajiya Maryam (Accounts)",
+      "notes": "Single parent payment for Uniform material purchase (₦20,000) and Term Tuition Fee (₦30,000).",
+      "allocationSummary": {
+        "storePurchaseTotal": 20000,
+        "storeAmountPaid": 20000,
+        "storeBalanceDue": 0,
+        "storeStatus": "Paid",
+        "remainingForFees": 30000,
+        "schoolFeeOutstandingBefore": 70000,
+        "feeAmountAllocated": 30000,
+        "schoolFeeOutstandingAfter": 40000,
+        "feeStatus": "Partially Paid",
+        "advanceWalletCreditGenerated": 0
+      },
+      "storeSaleId": "STR-TXN-2026-894102",
+      "storeReceiptNo": "RCP-STR-TXN-2026-894102",
+      "store": "Uniform Depot",
+      "storeItems": [
+        {
+          "itemId": "item-1",
+          "itemCode": "MAT-MET-01",
+          "itemName": "Uniform Material - Navy Blue (Terylene Wool)",
+          "unit": "Meter",
+          "quantity": 4,
+          "unitPrice": 2500,
+          "subtotal": 10000
+        },
+        {
+          "itemId": "item-3",
+          "itemCode": "UNI-SHT-01",
+          "itemName": "Ready-Made Short Sleeve Oxford Shirt (Size 14-16)",
+          "unit": "Piece",
+          "quantity": 2,
+          "unitPrice": 4500,
+          "subtotal": 9000
+        },
+        {
+          "itemId": "item-5",
+          "itemCode": "ACC-TIE-01",
+          "itemName": "Official Woven School Crest Tie (Senior)",
+          "unit": "Piece",
+          "quantity": 1,
+          "unitPrice": 1800,
+          "subtotal": 1800
+        }
+      ],
+      "storeSubtotal": 20800,
+      "storeDiscountAmount": 800,
+      "storeGrandTotal": 20000,
+      "storeAmountPaid": 20000,
+      "storeLedgerCategory": "Store Materials Purchase",
+      "feePaymentId": "pay-fees-894102",
+      "feeReceiptNo": "RCP-pay-fees-894102",
+      "feeLedgerAllocations": [
+        {
+          "ledgerId": "inv-std-n1-term1",
+          "name": "First Term Tuition & Facility Levy",
+          "termName": "Term 1 2026/2027",
+          "outstandingBefore": 70000,
+          "amountAllocated": 30000,
+          "outstandingAfter": 40000,
+          "status": "Partially Paid"
+        }
+      ],
+      "feeAmountAllocated": 30000,
+      "schoolFeeLedgerCategory": "Tuition & School Fees",
+      "createdAt": "2026-08-22T14:55:24.161Z"
+    }
+  ],
+  "teacher_evaluation_settings": {
+    "dimensionWeights": {
+      "submissionCompliance": 20,
+      "teachingProgress": 35,
+      "studentWorkCoverage": 20,
+      "evidenceCompletion": 10,
+      "managementReview": 15
+    },
+    "performanceBands": [
+      {
+        "id": "band-1",
+        "minScore": 90,
+        "maxScore": 100,
+        "label": "Excellent",
+        "color": "emerald",
+        "description": "Consistently achieves top compliance, rigorous curriculum pacing, and exemplary student work documentation."
+      },
+      {
+        "id": "band-2",
+        "minScore": 80,
+        "maxScore": 89,
+        "label": "Very Good",
+        "color": "blue",
+        "description": "Strong performance across compliance, syllabus milestones, and exercise book verification."
+      },
+      {
+        "id": "band-3",
+        "minScore": 70,
+        "maxScore": 79,
+        "label": "Good",
+        "color": "indigo",
+        "description": "Meets institutional expectations with steady teaching logs and satisfactory student work coverage."
+      },
+      {
+        "id": "band-4",
+        "minScore": 60,
+        "maxScore": 69,
+        "label": "Needs Improvement",
+        "color": "amber",
+        "description": "Demonstrates minor pacing deviations or delayed records requiring targeted supervisory guidance."
+      },
+      {
+        "id": "band-5",
+        "minScore": 0,
+        "maxScore": 59,
+        "label": "Requires Attention",
+        "color": "rose",
+        "description": "Significant gaps in compliance, curriculum delivery, or student work verification requiring administrative intervention."
+      }
+    ],
+    "updatedAt": "2026-08-22T14:55:24.165Z"
+  },
+  "financial_timeline": [
+    {
+      "id": "ev-fee-sfl-auto-1787219237642-33245",
+      "type": "Fee Generated",
+      "date": "2026-08-20T09:47:17.642Z",
+      "amount": 150000,
+      "studentId": "std-n1",
+      "studentName": "Sophia Martinez",
+      "familyAccountId": "fam-1787218854494-1",
+      "familyCode": "Carlos",
+      "referenceNo": "INV-SFL-AUTO-1787219237642-33245",
+      "description": "Term fee invoice generated for Sophia Martinez (K1 (Ages 3-4) - term-1). Base Fee: NGN 150,000, Optional Charges: NGN 0.",
+      "status": "Draft"
+    },
+    {
+      "id": "ev-fee-sfl-auto-1787219237671-21985",
+      "type": "Fee Generated",
+      "date": "2026-08-20T09:47:17.671Z",
+      "amount": 150000,
+      "studentId": "std-n2",
+      "studentName": "Liam O'Connor",
+      "familyAccountId": "fam-1787218854495-2",
+      "familyCode": "Siobhan",
+      "referenceNo": "INV-SFL-AUTO-1787219237671-21985",
+      "description": "Term fee invoice generated for Liam O'Connor (Preschool (Ages 2-3) - term-1). Base Fee: NGN 150,000, Optional Charges: NGN 0.",
+      "status": "Draft"
+    },
+    {
+      "id": "ev-fee-sfl-auto-1787219237671-89738",
+      "type": "Fee Generated",
+      "date": "2026-08-20T09:47:17.671Z",
+      "amount": 155000,
+      "studentId": "std-p1",
+      "studentName": "Alexander Mercer",
+      "familyAccountId": "fam-1787218854495-3",
+      "familyCode": "Richard",
+      "referenceNo": "INV-SFL-AUTO-1787219237671-89738",
+      "description": "Term fee invoice generated for Alexander Mercer (Grade 3 - term-1). Base Fee: NGN 155,000, Optional Charges: NGN 0.",
+      "status": "Draft"
+    },
+    {
+      "id": "ev-fee-sfl-auto-1787219237672-94641",
+      "type": "Fee Generated",
+      "date": "2026-08-20T09:47:17.672Z",
+      "amount": 140000,
+      "studentId": "std-p2",
+      "studentName": "Chloe Zhao",
+      "familyAccountId": "fam-1787218854495-4",
+      "familyCode": "Ying",
+      "referenceNo": "INV-SFL-AUTO-1787219237672-94641",
+      "description": "Term fee invoice generated for Chloe Zhao (Grade 5 - term-1). Base Fee: NGN 140,000, Optional Charges: NGN 0.",
+      "status": "Draft"
+    },
+    {
+      "id": "ev-fee-sfl-auto-1787219237673-28880",
+      "type": "Fee Generated",
+      "date": "2026-08-20T09:47:17.673Z",
+      "amount": 150000,
+      "studentId": "std-s1",
+      "studentName": "Amara Adebayo",
+      "familyAccountId": "fam-1787218854495-5",
+      "familyCode": "Femi",
+      "referenceNo": "INV-SFL-AUTO-1787219237673-28880",
+      "description": "Term fee invoice generated for Amara Adebayo (Grade 10 - term-1). Base Fee: NGN 150,000, Optional Charges: NGN 0.",
+      "status": "Draft"
+    },
+    {
+      "id": "ev-fee-sfl-auto-1787219237673-39133",
+      "type": "Fee Generated",
+      "date": "2026-08-20T09:47:17.673Z",
+      "amount": 150000,
+      "studentId": "std-s2",
+      "studentName": "Marcus Thorne",
+      "familyAccountId": "fam-1787218854495-6",
+      "familyCode": "Gemma",
+      "referenceNo": "INV-SFL-AUTO-1787219237673-39133",
+      "description": "Term fee invoice generated for Marcus Thorne (Grade 11 - term-1). Base Fee: NGN 150,000, Optional Charges: NGN 0.",
+      "status": "Draft"
+    },
+    {
+      "id": "ev-fee-sfl-auto-1787219237673-18005",
+      "type": "Fee Generated",
+      "date": "2026-08-20T09:47:17.673Z",
+      "amount": 150000,
+      "studentId": "std-rs1",
+      "studentName": "Aisha Bello",
+      "familyAccountId": "fam-1787218854495-7",
+      "familyCode": "Alhaji",
+      "referenceNo": "INV-SFL-AUTO-1787219237673-18005",
+      "description": "Term fee invoice generated for Aisha Bello (K1 (Ages 3-4) - term-1). Base Fee: NGN 150,000, Optional Charges: NGN 0.",
+      "status": "Draft"
+    },
+    {
+      "id": "ev-fee-sfl-auto-1787219237673-53631",
+      "type": "Fee Generated",
+      "date": "2026-08-20T09:47:17.673Z",
+      "amount": 150000,
+      "studentId": "std-rs2",
+      "studentName": "Chinedu Okafor",
+      "familyAccountId": "fam-1787218854495-8",
+      "familyCode": "Emeka",
+      "referenceNo": "INV-SFL-AUTO-1787219237673-53631",
+      "description": "Term fee invoice generated for Chinedu Okafor (Grade 3 - term-1). Base Fee: NGN 150,000, Optional Charges: NGN 0.",
+      "status": "Draft"
+    },
+    {
+      "id": "ev-fee-sfl-auto-1787219237673-66631",
+      "type": "Fee Generated",
+      "date": "2026-08-20T09:47:17.673Z",
+      "amount": 150000,
+      "studentId": "std-rs3",
+      "studentName": "Fatima Musa",
+      "familyAccountId": "fam-1787218854495-9",
+      "familyCode": "Musa",
+      "referenceNo": "INV-SFL-AUTO-1787219237673-66631",
+      "description": "Term fee invoice generated for Fatima Musa (Grade 5 - term-1). Base Fee: NGN 150,000, Optional Charges: NGN 0.",
+      "status": "Draft"
+    },
+    {
+      "id": "ev-fee-sfl-auto-1787219237693-18177",
+      "type": "Fee Generated",
+      "date": "2026-08-20T09:47:17.693Z",
+      "amount": 150000,
+      "studentId": "std-rs4",
+      "studentName": "Zainab Abubakar",
+      "familyAccountId": "fam-1787218854495-10",
+      "familyCode": "Abubakar",
+      "referenceNo": "INV-SFL-AUTO-1787219237693-18177",
+      "description": "Term fee invoice generated for Zainab Abubakar (Grade 10 - term-1). Base Fee: NGN 150,000, Optional Charges: NGN 0.",
+      "status": "Draft"
+    },
+    {
+      "id": "ev-fee-sfl-auto-1787219237693-18328",
+      "type": "Fee Generated",
+      "date": "2026-08-20T09:47:17.693Z",
+      "amount": 150000,
+      "studentId": "std-rs5",
+      "studentName": "Kabiru Ibrahim",
+      "familyAccountId": "fam-1787218854495-11",
+      "familyCode": "Ibrahim",
+      "referenceNo": "INV-SFL-AUTO-1787219237693-18328",
+      "description": "Term fee invoice generated for Kabiru Ibrahim (Grade 11 - term-1). Base Fee: NGN 150,000, Optional Charges: NGN 0.",
+      "status": "Draft"
+    },
+    {
+      "id": "ev-fee-sfl-auto-1787219237698-25720",
+      "type": "Fee Generated",
+      "date": "2026-08-20T09:47:17.698Z",
+      "amount": 300000,
+      "studentId": "std-n1",
+      "studentName": "Sophia Martinez",
+      "familyAccountId": "fam-1787218854494-1",
+      "familyCode": "Carlos",
+      "referenceNo": "INV-SFL-AUTO-1787219237698-25720",
+      "description": "Term fee invoice generated for Sophia Martinez (K1 (Ages 3-4) - term-2). Base Fee: NGN 150,000, Optional Charges: NGN 0.",
+      "status": "Draft"
+    },
+    {
+      "id": "ev-carry-sfl-auto-1787219237698-25720",
+      "type": "Carry Forward",
+      "date": "2026-08-20T09:47:17.698Z",
+      "amount": 150000,
+      "studentId": "std-n1",
+      "studentName": "Sophia Martinez",
+      "familyAccountId": "fam-1787218854494-1",
+      "familyCode": "Carlos",
+      "referenceNo": "CF-SFL-AUTO-1787219237698-25720",
+      "description": "Outstanding unpaid balance of NGN 150,000 carried forward from previous term ledger for Sophia Martinez.",
+      "status": "Unpaid"
+    },
+    {
+      "id": "ev-fee-sfl-auto-1787219237698-62039",
+      "type": "Fee Generated",
+      "date": "2026-08-20T09:47:17.698Z",
+      "amount": 300000,
+      "studentId": "std-n2",
+      "studentName": "Liam O'Connor",
+      "familyAccountId": "fam-1787218854495-2",
+      "familyCode": "Siobhan",
+      "referenceNo": "INV-SFL-AUTO-1787219237698-62039",
+      "description": "Term fee invoice generated for Liam O'Connor (Preschool (Ages 2-3) - term-2). Base Fee: NGN 150,000, Optional Charges: NGN 0.",
+      "status": "Draft"
+    },
+    {
+      "id": "ev-carry-sfl-auto-1787219237698-62039",
+      "type": "Carry Forward",
+      "date": "2026-08-20T09:47:17.698Z",
+      "amount": 150000,
+      "studentId": "std-n2",
+      "studentName": "Liam O'Connor",
+      "familyAccountId": "fam-1787218854495-2",
+      "familyCode": "Siobhan",
+      "referenceNo": "CF-SFL-AUTO-1787219237698-62039",
+      "description": "Outstanding unpaid balance of NGN 150,000 carried forward from previous term ledger for Liam O'Connor.",
+      "status": "Unpaid"
+    },
+    {
+      "id": "ev-fee-sfl-auto-1787219237698-95732",
+      "type": "Fee Generated",
+      "date": "2026-08-20T09:47:17.698Z",
+      "amount": 320000,
+      "studentId": "std-p1",
+      "studentName": "Alexander Mercer",
+      "familyAccountId": "fam-1787218854495-3",
+      "familyCode": "Richard",
+      "referenceNo": "INV-SFL-AUTO-1787219237698-95732",
+      "description": "Term fee invoice generated for Alexander Mercer (Grade 3 - term-2). Base Fee: NGN 165,000, Optional Charges: NGN 0.",
+      "status": "Draft"
+    },
+    {
+      "id": "ev-carry-sfl-auto-1787219237698-95732",
+      "type": "Carry Forward",
+      "date": "2026-08-20T09:47:17.698Z",
+      "amount": 155000,
+      "studentId": "std-p1",
+      "studentName": "Alexander Mercer",
+      "familyAccountId": "fam-1787218854495-3",
+      "familyCode": "Richard",
+      "referenceNo": "CF-SFL-AUTO-1787219237698-95732",
+      "description": "Outstanding unpaid balance of NGN 155,000 carried forward from previous term ledger for Alexander Mercer.",
+      "status": "Unpaid"
+    },
+    {
+      "id": "ev-fee-sfl-auto-1787219237698-48962",
+      "type": "Fee Generated",
+      "date": "2026-08-20T09:47:17.698Z",
+      "amount": 305000,
+      "studentId": "std-p2",
+      "studentName": "Chloe Zhao",
+      "familyAccountId": "fam-1787218854495-4",
+      "familyCode": "Ying",
+      "referenceNo": "INV-SFL-AUTO-1787219237698-48962",
+      "description": "Term fee invoice generated for Chloe Zhao (Grade 5 - term-2). Base Fee: NGN 165,000, Optional Charges: NGN 0.",
+      "status": "Draft"
+    },
+    {
+      "id": "ev-carry-sfl-auto-1787219237698-48962",
+      "type": "Carry Forward",
+      "date": "2026-08-20T09:47:17.698Z",
+      "amount": 140000,
+      "studentId": "std-p2",
+      "studentName": "Chloe Zhao",
+      "familyAccountId": "fam-1787218854495-4",
+      "familyCode": "Ying",
+      "referenceNo": "CF-SFL-AUTO-1787219237698-48962",
+      "description": "Outstanding unpaid balance of NGN 140,000 carried forward from previous term ledger for Chloe Zhao.",
+      "status": "Unpaid"
+    },
+    {
+      "id": "ev-book-std-n1-0",
+      "type": "Books Issued",
+      "date": "2026-08-10T14:56:52.481Z",
+      "amount": 4500,
+      "studentId": "std-n1",
+      "studentName": "Sophia Martinez",
+      "familyAccountId": "fam-1787218854494-1",
+      "familyCode": "Carlos",
+      "referenceNo": "BK-STD--0",
+      "description": "Library academic textbooks issued: \"Integrated Science Grade 4\" checked out to Sophia Martinez. Materials levy cost of NGN 4,500 added to term accessory ledger.",
+      "status": "Issued"
+    },
+    {
+      "id": "ev-book-std-n2-1",
+      "type": "Books Issued",
+      "date": "2026-08-10T14:56:52.481Z",
+      "amount": 6000,
+      "studentId": "std-n2",
+      "studentName": "Liam O'Connor",
+      "familyAccountId": "fam-1787218854495-2",
+      "familyCode": "Siobhan",
+      "referenceNo": "BK-STD--1",
+      "description": "Library academic textbooks issued: \"Mathematics Masterclass Vol 2\" checked out to Liam O'Connor. Materials levy cost of NGN 6,000 added to term accessory ledger.",
+      "status": "Issued"
+    },
+    {
+      "id": "ev-book-std-p1-2",
+      "type": "Books Issued",
+      "date": "2026-08-10T14:56:52.481Z",
+      "amount": 7500,
+      "studentId": "std-p1",
+      "studentName": "Alexander Mercer",
+      "familyAccountId": "fam-1787218854495-3",
+      "familyCode": "Richard",
+      "referenceNo": "BK-STD--2",
+      "description": "Library academic textbooks issued: \"Nursery Phonetics Workbook\" checked out to Alexander Mercer. Materials levy cost of NGN 7,500 added to term accessory ledger.",
+      "status": "Issued"
+    },
+    {
+      "id": "ev-book-std-p2-3",
+      "type": "Books Issued",
+      "date": "2026-08-10T14:56:52.481Z",
+      "amount": 9000,
+      "studentId": "std-p2",
+      "studentName": "Chloe Zhao",
+      "familyAccountId": "fam-1787218854495-4",
+      "familyCode": "Ying",
+      "referenceNo": "BK-STD--3",
+      "description": "Library academic textbooks issued: \"Syllabus Reader Primary 3\" checked out to Chloe Zhao. Materials levy cost of NGN 9,000 added to term accessory ledger.",
+      "status": "Issued"
+    },
+    {
+      "id": "ev-refund-seed-1",
+      "type": "Refund",
+      "date": "2026-08-20T14:56:52.481Z",
+      "amount": 15000,
+      "studentId": "std-n2",
+      "studentName": "Liam O'Connor",
+      "familyAccountId": "fam-1787218854495-2",
+      "familyCode": "Siobhan",
+      "referenceNo": "RFD-04982",
+      "description": "Credit refund of NGN 15,000 processed for Liam O'Connor from double payment on Grade Section Level activity levy. Re-routed to parent bank account.",
+      "status": "Completed"
+    },
+    {
+      "id": "ev-restr-seed-1",
+      "type": "Restriction",
+      "date": "2026-08-07T14:56:52.481Z",
+      "studentId": "std-p1",
+      "studentName": "Alexander Mercer",
+      "familyAccountId": "fam-1787218854495-3",
+      "familyCode": "Richard",
+      "referenceNo": "RST-LOCKED",
+      "description": "Institutional policy restriction triggered for Alexander Mercer: [Academic Report Card Locked] activated automatically due to outstanding overdue balances exceeding NGN 50,000.",
+      "status": "Active"
+    }
+  ],
+  "expense_heads": [
+    {
+      "id": "exh-1",
+      "name": "Salary",
+      "description": "Teacher payroll, admin wages, and staff allowances.",
+      "linkedFeeHeadId": "fh-1"
+    },
+    {
+      "id": "exh-2",
+      "name": "Rent",
+      "description": "Campus land and facility rentals.",
+      "linkedFeeHeadId": "fh-1"
+    },
+    {
+      "id": "exh-3",
+      "name": "Books",
+      "description": "Procurement of academic textbooks and curriculum materials.",
+      "linkedFeeHeadId": "fh-2"
+    },
+    {
+      "id": "exh-4",
+      "name": "Repairs",
+      "description": "Classroom carpentry, masonry, and equipment fixes.",
+      "linkedFeeHeadId": "fh-1"
+    },
+    {
+      "id": "exh-5",
+      "name": "Utilities",
+      "description": "Electricity tariffs, generator fuel, water, and internet bills.",
+      "linkedFeeHeadId": "fh-1"
+    },
+    {
+      "id": "exh-6",
+      "name": "Loans",
+      "description": "Bank facility amortizations and debt service obligations.",
+      "linkedFeeHeadId": "fh-1"
+    },
+    {
+      "id": "exh-7",
+      "name": "Marketing",
+      "description": "Social media ads, neighborhood flyers, and admission campaign drives.",
+      "linkedFeeHeadId": "fh-1"
+    },
+    {
+      "id": "exh-8",
+      "name": "Maintenance",
+      "description": "Daily sanitation, landscaping, and school security services.",
+      "linkedFeeHeadId": "fh-1"
+    }
+  ],
+  "expenses": [
+    {
+      "id": "exp-1",
+      "headId": "exh-1",
+      "amount": 1250000,
+      "date": "2026-08-18T14:56:52.492Z",
+      "vendor": "Staff Payroll Distribution",
+      "receipt": "PAY-2026-07-001",
+      "approvalStatus": "Approved",
+      "approvedBy": "Super Admin",
+      "branch": "Main Branch",
+      "paymentMethod": "Bank Transfer",
+      "description": "Monthly staff salaries for secondary and primary school teachers."
+    },
+    {
+      "id": "exp-2",
+      "headId": "exh-5",
+      "amount": 85000,
+      "date": "2026-08-20T14:56:52.492Z",
+      "vendor": "Oando Diesel Fuel Ltd",
+      "receipt": "OAN-90234",
+      "approvalStatus": "Approved",
+      "approvedBy": "Accountant",
+      "branch": "Main Branch",
+      "paymentMethod": "Cash",
+      "description": "Diesel fuel purchase (100 Litres) for school backup generators."
+    },
+    {
+      "id": "exp-3",
+      "headId": "exh-4",
+      "amount": 45000,
+      "date": "2026-08-21T14:56:52.492Z",
+      "vendor": "Nnamdi Carpentry Works",
+      "receipt": "NCW-209",
+      "approvalStatus": "Pending",
+      "approvedBy": "",
+      "branch": "Lekki Annex",
+      "paymentMethod": "POS",
+      "description": "Repairing broken primary desks and painting classroom doors."
+    },
+    {
+      "id": "exp-4",
+      "headId": "exh-3",
+      "amount": 350000,
+      "date": "2026-08-12T14:56:52.492Z",
+      "vendor": "Evans Publishers Nigeria",
+      "receipt": "EVN-88201",
+      "approvalStatus": "Approved",
+      "approvedBy": "Super Admin",
+      "branch": "Main Branch",
+      "paymentMethod": "Cheque",
+      "description": "Purchase of secondary school physics and chemistry laboratory textbooks."
+    },
+    {
+      "id": "exp-5",
+      "headId": "exh-7",
+      "amount": 120000,
+      "date": "2026-08-14T14:56:52.492Z",
+      "vendor": "Gidi Marketing Agency",
+      "receipt": "GMA-2026-90",
+      "approvalStatus": "Approved",
+      "approvedBy": "Accountant",
+      "branch": "Main Branch",
+      "paymentMethod": "Bank Transfer",
+      "description": "Social media advertisements for high school admission registration drive."
+    },
+    {
+      "id": "exp-6",
+      "headId": "exh-2",
+      "amount": 800000,
+      "date": "2026-08-07T14:56:52.492Z",
+      "vendor": "Lagoon Realty Properties",
+      "receipt": "LRP-PROP-202",
+      "approvalStatus": "Approved",
+      "approvedBy": "Super Admin",
+      "branch": "Main Branch",
+      "paymentMethod": "Bank Transfer",
+      "description": "Quarterly facility lease payment for Annex campus site."
+    }
   ]
 }

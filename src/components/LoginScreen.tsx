@@ -51,8 +51,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   lockedUser = null,
   onUnlockSession
 }) => {
-  const [emailOrUsername, setEmailOrUsername] = useState(lockedUser ? lockedUser.email : 'admin@sams.com');
-  const [password, setPassword] = useState(lockedUser ? '' : 'sams123');
+  const [emailOrUsername, setEmailOrUsername] = useState(lockedUser ? lockedUser.email : 'usamah.m.qamar@gmail.com');
+  const [password, setPassword] = useState(lockedUser ? '' : 'Us@mah786');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -111,6 +111,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         u.email.toLowerCase() === cleanEmail ||
         u.name.toLowerCase() === cleanEmail ||
         u.id.toLowerCase() === cleanEmail ||
+        (cleanEmail === 'usamah.m.qamar@gmail.com' && (u.role === 'Super Administrator' || u.role === 'Super Admin')) ||
         (u.employeeId && u.employeeId.toLowerCase() === cleanEmail)
       );
 
@@ -126,12 +127,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         return;
       }
 
-      // Password check: matched.password || 'sams123' or 'admin123'
-      const validPassword = matched.password || 'sams123';
-      const isMasterPass = cleanPass === 'sams123' || cleanPass === 'admin123' || cleanPass === 'password';
+      // Password check: matched.password || 'Us@mah786' for super admin or 'sams123'
+      const validPassword = matched.password || (matched.role === 'Super Administrator' || matched.role === 'Super Admin' ? 'Us@mah786' : 'sams123');
+      const isMasterPass = cleanPass === validPassword || cleanPass === 'Us@mah786' || cleanPass === 'sams123' || cleanPass === 'admin123' || cleanPass === 'password';
 
       if (cleanPass !== validPassword && !isMasterPass) {
-        setErrorMessage('Incorrect password. For testing, default password is "sams123".');
+        setErrorMessage('Incorrect password. For Super Admin, use "Us@mah786" (or for other test accounts, "sams123").');
         setIsLoading(false);
         return;
       }
@@ -150,7 +151,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
   const handleQuickLogin = (user: SystemUser) => {
     setEmailOrUsername(user.email);
-    setPassword(user.password || 'sams123');
+    setPassword(user.password || (user.role === 'Super Administrator' || user.role === 'Super Admin' ? 'Us@mah786' : 'sams123'));
     setErrorMessage(null);
     setIsLoading(true);
 
@@ -313,7 +314,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center justify-between">
                     <span>Email or Username</span>
-                    <span className="text-[9px] text-slate-400 font-mono">e.g. admin@sams.com</span>
+                    <span className="text-[9px] text-slate-400 font-mono">e.g. usamah.m.qamar@gmail.com</span>
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -322,10 +323,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     <input
                       type="text"
                       required
-                      placeholder="admin@sams.com"
+                      placeholder="usamah.m.qamar@gmail.com"
                       value={emailOrUsername}
                       onChange={(e) => setEmailOrUsername(e.target.value)}
-                      className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all font-mono"
+                      className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:white placeholder-slate-400 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all font-mono"
                     />
                   </div>
                 </div>
@@ -338,10 +339,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     </label>
                     <button
                       type="button"
-                      onClick={() => setPassword('sams123')}
+                      onClick={() => setPassword('Us@mah786')}
                       className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
                     >
-                      Fill default password
+                      Fill Super Admin password
                     </button>
                   </div>
                   <div className="relative">
@@ -460,13 +461,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           <div className="mt-6 pt-3 border-t border-slate-100 dark:border-slate-800 text-[10px] text-slate-400 flex items-center justify-between">
             <span className="flex items-center gap-1">
               <KeyRound className="w-3 h-3 text-slate-400" />
-              Default test password: <strong className="text-slate-600 dark:text-slate-300 font-mono">sams123</strong>
+              Super Admin: <strong className="text-slate-600 dark:text-slate-300 font-mono">Us@mah786</strong> (Staff: sams123)
             </span>
             <button
               type="button"
               onClick={() => {
-                setEmailOrUsername('admin@sams.com');
-                setPassword('sams123');
+                setEmailOrUsername('usamah.m.qamar@gmail.com');
+                setPassword('Us@mah786');
                 setActiveTab('login');
               }}
               className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold"
@@ -502,9 +503,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
             <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300">
               <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-1">
-                <p className="font-bold text-slate-900 dark:text-white text-xs">Default Sandbox Password</p>
+                <p className="font-bold text-slate-900 dark:text-white text-xs">Super Admin Master Credentials</p>
                 <p className="text-[11px] leading-relaxed">
-                  All demonstration personnel accounts are pre-configured with the default password: <code className="bg-indigo-50 dark:bg-indigo-950 px-1.5 py-0.5 rounded font-mono font-bold text-indigo-600 dark:text-indigo-400">sams123</code>
+                  User ID / Email: <code className="bg-indigo-50 dark:bg-indigo-950 px-1.5 py-0.5 rounded font-mono font-bold text-indigo-600 dark:text-indigo-400">usamah.m.qamar@gmail.com</code><br/>
+                  Password: <code className="bg-indigo-50 dark:bg-indigo-950 px-1.5 py-0.5 rounded font-mono font-bold text-indigo-600 dark:text-indigo-400">Us@mah786</code>
                 </p>
               </div>
 
@@ -513,7 +515,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 <ul className="space-y-1 text-[11px] font-mono">
                   <li className="flex justify-between">
                     <span>👑 Super Administrator:</span>
-                    <strong className="text-slate-800 dark:text-slate-200">admin@sams.com</strong>
+                    <strong className="text-slate-800 dark:text-slate-200">usamah.m.qamar@gmail.com</strong>
                   </li>
                   <li className="flex justify-between">
                     <span>🏢 Branch Admin (RS):</span>

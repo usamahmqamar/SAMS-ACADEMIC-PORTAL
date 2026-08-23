@@ -40,7 +40,7 @@ export const DEFAULT_ACADEMIC_DB = {
           "transferDate": "2026-08-20",
           "effectiveDate": "2026-09-01",
           "transferReason": "2026/2027 Faculty Deployment",
-          "authorizedBy": "Malam Sani Bala (Super Administrator)",
+          "authorizedBy": "Engr. Usamah M. Qamar (Super Administrator)",
           "timestamp": "2026-08-20T08:00:00.000Z"
         }
       ]
@@ -82,7 +82,7 @@ export const DEFAULT_ACADEMIC_DB = {
           "transferDate": "2026-08-20",
           "effectiveDate": "2026-09-01",
           "transferReason": "2026/2027 Faculty Deployment",
-          "authorizedBy": "Malam Sani Bala (Super Administrator)",
+          "authorizedBy": "Engr. Usamah M. Qamar (Super Administrator)",
           "timestamp": "2026-08-20T08:00:00.000Z"
         }
       ]
@@ -125,7 +125,7 @@ export const DEFAULT_ACADEMIC_DB = {
           "transferDate": "2026-08-20",
           "effectiveDate": "2026-09-01",
           "transferReason": "2026/2027 Faculty Deployment",
-          "authorizedBy": "Malam Sani Bala (Super Administrator)",
+          "authorizedBy": "Engr. Usamah M. Qamar (Super Administrator)",
           "timestamp": "2026-08-20T08:00:00.000Z"
         }
       ]
@@ -170,7 +170,7 @@ export const DEFAULT_ACADEMIC_DB = {
           "transferDate": "2026-08-20",
           "effectiveDate": "2026-09-01",
           "transferReason": "2026/2027 Faculty Deployment",
-          "authorizedBy": "Malam Sani Bala (Super Administrator)",
+          "authorizedBy": "Engr. Usamah M. Qamar (Super Administrator)",
           "timestamp": "2026-08-20T08:00:00.000Z"
         }
       ]
@@ -215,7 +215,7 @@ export const DEFAULT_ACADEMIC_DB = {
           "transferDate": "2026-08-20",
           "effectiveDate": "2026-09-01",
           "transferReason": "2026/2027 Faculty Deployment",
-          "authorizedBy": "Malam Sani Bala (Super Administrator)",
+          "authorizedBy": "Engr. Usamah M. Qamar (Super Administrator)",
           "timestamp": "2026-08-20T08:00:00.000Z"
         }
       ]
@@ -259,7 +259,7 @@ export const DEFAULT_ACADEMIC_DB = {
           "transferDate": "2026-08-20",
           "effectiveDate": "2026-09-01",
           "transferReason": "2026/2027 Faculty Deployment",
-          "authorizedBy": "Malam Sani Bala (Super Administrator)",
+          "authorizedBy": "Engr. Usamah M. Qamar (Super Administrator)",
           "timestamp": "2026-08-20T08:00:00.000Z"
         }
       ]

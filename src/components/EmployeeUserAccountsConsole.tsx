@@ -126,7 +126,7 @@ export const EmployeeUserAccountsConsole: React.FC<EmployeeUserAccountsConsolePr
     transferDate: new Date().toISOString().split('T')[0],
     effectiveDate: new Date().toISOString().split('T')[0],
     transferReason: 'Departmental Faculty Reallocation',
-    authorizedBy: 'Malam Sani Bala (Super Administrator)',
+    authorizedBy: 'Engr. Usamah M. Qamar (Super Administrator)',
     notes: 'Approved during Q3 Administrative Review'
   });
 
@@ -582,7 +582,7 @@ export const EmployeeUserAccountsConsole: React.FC<EmployeeUserAccountsConsolePr
       transferDate: new Date().toISOString().split('T')[0],
       effectiveDate: new Date().toISOString().split('T')[0],
       transferReason: 'Campus Expansion & Faculty Reallocation',
-      authorizedBy: 'Malam Sani Bala (Super Administrator)',
+      authorizedBy: 'Engr. Usamah M. Qamar (Super Administrator)',
       notes: 'Executed per central administration directive'
     });
     setShowTransferModal(true);

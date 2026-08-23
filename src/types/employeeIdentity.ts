@@ -18,7 +18,7 @@ export interface EmployeeBranchHistory {
   transferDate: string;   // ISO date string
   effectiveDate: string;  // ISO date string
   transferReason: string; // e.g. "Departmental rotation", "Promoted to Branch Head", "Faculty rebalance"
-  authorizedBy: string;   // Admin name or ID e.g. "Malam Sani Bala (Super Administrator)"
+  authorizedBy: string;   // Admin name or ID e.g. "Engr. Usamah M. Qamar (Super Administrator)"
   notes?: string;
   timestamp: string;
 }

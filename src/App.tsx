@@ -724,7 +724,7 @@ export default function App() {
             transferDate: t.joiningDate || '2022-09-01',
             effectiveDate: t.joiningDate || '2022-09-01',
             transferReason: 'Initial Campus Posting & Academic Allocation',
-            authorizedBy: 'Malam Sani Bala (Super Administrator)',
+            authorizedBy: 'Engr. Usamah M. Qamar (Super Administrator)',
             timestamp: new Date().toISOString()
           }
         ]
@@ -1176,6 +1176,12 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         return parsed.map((usr: any) => {
+          if (usr.id === 'usr-admin' || usr.role === 'Super Administrator' || usr.role === 'Super Admin' || usr.email === 'admin@sams.com') {
+            usr.name = 'Engr. Usamah M. Qamar';
+            usr.email = 'usamah.m.qamar@gmail.com';
+            usr.password = 'Us@mah786';
+            usr.role = 'Super Administrator';
+          }
           if (usr.role === 'Super Admin') usr.role = 'Super Administrator';
           if (usr.role === 'Branch Admin') usr.role = 'Branch Administrator';
           if (!usr.primaryBranch) usr.primaryBranch = usr.branch || 'RS';
@@ -1185,7 +1191,7 @@ export default function App() {
       } catch (e) {}
     }
     return [
-      { id: 'usr-admin', name: 'Malam Sani Bala', email: 'admin@sams.com', role: 'Super Administrator', branch: 'All', status: 'Active', employeeId: 'HQ-EMP-0001', primaryBranch: 'All', additionalBranches: ['RS', 'GN'], phone: '+234 803 000 1111', accessCount: 257 },
+      { id: 'usr-admin', name: 'Engr. Usamah M. Qamar', email: 'usamah.m.qamar@gmail.com', password: 'Us@mah786', role: 'Super Administrator', branch: 'All', status: 'Active', employeeId: 'HQ-EMP-0001', primaryBranch: 'All', additionalBranches: ['RS', 'GN'], phone: '+234 803 123 4567', accessCount: 257 },
       { id: 'usr-1', name: 'Alh. Ibrahim Usman', email: 'proprietor@sams.com', role: 'Proprietor', branch: 'All', status: 'Active', employeeId: 'HQ-EMP-0002', primaryBranch: 'All', additionalBranches: ['RS', 'GN'], phone: '+234 803 111 2222', accessCount: 142 },
       { id: 'usr-2', name: 'Mrs. Maryam Sani', email: 'maryam.s@sams.rs.com', role: 'Branch Administrator', branch: 'RS', status: 'Active', employeeId: 'RJS-EMP-0001', primaryBranch: 'RS', additionalBranches: ['RS'], phone: '+234 803 222 3333', accessCount: 88 },
       { id: 'usr-principal', name: 'Mrs. Grace Aliyu', email: 'principal@sams.com', role: 'Principal', branch: 'GN', status: 'Active', employeeId: 'GWN-EMP-0001', primaryBranch: 'GN', additionalBranches: ['GN'], phone: '+234 803 999 8888', accessCount: 112 },
@@ -2557,7 +2563,7 @@ export default function App() {
         transferDate: new Date().toISOString().split('T')[0],
         effectiveDate: new Date().toISOString().split('T')[0],
         transferReason: 'Initial Onboarding & Faculty Creation',
-        authorizedBy: 'Malam Sani Bala (Super Administrator)',
+        authorizedBy: 'Engr. Usamah M. Qamar (Super Administrator)',
         timestamp: new Date().toISOString()
       }
     ];
@@ -2646,12 +2652,12 @@ export default function App() {
     });
 
     logEmployeeAuditEvent({
-      user: 'Malam Sani Bala (Super Administrator)',
+      user: 'Engr. Usamah M. Qamar (Super Administrator)',
       userRole: currentSimulatedRole,
       employeeId: generatedEmpId,
       employeeName: newTeacherRecord.name,
       action: 'EMPLOYEE_CREATED',
-      authorizedBy: 'Malam Sani Bala (Super Administrator)',
+      authorizedBy: 'Engr. Usamah M. Qamar (Super Administrator)',
       branch: assignedBranch,
       details: `Created new employee profile ${generatedEmpId} and linked IAM user ${assignedUserId}`
     });
@@ -8915,7 +8921,7 @@ export default function App() {
                           systemUsers={systemUsers}
                           setSystemUsers={setSystemUsers}
                           currentRole={currentSimulatedRole}
-                          currentUserName={systemUsers.find(u => u.role === currentSimulatedRole)?.name || 'Malam Sani Bala (Super Administrator)'}
+                          currentUserName={systemUsers.find(u => u.role === currentSimulatedRole)?.name || 'Engr. Usamah M. Qamar (Super Administrator)'}
                           activeBranch={selectedBranch}
                           onNavigateToTeacher={(teacherId) => {
                             const target = teachers.find(t => t.id === teacherId || t.employeeId === teacherId);
@@ -14721,7 +14727,7 @@ export default function App() {
                         systemUsers={systemUsers}
                         setSystemUsers={setSystemUsers}
                         currentRole={currentSimulatedRole}
-                        currentUserName={systemUsers.find(u => u.role === currentSimulatedRole)?.name || 'Malam Sani Bala (Super Administrator)'}
+                        currentUserName={systemUsers.find(u => u.role === currentSimulatedRole)?.name || 'Engr. Usamah M. Qamar (Super Administrator)'}
                         activeBranch={selectedBranch}
                         onNavigateToTeacher={(teacherId) => {
                           const target = teachers.find(t => t.id === teacherId || t.employeeId === teacherId);

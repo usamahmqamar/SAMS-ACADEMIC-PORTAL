@@ -1,5 +1,7 @@
 import express from 'express';
 import { GoogleGenAI } from '@google/genai';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Pool } from 'pg';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
@@ -16,6 +18,29 @@ const PORT = 3000;
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// Supabase lazy client initialization
+let supabaseServerClient: SupabaseClient | null = null;
+function getSupabase(): SupabaseClient {
+  if (!supabaseServerClient) {
+    const supabaseUrl = process.env.SUPABASE_URL || 'https://trkqknwcicdcsisyjjvl.supabase.co';
+    const supabaseKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_WVKhGcsbkeBo2qvZrAn4Fw_kV305HGv';
+    supabaseServerClient = createClient(supabaseUrl, supabaseKey);
+  }
+  return supabaseServerClient;
+}
+
+// PostgreSQL lazy pool initialization
+let pgPool: Pool | null = null;
+function getPgPool(): Pool | null {
+  if (!pgPool && process.env.DATABASE_URL) {
+    pgPool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false }
+    });
+  }
+  return pgPool;
+}
 
 // Initialize Gemini SDK with User-Agent telemetry headers
 let ai: GoogleGenAI | null = null;
@@ -2991,6 +3016,65 @@ if (migrationNeeded) {
 
 app.get('/api/health', (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// Supabase & PostgreSQL Connection Status
+app.get('/api/supabase/status', async (req, res) => {
+  try {
+    const supabaseClient = getSupabase();
+    const url = process.env.SUPABASE_URL || 'https://trkqknwcicdcsisyjjvl.supabase.co';
+    const hasSecretKey = !!process.env.SUPABASE_SECRET_KEY;
+    const hasPublishableKey = !!process.env.SUPABASE_PUBLISHABLE_KEY;
+    const hasDatabaseUrl = !!process.env.DATABASE_URL;
+
+    // Check Supabase Auth service
+    let authServiceStatus = "untested";
+    try {
+      const { data, error } = await supabaseClient.auth.getSession();
+      if (!error) {
+        authServiceStatus = "online";
+      } else {
+        authServiceStatus = `error: ${error.message}`;
+      }
+    } catch (e: any) {
+      authServiceStatus = `unreachable: ${e.message}`;
+    }
+
+    // Check direct PostgreSQL connection
+    let pgStatus = "not_configured";
+    let pgTime = null;
+    if (hasDatabaseUrl) {
+      try {
+        const pool = getPgPool();
+        if (pool) {
+          const pgRes = await pool.query('SELECT NOW() as current_time, version() as version');
+          pgStatus = "connected";
+          pgTime = pgRes.rows[0]?.current_time;
+        }
+      } catch (pgErr: any) {
+        pgStatus = `connection_error: ${pgErr.message}`;
+      }
+    }
+
+    res.json({
+      connected: true,
+      authService: authServiceStatus,
+      postgresDatabase: pgStatus,
+      postgresServerTime: pgTime,
+      url,
+      hasSecretKey,
+      hasPublishableKey,
+      hasDatabaseUrl,
+      jwksUrl: process.env.SUPABASE_JWKS_URL || `${url}/auth/v1/.well-known/jwks.json`,
+      session2026Status: "Ready",
+      timestamp: new Date().toISOString()
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      connected: false,
+      error: err?.message || "Failed to initialize Supabase client"
+    });
+  }
 });
 
 // Reset database to clean 2026/2027 Academic Session

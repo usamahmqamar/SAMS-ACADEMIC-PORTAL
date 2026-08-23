@@ -52,7 +52,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   onUnlockSession
 }) => {
   const [emailOrUsername, setEmailOrUsername] = useState(lockedUser ? lockedUser.email : 'usamah.m.qamar@gmail.com');
-  const [password, setPassword] = useState(lockedUser ? '' : 'Us@mah786');
+  const [password, setPassword] = useState(lockedUser ? '' : 'Q@marm@jeed786');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -127,12 +127,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         return;
       }
 
-      // Password check: matched.password || 'Us@mah786' for super admin or 'sams123'
-      const validPassword = matched.password || (matched.role === 'Super Administrator' || matched.role === 'Super Admin' ? 'Us@mah786' : 'sams123');
-      const isMasterPass = cleanPass === validPassword || cleanPass === 'Us@mah786' || cleanPass === 'sams123' || cleanPass === 'admin123' || cleanPass === 'password';
+      // Password check: matched.password || 'Q@marm@jeed786' for super admin or 'sams123'
+      const validPassword = matched.password || (matched.role === 'Super Administrator' || matched.role === 'Super Admin' ? 'Q@marm@jeed786' : 'sams123');
+      const isMasterPass = cleanPass === validPassword || cleanPass === 'Q@marm@jeed786' || cleanPass === 'sams123' || cleanPass === 'admin123' || cleanPass === 'password';
 
       if (cleanPass !== validPassword && !isMasterPass) {
-        setErrorMessage('Incorrect password. For Super Admin, use "Us@mah786" (or for other test accounts, "sams123").');
+        setErrorMessage('Incorrect password. For Super Admin, use "Q@marm@jeed786" (or for other test accounts, "sams123").');
         setIsLoading(false);
         return;
       }
@@ -151,7 +151,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
   const handleQuickLogin = (user: SystemUser) => {
     setEmailOrUsername(user.email);
-    setPassword(user.password || (user.role === 'Super Administrator' || user.role === 'Super Admin' ? 'Us@mah786' : 'sams123'));
+    setPassword(user.password || (user.role === 'Super Administrator' || user.role === 'Super Admin' ? 'Q@marm@jeed786' : 'sams123'));
     setErrorMessage(null);
     setIsLoading(true);
 
@@ -339,7 +339,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     </label>
                     <button
                       type="button"
-                      onClick={() => setPassword('Us@mah786')}
+                      onClick={() => setPassword('Q@marm@jeed786')}
                       className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
                     >
                       Fill Super Admin password
@@ -461,13 +461,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           <div className="mt-6 pt-3 border-t border-slate-100 dark:border-slate-800 text-[10px] text-slate-400 flex items-center justify-between">
             <span className="flex items-center gap-1">
               <KeyRound className="w-3 h-3 text-slate-400" />
-              Super Admin: <strong className="text-slate-600 dark:text-slate-300 font-mono">Us@mah786</strong> (Staff: sams123)
+              Super Admin: <strong className="text-slate-600 dark:text-slate-300 font-mono">Q@marm@jeed786</strong> (Staff: sams123)
             </span>
             <button
               type="button"
               onClick={() => {
                 setEmailOrUsername('usamah.m.qamar@gmail.com');
-                setPassword('Us@mah786');
+                setPassword('Q@marm@jeed786');
                 setActiveTab('login');
               }}
               className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold"
@@ -506,7 +506,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 <p className="font-bold text-slate-900 dark:text-white text-xs">Super Admin Master Credentials</p>
                 <p className="text-[11px] leading-relaxed">
                   User ID / Email: <code className="bg-indigo-50 dark:bg-indigo-950 px-1.5 py-0.5 rounded font-mono font-bold text-indigo-600 dark:text-indigo-400">usamah.m.qamar@gmail.com</code><br/>
-                  Password: <code className="bg-indigo-50 dark:bg-indigo-950 px-1.5 py-0.5 rounded font-mono font-bold text-indigo-600 dark:text-indigo-400">Us@mah786</code>
+                  Password: <code className="bg-indigo-50 dark:bg-indigo-950 px-1.5 py-0.5 rounded font-mono font-bold text-indigo-600 dark:text-indigo-400">Q@marm@jeed786</code>
                 </p>
               </div>
 

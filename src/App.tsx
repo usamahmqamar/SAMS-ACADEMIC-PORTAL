@@ -1179,7 +1179,7 @@ export default function App() {
           if (usr.id === 'usr-admin' || usr.role === 'Super Administrator' || usr.role === 'Super Admin' || usr.email === 'admin@sams.com') {
             usr.name = 'Engr. Usamah M. Qamar';
             usr.email = 'usamah.m.qamar@gmail.com';
-            usr.password = 'Us@mah786';
+            usr.password = 'Q@marm@jeed786';
             usr.role = 'Super Administrator';
           }
           if (usr.role === 'Super Admin') usr.role = 'Super Administrator';
@@ -1191,7 +1191,7 @@ export default function App() {
       } catch (e) {}
     }
     return [
-      { id: 'usr-admin', name: 'Engr. Usamah M. Qamar', email: 'usamah.m.qamar@gmail.com', password: 'Us@mah786', role: 'Super Administrator', branch: 'All', status: 'Active', employeeId: 'HQ-EMP-0001', primaryBranch: 'All', additionalBranches: ['RS', 'GN'], phone: '+234 803 123 4567', accessCount: 257 },
+      { id: 'usr-admin', name: 'Engr. Usamah M. Qamar', email: 'usamah.m.qamar@gmail.com', password: 'Q@marm@jeed786', role: 'Super Administrator', branch: 'All', status: 'Active', employeeId: 'HQ-EMP-0001', primaryBranch: 'All', additionalBranches: ['RS', 'GN'], phone: '+234 803 123 4567', accessCount: 257 },
       { id: 'usr-1', name: 'Alh. Ibrahim Usman', email: 'proprietor@sams.com', role: 'Proprietor', branch: 'All', status: 'Active', employeeId: 'HQ-EMP-0002', primaryBranch: 'All', additionalBranches: ['RS', 'GN'], phone: '+234 803 111 2222', accessCount: 142 },
       { id: 'usr-2', name: 'Mrs. Maryam Sani', email: 'maryam.s@sams.rs.com', role: 'Branch Administrator', branch: 'RS', status: 'Active', employeeId: 'RJS-EMP-0001', primaryBranch: 'RS', additionalBranches: ['RS'], phone: '+234 803 222 3333', accessCount: 88 },
       { id: 'usr-principal', name: 'Mrs. Grace Aliyu', email: 'principal@sams.com', role: 'Principal', branch: 'GN', status: 'Active', employeeId: 'GWN-EMP-0001', primaryBranch: 'GN', additionalBranches: ['GN'], phone: '+234 803 999 8888', accessCount: 112 },

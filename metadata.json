@@ -1,6 +1,6 @@
 {
   "name": "School Academic Management System",
-  "description": "A comprehensive central management ERP for academic stages featuring a dynamic School Operations Dashboard, Teaching Records & Teacher Performance evaluation, Management Review & Follow-up workflows, and a 13-report statutory suite.",
+  "description": "A comprehensive central management ERP for academic stages featuring a dynamic School Operations Dashboard, Teaching Records & Teacher Performance evaluation, Employee User Accounts & Branch-based IAM, Management Review & Follow-up workflows, and a 13-report statutory suite.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

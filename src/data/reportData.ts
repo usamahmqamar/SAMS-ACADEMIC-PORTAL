@@ -366,47 +366,7 @@ export interface LateSubmissionAudit {
   supervisorAction: string;
 }
 
-export const SAMPLE_LATE_SUBMISSIONS: LateSubmissionAudit[] = [
-  {
-    id: 'late-1',
-    teacherId: 'staff-2',
-    teacherName: 'Usman Bello',
-    branch: 'GN',
-    className: 'Primary 5 - Gold',
-    subject: 'Basic Science & Technology',
-    lessonDate: '2026-06-22',
-    submittedDate: '2026-06-25 10:45 AM',
-    delayHours: 70,
-    reason: 'Power outage in staff room and mobile hotspot exhaustion.',
-    supervisorAction: 'Counseled; offline mobile submission demo provided.'
-  },
-  {
-    id: 'late-2',
-    teacherId: 'staff-4',
-    teacherName: 'Ibrahim Aliyu',
-    branch: 'GN',
-    className: 'Junior Sec 1 - Alpha',
-    subject: 'Social Studies & Civic Education',
-    lessonDate: '2026-06-23',
-    submittedDate: '2026-06-24 06:15 PM',
-    delayHours: 30,
-    reason: 'Held after-school sports rehearsal and submitted late evening.',
-    supervisorAction: 'Reminder issued on same-day lesson logging.'
-  },
-  {
-    id: 'late-3',
-    teacherId: 'staff-3',
-    teacherName: 'Fatima Sanusi',
-    branch: 'RS',
-    className: 'Primary 4 - Diamond',
-    subject: 'Basic English & Grammar',
-    lessonDate: '2026-06-20',
-    submittedDate: '2026-06-22 08:30 AM',
-    delayHours: 44,
-    reason: 'Weekend exercise book marking delayed student coverage compilation.',
-    supervisorAction: 'Approved with note to log draft on lesson day.'
-  }
-];
+export const SAMPLE_LATE_SUBMISSIONS: LateSubmissionAudit[] = [];
 
 // Missing submission gaps
 export interface MissingSubmissionAudit {
@@ -422,29 +382,5 @@ export interface MissingSubmissionAudit {
   daysOverdue: number;
 }
 
-export const SAMPLE_MISSING_SUBMISSIONS: MissingSubmissionAudit[] = [
-  {
-    id: 'miss-1',
-    teacherId: 'staff-2',
-    teacherName: 'Usman Bello',
-    branch: 'GN',
-    className: 'Primary 5 - Gold',
-    subject: 'Basic Science & Technology',
-    scheduledDate: '2026-06-26',
-    period: 'Period 3 (10:15 - 11:00 AM)',
-    status: 'Pending Submission',
-    daysOverdue: 2
-  },
-  {
-    id: 'miss-2',
-    teacherId: 'staff-6',
-    teacherName: 'Zainab Umar',
-    branch: 'RS',
-    className: 'Nursery 2 - Rose',
-    subject: 'Rhymes & Phonics',
-    scheduledDate: '2026-06-26',
-    period: 'Period 2 (09:00 - 09:40 AM)',
-    status: 'Teacher On Leave',
-    daysOverdue: 2
-  }
-];
+export const SAMPLE_MISSING_SUBMISSIONS: MissingSubmissionAudit[] = [];
+

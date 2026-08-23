@@ -74,6 +74,9 @@ import { AnalyticsReports } from './components/AnalyticsReports';
 import { QuickActionMenu } from './components/QuickActionMenu';
 import TerminalGradesControl from './components/TerminalGradesControl';
 import { DEFAULT_ACADEMIC_DB } from './data/defaultDatabase';
+import { EmployeeUserAccountsConsole } from './components/EmployeeUserAccountsConsole';
+import { EmployeeBranchHistory, EmploymentStatus, UserAccountStatus, EmployeeIdConfig } from './types/employeeIdentity';
+import { generateNextEmployeeId, logEmployeeAuditEvent, formatBranchName, hasBranchAccess, getAuthorizedBranches } from './utils/employeeIdentityUtils';
 
 interface AttendanceLog {
   date: string;
@@ -310,6 +313,7 @@ interface StaffSubjectAllocation {
 
 export interface Teacher {
   id: string;
+  employeeId?: string;
   name: string;
   email: string;
   phone: string;
@@ -319,6 +323,10 @@ export interface Teacher {
   joiningDate?: string;
   qualification?: string;
   status?: string;
+  employmentStatus?: EmploymentStatus;
+  department?: string;
+  position?: string;
+  branchHistory?: EmployeeBranchHistory[];
   address?: string;
   attendance?: TeacherAttendance[];
   leaves?: TeacherLeave[];
@@ -461,6 +469,28 @@ const PREDEFINED_SYLLABUS: Record<string, string[]> = {
 };
 
 export default function App() {
+  // Ensure local state is synchronized for fresh 2026-2027 Academic Session
+  useEffect(() => {
+    const CURRENT_SESSION_VERSION = '2026_2027_v1';
+    const storedVer = localStorage.getItem('sams_academic_session_version');
+    if (storedVer !== CURRENT_SESSION_VERSION) {
+      const keysToReset = [
+        'sams_curriculum_checklists',
+        'sams_lesson_plan_drafts',
+        'sams_teaching_records',
+        'sams_transfer_logs',
+        'sams_payroll_loans',
+        'sams_payroll_advances',
+        'sams_payroll_bonuses',
+        'sams_attendance_late_permissions',
+        'sams_attendance_delay_flags',
+        'sams_teachers'
+      ];
+      keysToReset.forEach(k => localStorage.removeItem(k));
+      localStorage.setItem('sams_academic_session_version', CURRENT_SESSION_VERSION);
+    }
+  }, []);
+
   // Multi-branch selection
   const [selectedBranch, setSelectedBranch] = useState<'GN' | 'RS'>(() => {
     const saved = localStorage.getItem('sams_selected_branch');
@@ -665,7 +695,48 @@ export default function App() {
 
   // DB States
   const [students, setStudents] = useState<Student[]>(() => (DEFAULT_ACADEMIC_DB.students as any) || []);
-  const [teachers, setTeachers] = useState<Teacher[]>(() => (DEFAULT_ACADEMIC_DB.teachers as any) || []);
+  const [teachers, setTeachers] = useState<Teacher[]>(() => {
+    const saved = localStorage.getItem('sams_teachers');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    const raw = (DEFAULT_ACADEMIC_DB.teachers as any) || [];
+    return raw.map((t: any, idx: number) => {
+      const branch = t.branch || (idx % 2 === 0 ? 'RS' : 'GN');
+      const prefix = branch === 'RS' ? 'RJS-EMP-' : 'GWN-EMP-';
+      const empId = t.employeeId || `${prefix}${String(idx + 1).padStart(4, '0')}`;
+      return {
+        ...t,
+        branch,
+        employeeId: empId,
+        employmentStatus: t.employmentStatus || t.status || 'Active',
+        status: t.status || 'Active',
+        position: t.position || (t.role === 'management' ? 'Administrative Faculty' : 'Class Teacher & Subject Specialist'),
+        department: t.department || (t.level?.includes('nursery') ? 'Early Years & Nursery' : 'Science & Mathematics'),
+        branchHistory: t.branchHistory || [
+          {
+            id: `hist-init-${idx + 1}`,
+            previousBranch: 'N/A (Initial Appointment)',
+            newBranch: branch,
+            transferDate: t.joiningDate || '2022-09-01',
+            effectiveDate: t.joiningDate || '2022-09-01',
+            transferReason: 'Initial Campus Posting & Academic Allocation',
+            authorizedBy: 'Malam Sani Bala (Super Administrator)',
+            timestamp: new Date().toISOString()
+          }
+        ]
+      };
+    });
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sams_teachers', JSON.stringify(teachers));
+    } catch (e) {}
+  }, [teachers]);
   const [classes, setClasses] = useState<ClassRecord[]>(() => (DEFAULT_ACADEMIC_DB.classes as any) || []);
   const [schedules, setSchedules] = useState<ScheduleEntry[]>(() => (DEFAULT_ACADEMIC_DB.schedules as any) || []);
   const [subjects, setSubjects] = useState<Subject[]>(() => (DEFAULT_ACADEMIC_DB.subjects as any) || []);
@@ -802,7 +873,7 @@ export default function App() {
   // Teachers states
   const [teacherSearchVal, setTeacherSearchVal] = useState('');
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
-  const [teacherFolderTab, setTeacherFolderTab] = useState<'profile' | 'schedule' | 'attendance' | 'payroll' | 'performance' | 'lessons' | 'tools'>('profile');
+  const [teacherFolderTab, setTeacherFolderTab] = useState<'profile' | 'branchIdentity' | 'schedule' | 'attendance' | 'payroll' | 'performance' | 'lessons' | 'tools'>('profile');
 
   // Academic Sub tab state
   const [academicSubTab, setAcademicSubTab] = useState<'analytics' | 'report_cards' | 'curriculum' | 'exams' | 'scales'>('analytics');
@@ -1107,19 +1178,21 @@ export default function App() {
         return parsed.map((usr: any) => {
           if (usr.role === 'Super Admin') usr.role = 'Super Administrator';
           if (usr.role === 'Branch Admin') usr.role = 'Branch Administrator';
+          if (!usr.primaryBranch) usr.primaryBranch = usr.branch || 'RS';
+          if (!usr.additionalBranches) usr.additionalBranches = usr.branch === 'All' ? ['RS', 'GN'] : [usr.primaryBranch];
           return usr;
         });
       } catch (e) {}
     }
     return [
-      { id: 'usr-admin', name: 'Malam Sani Bala', email: 'admin@sams.com', role: 'Super Administrator', branch: 'All', status: 'Active', phone: '+234 803 000 1111', accessCount: 257 },
-      { id: 'usr-1', name: 'Alh. Ibrahim Usman', email: 'proprietor@sams.com', role: 'Proprietor', branch: 'All', status: 'Active', phone: '+234 803 111 2222', accessCount: 142 },
-      { id: 'usr-2', name: 'Mrs. Maryam Sani', email: 'maryam.s@sams.rs.com', role: 'Branch Administrator', branch: 'RS', status: 'Active', phone: '+234 803 222 3333', accessCount: 88 },
-      { id: 'usr-principal', name: 'Mrs. Grace Aliyu', email: 'principal@sams.com', role: 'Principal', branch: 'GN', status: 'Active', phone: '+234 803 999 8888', accessCount: 112 },
-      { id: 'usr-3', name: 'Malam Abubakar Bello', email: 'finance@sams.gn.com', role: 'Accountant', branch: 'GN', status: 'Active', phone: '+234 803 333 4444', accessCount: 204 },
-      { id: 'usr-4', name: 'Malam Junaid Aliyu', email: 'stores@sams.com', role: 'Store Manager', branch: 'All', status: 'Active', phone: '+234 803 444 5555', accessCount: 51 },
-      { id: 'usr-5', name: 'Dr. Yusuf Idris', email: 'yusuf.idris@sams.gn.com', role: 'Teacher', branch: 'GN', status: 'Active', phone: '+234 803 555 6666', accessCount: 119 },
-      { id: 'usr-6', name: 'Engr. Aisha Bello', email: 'aisha.b@gmail.com', role: 'Parent', branch: 'RS', status: 'Active', phone: '+234 803 666 7777', accessCount: 37 }
+      { id: 'usr-admin', name: 'Malam Sani Bala', email: 'admin@sams.com', role: 'Super Administrator', branch: 'All', status: 'Active', employeeId: 'HQ-EMP-0001', primaryBranch: 'All', additionalBranches: ['RS', 'GN'], phone: '+234 803 000 1111', accessCount: 257 },
+      { id: 'usr-1', name: 'Alh. Ibrahim Usman', email: 'proprietor@sams.com', role: 'Proprietor', branch: 'All', status: 'Active', employeeId: 'HQ-EMP-0002', primaryBranch: 'All', additionalBranches: ['RS', 'GN'], phone: '+234 803 111 2222', accessCount: 142 },
+      { id: 'usr-2', name: 'Mrs. Maryam Sani', email: 'maryam.s@sams.rs.com', role: 'Branch Administrator', branch: 'RS', status: 'Active', employeeId: 'RJS-EMP-0001', primaryBranch: 'RS', additionalBranches: ['RS'], phone: '+234 803 222 3333', accessCount: 88 },
+      { id: 'usr-principal', name: 'Mrs. Grace Aliyu', email: 'principal@sams.com', role: 'Principal', branch: 'GN', status: 'Active', employeeId: 'GWN-EMP-0001', primaryBranch: 'GN', additionalBranches: ['GN'], phone: '+234 803 999 8888', accessCount: 112 },
+      { id: 'usr-3', name: 'Malam Abubakar Bello', email: 'finance@sams.gn.com', role: 'Accountant', branch: 'GN', status: 'Active', employeeId: 'GWN-EMP-0002', primaryBranch: 'GN', additionalBranches: ['GN'], phone: '+234 803 333 4444', accessCount: 204 },
+      { id: 'usr-4', name: 'Malam Junaid Aliyu', email: 'stores@sams.com', role: 'Store Manager', branch: 'All', status: 'Active', employeeId: 'HQ-EMP-0003', primaryBranch: 'All', additionalBranches: ['RS', 'GN'], phone: '+234 803 444 5555', accessCount: 51 },
+      { id: 'usr-5', name: 'Dr. Yusuf Idris', email: 'yusuf.idris@sams.gn.com', role: 'Teacher', branch: 'GN', status: 'Active', employeeId: 'GWN-EMP-0003', primaryBranch: 'GN', additionalBranches: ['GN'], phone: '+234 803 555 6666', accessCount: 119 },
+      { id: 'usr-6', name: 'Engr. Aisha Bello', email: 'aisha.b@gmail.com', role: 'Parent', branch: 'RS', status: 'Active', employeeId: 'RJS-PAR-0001', primaryBranch: 'RS', additionalBranches: ['RS'], phone: '+234 803 666 7777', accessCount: 37 }
     ];
   });
 
@@ -1403,8 +1476,8 @@ export default function App() {
     localStorage.setItem('sams_role_permissions', JSON.stringify(rolePermissions));
   }, [rolePermissions]);
 
-  const [hrSubTab, setHrSubTab] = useState<'personnel' | 'payrollRegister' | 'security' | 'financialAdjustments'>('personnel');
-  const [securitySubTab, setSecuritySubTab] = useState<'users' | 'permissions' | 'audit' | 'settings'>('users');
+  const [hrSubTab, setHrSubTab] = useState<'personnel' | 'employeeAccounts' | 'payrollRegister' | 'security' | 'financialAdjustments'>('personnel');
+  const [securitySubTab, setSecuritySubTab] = useState<'users' | 'employeeAccounts' | 'permissions' | 'audit' | 'settings'>('users');
   const [auditSearch, setAuditSearch] = useState('');
   const [auditCategory, setAuditCategory] = useState('All');
   const [auditStatus, setAuditStatus] = useState('All');
@@ -2464,7 +2537,7 @@ export default function App() {
     }
   };
 
-  // Add new teacher
+  // Add new teacher / employee with branch identity and user account linkage
   const handleCreateTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTeacherForm.name || !newTeacherForm.email) return;
@@ -2472,20 +2545,43 @@ export default function App() {
     const subjects = newTeacherForm.subjectsString ? newTeacherForm.subjectsString.split(',').map(s => s.trim()) : [];
     const classesAssigned = newTeacherForm.classesString ? newTeacherForm.classesString.split(',').map(s => s.trim()) : [];
     
-    const payload = {
-      name: newTeacherForm.name,
-      email: newTeacherForm.email,
-      phone: newTeacherForm.phone,
+    const assignedBranch = selectedBranch === 'All' ? 'RS' : selectedBranch;
+    const { employeeId: generatedEmpId } = generateNextEmployeeId(assignedBranch, teachers);
+    const assignedUserId = newTeacherForm.userId.trim() || `usr-${Date.now().toString().slice(-4)}`;
+
+    const initialHistory: EmployeeBranchHistory[] = [
+      {
+        id: `hist-${Date.now()}`,
+        previousBranch: 'N/A (Initial Appointment)',
+        newBranch: assignedBranch,
+        transferDate: new Date().toISOString().split('T')[0],
+        effectiveDate: new Date().toISOString().split('T')[0],
+        transferReason: 'Initial Onboarding & Faculty Creation',
+        authorizedBy: 'Malam Sani Bala (Super Administrator)',
+        timestamp: new Date().toISOString()
+      }
+    ];
+
+    const newTeacherRecord: Teacher = {
+      id: `tch-${Date.now()}`,
+      employeeId: generatedEmpId,
+      name: newTeacherForm.name.trim(),
+      email: newTeacherForm.email.trim().toLowerCase(),
+      phone: newTeacherForm.phone.trim(),
       level: newTeacherForm.level,
       subjects,
       classesAssigned,
       joiningDate: new Date().toISOString().split('T')[0],
       qualification: "B.Ed Certificate Degree",
       status: "Active",
-      address: selectedBranch === 'GN' ? "Gawun Nama Area, Kano Road, Sokoto" : "opp. Sambo Primary School, Runjin Sambo, Sokoto",
-      branch: selectedBranch,
+      employmentStatus: 'Active',
+      department: newTeacherForm.level?.includes('nursery') ? 'Early Years & Nursery' : 'Academic Faculty',
+      position: newTeacherForm.role === 'management' ? 'Administrative Official' : 'Class Teacher & Subject Specialist',
+      branchHistory: initialHistory,
+      address: assignedBranch === 'GN' ? "Gawun Nama Area, Kano Road, Sokoto" : "opp. Sambo Primary School, Runjin Sambo, Sokoto",
+      branch: assignedBranch,
       role: newTeacherForm.role,
-      userId: newTeacherForm.userId.trim() || `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
+      userId: assignedUserId,
       accessControl: newTeacherForm.accessControl,
       maxUnits: Number(newTeacherForm.maxUnits) || 20,
       performanceScore: Number(newTeacherForm.performanceScore) || 80,
@@ -2496,30 +2592,84 @@ export default function App() {
       const response = await fetch('/api/teachers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(newTeacherRecord)
       });
 
       if (response.ok) {
         const data = await response.json();
-        setTeachers(prev => [...prev, data]);
-        setShowAddTeacher(false);
-        setNewTeacherForm({
-          name: '',
-          email: '',
-          phone: '',
-          level: [],
-          subjectsString: '',
-          classesString: '',
-          role: 'teaching',
-          userId: '',
-          accessControl: 'Staff/Teacher',
-          maxUnits: 20,
-          performanceScore: 80
-        });
+        setTeachers(prev => [...prev, { ...newTeacherRecord, ...data }]);
+      } else {
+        setTeachers(prev => [...prev, newTeacherRecord]);
       }
     } catch (err) {
-      console.error(err);
+      console.warn("Backend sync offline, persisting employee locally:", err);
+      setTeachers(prev => [...prev, newTeacherRecord]);
     }
+
+    // Auto-create/sync Linked System User Account
+    const mappedRole = newTeacherForm.role === 'management' 
+      ? 'Branch Administrator' 
+      : newTeacherForm.accessControl === 'Admin' 
+        ? 'Branch Administrator' 
+        : 'Teacher';
+
+    setSystemUsers(prev => {
+      const existingIdx = prev.findIndex(u => u.email.toLowerCase() === newTeacherRecord.email.toLowerCase() || u.employeeId === generatedEmpId);
+      if (existingIdx >= 0) {
+        const updated = [...prev];
+        updated[existingIdx] = {
+          ...updated[existingIdx],
+          name: newTeacherRecord.name,
+          employeeId: generatedEmpId,
+          branch: assignedBranch,
+          primaryBranch: assignedBranch,
+          status: 'Active'
+        };
+        return updated;
+      }
+      return [
+        ...prev,
+        {
+          id: assignedUserId,
+          employeeId: generatedEmpId,
+          name: newTeacherRecord.name,
+          email: newTeacherRecord.email,
+          role: mappedRole,
+          branch: assignedBranch,
+          primaryBranch: assignedBranch,
+          additionalBranches: [assignedBranch],
+          status: 'Active',
+          phone: newTeacherRecord.phone,
+          accessCount: 0
+        }
+      ];
+    });
+
+    logEmployeeAuditEvent({
+      user: 'Malam Sani Bala (Super Administrator)',
+      userRole: currentSimulatedRole,
+      employeeId: generatedEmpId,
+      employeeName: newTeacherRecord.name,
+      action: 'EMPLOYEE_CREATED',
+      authorizedBy: 'Malam Sani Bala (Super Administrator)',
+      branch: assignedBranch,
+      details: `Created new employee profile ${generatedEmpId} and linked IAM user ${assignedUserId}`
+    });
+
+    setShowAddTeacher(false);
+    setNewTeacherForm({
+      name: '',
+      email: '',
+      phone: '',
+      level: [],
+      subjectsString: '',
+      classesString: '',
+      role: 'teaching',
+      userId: '',
+      accessControl: 'Staff/Teacher',
+      maxUnits: 20,
+      performanceScore: 80
+    });
   };
 
   // Delete teacher
@@ -6355,6 +6505,17 @@ export default function App() {
                           <span>Profile &amp; Workloads</span>
                         </button>
                         <button
+                          onClick={() => setTeacherFolderTab('branchIdentity')}
+                          className={`flex items-center space-x-1.5 px-3 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+                            teacherFolderTab === 'branchIdentity'
+                              ? 'border-indigo-600 text-indigo-600 font-bold'
+                              : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+                          }`}
+                        >
+                          <Building2 className="w-3.5 h-3.5 shrink-0 text-indigo-500" />
+                          <span>Branch &amp; IAM Identity 🏢</span>
+                        </button>
+                        <button
                           onClick={() => setTeacherFolderTab('schedule')}
                           className={`flex items-center space-x-1.5 px-3 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-all cursor-pointer ${
                             teacherFolderTab === 'schedule'
@@ -7132,6 +7293,335 @@ export default function App() {
                           </div>
                         </>
                         )}
+
+                        {/* 1B. BRANCH IDENTITY & IAM USER ACCOUNT TAB */}
+                        {teacherFolderTab === 'branchIdentity' && (() => {
+                          const linkedUser = systemUsers.find(u => 
+                            (selectedTeacher.employeeId && u.employeeId === selectedTeacher.employeeId) ||
+                            (selectedTeacher.userId && u.id === selectedTeacher.userId) ||
+                            u.email.toLowerCase() === selectedTeacher.email.toLowerCase()
+                          );
+                          const empId = selectedTeacher.employeeId || `EMP-${selectedTeacher.id}`;
+                          const branchCode = selectedTeacher.branch || 'RS';
+                          const branchHist = selectedTeacher.branchHistory || [];
+
+                          return (
+                            <div className="space-y-6 animate-fade-in font-sans">
+                              {/* Top Core Identity Banner */}
+                              <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 shadow-md border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                                <div className="space-y-2">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="px-3 py-1 bg-indigo-500/20 border border-indigo-400/40 text-indigo-300 text-[11px] font-mono font-bold rounded-lg tracking-wider">
+                                      {empId}
+                                    </span>
+                                    <span className="px-2.5 py-0.5 bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-[10px] font-bold rounded-md">
+                                      {selectedTeacher.employmentStatus || selectedTeacher.status || 'Active'}
+                                    </span>
+                                    <span className="px-2.5 py-0.5 bg-white/10 text-slate-300 text-[10px] rounded-md font-medium">
+                                      {formatBranchName(branchCode)}
+                                    </span>
+                                  </div>
+                                  <h3 className="text-xl font-black tracking-tight">{selectedTeacher.name}</h3>
+                                  <p className="text-xs text-slate-300">
+                                    {selectedTeacher.position || 'Faculty Member'} • Department of {selectedTeacher.department || 'Academic Faculty'}
+                                  </p>
+                                </div>
+
+                                <div className="flex flex-col sm:flex-row gap-2.5 w-full md:w-auto">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const nextBranch = branchCode === 'RS' ? 'GN' : 'RS';
+                                      const reason = prompt(`Enter reason for transferring ${selectedTeacher.name} from ${branchCode} to ${nextBranch}:`, "Inter-campus faculty re-allocation");
+                                      if (!reason) return;
+
+                                      const transferEntry: EmployeeBranchHistory = {
+                                        id: `hist-${Date.now()}`,
+                                        previousBranch: branchCode,
+                                        newBranch: nextBranch,
+                                        transferDate: new Date().toISOString().split('T')[0],
+                                        effectiveDate: new Date().toISOString().split('T')[0],
+                                        transferReason: reason,
+                                        authorizedBy: `${currentSimulatedRole} (${systemUsers.find(u => u.role === currentSimulatedRole)?.name || 'Admin'})`,
+                                        timestamp: new Date().toISOString()
+                                      };
+
+                                      const updatedTeacher: Teacher = {
+                                        ...selectedTeacher,
+                                        branch: nextBranch,
+                                        branchHistory: [...branchHist, transferEntry]
+                                      };
+
+                                      // Update teacher
+                                      setTeachers(prev => prev.map(t => t.id === selectedTeacher.id ? updatedTeacher : t));
+                                      setSelectedTeacher(updatedTeacher);
+
+                                      // Update linked user if present
+                                      if (linkedUser) {
+                                        setSystemUsers(prev => prev.map(u => u.id === linkedUser.id ? {
+                                          ...u,
+                                          branch: nextBranch,
+                                          primaryBranch: nextBranch,
+                                          additionalBranches: [nextBranch]
+                                        } : u));
+                                      }
+
+                                      logEmployeeAuditEvent({
+                                        user: systemUsers.find(u => u.role === currentSimulatedRole)?.name || 'Admin',
+                                        userRole: currentSimulatedRole,
+                                        employeeId: empId,
+                                        employeeName: selectedTeacher.name,
+                                        action: 'EMPLOYEE_TRANSFERRED',
+                                        authorizedBy: `${currentSimulatedRole} (${systemUsers.find(u => u.role === currentSimulatedRole)?.name || 'Admin'})`,
+                                        branch: nextBranch,
+                                        details: `Transferred from ${formatBranchName(branchCode)} to ${formatBranchName(nextBranch)}. Reason: ${reason}`
+                                      });
+
+                                      alert(`✅ Employee transfer committed: ${selectedTeacher.name} is now posted to ${formatBranchName(nextBranch)}.`);
+                                    }}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm cursor-pointer flex items-center justify-center space-x-1.5"
+                                  >
+                                    <Building2 className="w-4 h-4" />
+                                    <span>Transfer Branch ({branchCode === 'RS' ? 'To GN' : 'To RS'})</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => setHrSubTab('employeeAccounts')}
+                                    className="bg-white/10 hover:bg-white/20 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center space-x-1.5 border border-white/15"
+                                  >
+                                    <ShieldCheck className="w-4 h-4" />
+                                    <span>Open Identity Console</span>
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Two Columns: Linked Account & Branch Access */}
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                
+                                {/* Column 1: Linked User Account Card */}
+                                <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-4 shadow-sm">
+                                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                                    <div className="flex items-center space-x-2">
+                                      <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
+                                        <Lock className="w-4 h-4" />
+                                      </div>
+                                      <div>
+                                        <h4 className="text-sm font-bold text-slate-900">Linked Portal Account</h4>
+                                        <p className="text-[10px] text-slate-400">Authentication &amp; User Credentials</p>
+                                      </div>
+                                    </div>
+                                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                      linkedUser?.status === 'Active' 
+                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                                        : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                    }`}>
+                                      {linkedUser ? linkedUser.status : 'No Account Linked'}
+                                    </span>
+                                  </div>
+
+                                  {linkedUser ? (
+                                    <div className="space-y-3 text-xs">
+                                      <div className="grid grid-cols-2 gap-3">
+                                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                          <span className="text-[10px] text-slate-400 font-bold uppercase block">IAM User ID</span>
+                                          <span className="font-mono font-bold text-slate-800 block mt-0.5">{linkedUser.id}</span>
+                                        </div>
+                                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                          <span className="text-[10px] text-slate-400 font-bold uppercase block">Assigned Role</span>
+                                          <span className="font-bold text-indigo-600 block mt-0.5">{linkedUser.role}</span>
+                                        </div>
+                                      </div>
+
+                                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
+                                        <span className="text-[10px] text-slate-400 font-bold uppercase block">Official Email</span>
+                                        <span className="font-mono text-slate-700 block">{linkedUser.email}</span>
+                                      </div>
+
+                                      <div className="pt-2 flex flex-wrap gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const newPass = prompt(`Set new password for ${linkedUser.name}:`, "sams123");
+                                            if (!newPass) return;
+                                            setSystemUsers(prev => prev.map(u => u.id === linkedUser.id ? { ...u, password: newPass } : u));
+                                            logEmployeeAuditEvent({
+                                              user: 'Super Administrator',
+                                              userRole: currentSimulatedRole,
+                                              employeeId: empId,
+                                              employeeName: selectedTeacher.name,
+                                              action: 'PASSWORD_RESET',
+                                              authorizedBy: 'Super Administrator',
+                                              branch: branchCode,
+                                              details: `Password reset triggered by ${currentSimulatedRole}`
+                                            });
+                                            alert(`🔑 Password updated successfully for ${linkedUser.name}.`);
+                                          }}
+                                          className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-xl transition-colors cursor-pointer"
+                                        >
+                                          Reset Password
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const nextStatus = linkedUser.status === 'Active' ? 'Suspended' : 'Active';
+                                            setSystemUsers(prev => prev.map(u => u.id === linkedUser.id ? { ...u, status: nextStatus } : u));
+                                            logEmployeeAuditEvent({
+                                              user: 'Super Administrator',
+                                              userRole: currentSimulatedRole,
+                                              employeeId: empId,
+                                              employeeName: selectedTeacher.name,
+                                              action: nextStatus === 'Active' ? 'ACCOUNT_ACTIVATED' : 'ACCOUNT_SUSPENDED',
+                                              authorizedBy: 'Super Administrator',
+                                              branch: branchCode,
+                                              details: `User account status switched to ${nextStatus}`
+                                            });
+                                          }}
+                                          className={`text-xs font-bold px-3 py-2 rounded-xl transition-colors cursor-pointer ${
+                                            linkedUser.status === 'Active'
+                                              ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
+                                              : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                                          }`}
+                                        >
+                                          {linkedUser.status === 'Active' ? 'Suspend Account' : 'Activate Account'}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="text-center py-6 space-y-3">
+                                      <p className="text-xs text-slate-500">This employee does not have an active login credential linked.</p>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const newUid = `usr-${Date.now().toString().slice(-4)}`;
+                                          setSystemUsers(prev => [
+                                            ...prev,
+                                            {
+                                              id: newUid,
+                                              employeeId: empId,
+                                              name: selectedTeacher.name,
+                                              email: selectedTeacher.email,
+                                              role: selectedTeacher.role === 'management' ? 'Branch Administrator' : 'Teacher',
+                                              branch: branchCode,
+                                              primaryBranch: branchCode,
+                                              additionalBranches: [branchCode],
+                                              status: 'Active',
+                                              phone: selectedTeacher.phone,
+                                              accessCount: 0
+                                            }
+                                          ]);
+                                          alert(`Created user login (${newUid}) for ${selectedTeacher.name}!`);
+                                        }}
+                                        className="bg-indigo-600 text-white text-xs font-bold px-4 py-2 rounded-xl cursor-pointer shadow-sm hover:bg-indigo-700"
+                                      >
+                                        Create Portal Account
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Column 2: Branch Clearance & Access Vectors */}
+                                <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-4 shadow-sm">
+                                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                                    <div className="flex items-center space-x-2">
+                                      <div className="p-2 rounded-xl bg-purple-50 text-purple-600">
+                                        <Building2 className="w-4 h-4" />
+                                      </div>
+                                      <div>
+                                        <h4 className="text-sm font-bold text-slate-900">Branch Access Clearance</h4>
+                                        <p className="text-[10px] text-slate-400">Campus operational authority</p>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-3 text-xs">
+                                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Primary Home Campus</span>
+                                      <div className="flex items-center space-x-2">
+                                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                                        <span className="font-bold text-slate-800 text-sm">
+                                          {formatBranchName(branchCode)}
+                                        </span>
+                                      </div>
+                                      <p className="text-[11px] text-slate-500">
+                                        All primary classes, attendance logs, and payroll liabilities are registered at this campus.
+                                      </p>
+                                    </div>
+
+                                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 space-y-1.5">
+                                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Multi-Branch Permissions</span>
+                                      <div className="flex flex-wrap gap-2">
+                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border ${
+                                          branchCode === 'RS' || linkedUser?.branch === 'All'
+                                            ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                                            : 'bg-slate-100 border-slate-200 text-slate-400 line-through'
+                                        }`}>
+                                          Runjin Sambo (RS)
+                                        </span>
+                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border ${
+                                          branchCode === 'GN' || linkedUser?.branch === 'All'
+                                            ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                                            : 'bg-slate-100 border-slate-200 text-slate-400 line-through'
+                                        }`}>
+                                          Gawon Nama (GN)
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                              </div>
+
+                              {/* Branch Transfer History & Immutable Timeline */}
+                              <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-4 shadow-sm">
+                                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                                  <div className="flex items-center space-x-2">
+                                    <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
+                                      <Clock className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                      <h4 className="text-sm font-bold text-slate-900">Campus Transfer History &amp; Audit Trail</h4>
+                                      <p className="text-[10px] text-slate-400">Chronological record of employee branch assignments</p>
+                                    </div>
+                                  </div>
+                                  <span className="text-[11px] font-mono text-slate-400">
+                                    {branchHist.length} recorded events
+                                  </span>
+                                </div>
+
+                                {branchHist.length === 0 ? (
+                                  <div className="p-6 text-center text-slate-400 text-xs">
+                                    No transfer history entries recorded yet for this profile.
+                                  </div>
+                                ) : (
+                                  <div className="space-y-3">
+                                    {branchHist.map((hist, idx) => (
+                                      <div key={hist.id || idx} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                                        <div className="space-y-1">
+                                          <div className="flex items-center space-x-2">
+                                            <span className="px-2 py-0.5 bg-slate-200 text-slate-700 font-bold rounded text-[10px] font-mono">
+                                              {hist.previousBranch} → {hist.newBranch}
+                                            </span>
+                                            <span className="font-bold text-slate-900">{hist.transferReason}</span>
+                                          </div>
+                                          <p className="text-[11px] text-slate-500">
+                                            Authorized by: <strong className="text-slate-700">{hist.authorizedBy}</strong> • Effective: <span className="font-mono">{hist.effectiveDate || hist.transferDate}</span>
+                                          </p>
+                                        </div>
+
+                                        <span className="text-[10px] font-mono text-slate-400 whitespace-nowrap">
+                                          {hist.timestamp ? new Date(hist.timestamp).toLocaleString() : hist.transferDate}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                            </div>
+                          );
+                        })()}
 
                         {/* 2. TIMETABLE SCHEDULE TAB */}
                         {teacherFolderTab === 'schedule' && (
@@ -8367,6 +8857,18 @@ export default function App() {
                         </button>
                         <button
                           type="button"
+                          onClick={() => setHrSubTab('employeeAccounts')}
+                          className={`flex items-center space-x-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            hrSubTab === 'employeeAccounts'
+                              ? 'bg-white text-indigo-700 shadow-sm border border-slate-200/50'
+                              : 'text-slate-500 hover:text-slate-800'
+                          }`}
+                        >
+                          <Building2 className="w-3.5 h-3.5 shrink-0 text-indigo-500" />
+                          <span>Employee Accounts &amp; Branch IAM 🏢</span>
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => setHrSubTab('financialAdjustments')}
                           className={`flex items-center space-x-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                             hrSubTab === 'financialAdjustments'
@@ -8406,7 +8908,24 @@ export default function App() {
                         </button>
                       </div>
 
-                      {hrSubTab === 'personnel' ? (
+                      {hrSubTab === 'employeeAccounts' ? (
+                        <EmployeeUserAccountsConsole
+                          teachers={teachers}
+                          setTeachers={setTeachers}
+                          systemUsers={systemUsers}
+                          setSystemUsers={setSystemUsers}
+                          currentRole={currentSimulatedRole}
+                          currentUserName={systemUsers.find(u => u.role === currentSimulatedRole)?.name || 'Malam Sani Bala (Super Administrator)'}
+                          activeBranch={selectedBranch}
+                          onNavigateToTeacher={(teacherId) => {
+                            const target = teachers.find(t => t.id === teacherId || t.employeeId === teacherId);
+                            if (target) {
+                              setSelectedTeacher(target);
+                              setHrSubTab('personnel');
+                            }
+                          }}
+                        />
+                      ) : hrSubTab === 'personnel' ? (
                         <>
                           {/* Search and Category Filters */}
                           <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm space-y-4">
@@ -14167,6 +14686,7 @@ export default function App() {
                   <div className="flex flex-wrap bg-slate-100/80 border p-1 rounded-2xl gap-1 border-slate-200">
                     {[
                       { id: 'users' as const, label: '👤 Simulated Logins & Accounts', desc: 'Credential management', count: systemUsers.length },
+                      { id: 'employeeAccounts' as const, label: '🏢 Employee Identity & Branch IAM', desc: 'Branch-based account lifecycle', count: teachers.length },
                       { id: 'permissions' as const, label: '🛡️ Custom Permission Matrix', desc: 'RBAC Access controls', count: 'Dynamic' },
                       { id: 'audit' as const, label: '📋 System Security Audit Trail', desc: 'Active security log stream', count: securityAuditLogs.length },
                       { id: 'settings' as const, label: '⚙️ Emergency Systems Override', desc: 'Lockdown & timeout configs', count: 'Critical' }
@@ -14191,6 +14711,29 @@ export default function App() {
                       </button>
                     ))}
                   </div>
+
+                  {/* SUBTAB CONTENT: EMPLOYEE IDENTITY & BRANCH IAM CONSOLE */}
+                  {securitySubTab === 'employeeAccounts' && (
+                    <div className="animate-fade-in">
+                      <EmployeeUserAccountsConsole
+                        teachers={teachers}
+                        setTeachers={setTeachers}
+                        systemUsers={systemUsers}
+                        setSystemUsers={setSystemUsers}
+                        currentRole={currentSimulatedRole}
+                        currentUserName={systemUsers.find(u => u.role === currentSimulatedRole)?.name || 'Malam Sani Bala (Super Administrator)'}
+                        activeBranch={selectedBranch}
+                        onNavigateToTeacher={(teacherId) => {
+                          const target = teachers.find(t => t.id === teacherId || t.employeeId === teacherId);
+                          if (target) {
+                            setSelectedTeacher(target);
+                            setActiveTab('teachers');
+                            setHrSubTab('personnel');
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
 
                   {/* SUBTAB CONTENT 1: SIMULATED LOGINS & ACCOUNTS */}
                   {securitySubTab === 'users' && (

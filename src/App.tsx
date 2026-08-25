@@ -716,7 +716,23 @@ export default function App() {
   const [selectedSubLevel, setSelectedSubLevel] = useState<'nursery' | 'primary' | 'secondary' | 'islamia'>('primary');
 
   // DB States
-  const [students, setStudents] = useState<Student[]>(() => (DEFAULT_ACADEMIC_DB.students as any) || []);
+  const [students, setStudents] = useState<Student[]>(() => {
+    const saved = localStorage.getItem('sams_students');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {}
+    }
+    return (DEFAULT_ACADEMIC_DB.students as any) || [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sams_students', JSON.stringify(students));
+    } catch (e) {}
+  }, [students]);
+
   const [teachers, setTeachers] = useState<Teacher[]>(() => {
     const saved = localStorage.getItem('sams_teachers');
     if (saved) {
@@ -2048,104 +2064,278 @@ export default function App() {
         setLoadingDb(true);
       }
 
-      // Fast path: Consolidated academic endpoint
-      let success = false;
-      try {
-        const unifiedRes = await fetch('/api/all_academic_data');
-        if (unifiedRes.ok) {
-          const contentType = unifiedRes.headers.get('content-type') || '';
-          if (contentType.includes('application/json')) {
-            const data = await unifiedRes.json();
-            if (data && typeof data === 'object') {
-              if (Array.isArray(data.students)) setStudents(data.students);
-              if (Array.isArray(data.teachers)) setTeachers(data.teachers);
-              if (Array.isArray(data.classes)) setClasses(data.classes);
-              if (Array.isArray(data.schedules)) setSchedules(data.schedules);
-              if (Array.isArray(data.curriculums)) setCurriculums(data.curriculums);
-              if (Array.isArray(data.exams)) setExams(data.exams);
-              if (Array.isArray(data.gradeScales)) setGradeScales(data.gradeScales);
-              if (Array.isArray(data.admissions)) setAdmissions(data.admissions);
-              if (Array.isArray(data.subjects)) setSubjects(data.subjects);
-              if (Array.isArray(data.academicSessions)) setAcademicSessions(data.academicSessions);
-              if (Array.isArray(data.terms)) setTerms(data.terms);
-              if (Array.isArray(data.holidays)) setHolidays(data.holidays);
-              if (Array.isArray(data.eventCategories)) setEventCategories(data.eventCategories);
-              if (Array.isArray(data.events)) setEvents(data.events);
-              if (Array.isArray(data.feeTemplates)) setFeeTemplates(data.feeTemplates);
-
-              if (Array.isArray(data.students) && data.students.length > 0) {
-                setReportStudent((prev: any) => prev || data.students[0]);
-              }
-              setDbError(null);
-              success = true;
-            }
-          }
-        }
-      } catch (fastErr) {
-        console.warn("Fast-path fetch failed, attempting parallel fallback...", fastErr);
+      // 1. Check genuine browser offline state
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        setDbError("Offline: No internet connectivity detected. Serving local cached records.");
+        setLoadingDb(false);
+        return;
       }
 
-      if (!success) {
-        // Individual endpoints fallback with Promise.allSettled
-        const fetchJsonSafe = async (url: string) => {
-          const res = await fetch(url);
-          if (!res.ok) throw new Error(`HTTP ${res.status} on ${url}`);
-          const ct = res.headers.get('content-type') || '';
-          if (!ct.includes('application/json')) throw new Error(`Non-JSON response on ${url}`);
-          return res.json();
-        };
+      let directSuccess = false;
 
-        const results = await Promise.allSettled([
-          fetchJsonSafe('/api/students'),
-          fetchJsonSafe('/api/teachers'),
-          fetchJsonSafe('/api/classes'),
-          fetchJsonSafe('/api/schedules'),
-          fetchJsonSafe('/api/curriculums'),
-          fetchJsonSafe('/api/exams'),
-          fetchJsonSafe('/api/grade-scales'),
-          fetchJsonSafe('/api/admissions'),
-          fetchJsonSafe('/api/subjects'),
-          fetchJsonSafe('/api/academic-sessions'),
-          fetchJsonSafe('/api/terms'),
-          fetchJsonSafe('/api/holidays'),
-          fetchJsonSafe('/api/event-categories'),
-          fetchJsonSafe('/api/events'),
-          fetchJsonSafe('/api/fee_templates')
-        ]);
+      // 2. Direct Supabase Client Connection & Query
+      try {
+        const { data: supaStudents, error: supaStudentError } = await supabase
+          .from('students')
+          .select(`
+            *,
+            branches:branch_id (id, branch_name, branch_code),
+            student_extended_profiles (*),
+            student_enrollment_history (
+              id, branch_id, session_id, term_id, class_id, section_id, enrollment_date, status,
+              classes:class_id (id, name, grade_level),
+              sections:section_id (id, name, section_code),
+              academic_sessions:session_id (session_name)
+            ),
+            family_accounts:family_id (id, family_code, family_name, primary_phone, primary_email),
+            student_guardians (
+              id, relationship_type, is_primary_contact, is_emergency_contact,
+              parents_guardians:guardian_id (id, full_name, phone, email, relationship)
+            )
+          `);
 
-        let successCount = 0;
-        const getVal = (r: PromiseSettledResult<any>) => (r.status === 'fulfilled' ? r.value : null);
-
-        const r0 = getVal(results[0]); if (r0) { setStudents(r0); successCount++; if (r0.length > 0) setReportStudent((p: any) => p || r0[0]); }
-        const r1 = getVal(results[1]); if (r1) { setTeachers(r1); successCount++; }
-        const r2 = getVal(results[2]); if (r2) { setClasses(r2); successCount++; }
-        const r3 = getVal(results[3]); if (r3) { setSchedules(r3); successCount++; }
-        const r4 = getVal(results[4]); if (r4) { setCurriculums(r4); successCount++; }
-        const r5 = getVal(results[5]); if (r5) { setExams(r5); successCount++; }
-        const r6 = getVal(results[6]); if (r6) { setGradeScales(r6); successCount++; }
-        const r7 = getVal(results[7]); if (r7) { setAdmissions(r7); successCount++; }
-        const r8 = getVal(results[8]); if (r8) { setSubjects(r8); successCount++; }
-        const r9 = getVal(results[9]); if (r9) { setAcademicSessions(r9); successCount++; }
-        const r10 = getVal(results[10]); if (r10) { setTerms(r10); successCount++; }
-        const r11 = getVal(results[11]); if (r11) { setHolidays(r11); successCount++; }
-        const r12 = getVal(results[12]); if (r12) { setEventCategories(r12); successCount++; }
-        const r13 = getVal(results[13]); if (r13) { setEvents(r13); successCount++; }
-        const r14 = getVal(results[14]); if (r14) { setFeeTemplates(r14); successCount++; }
-
-        if (successCount > 0) {
+        // If direct query succeeded without network/RLS errors
+        if (!supaStudentError && Array.isArray(supaStudents)) {
+          directSuccess = true;
           setDbError(null);
-        } else {
-          if (retryCount < 3) {
-            console.warn(`Database sync attempt ${retryCount + 1} incomplete. Retrying in 1.5s...`);
-            setTimeout(() => fetchDatabase(retryCount + 1, isBackground), 1500);
-            return;
+
+          const mappedStudents: Student[] = supaStudents.map((s: any) => {
+            const enrollment = s.student_enrollment_history?.[0];
+            const gradeLevel = enrollment?.classes?.grade_level || enrollment?.classes?.name || 'Primary 1';
+            let level: 'nursery' | 'primary' | 'secondary' | 'islamia' = 'primary';
+            const glLower = gradeLevel.toLowerCase();
+            if (glLower.includes('nursery') || glLower.includes('early') || glLower.includes('reception') || glLower.includes('creche')) {
+              level = 'nursery';
+            } else if (glLower.includes('jss') || glLower.includes('sss') || glLower.includes('secondary') || glLower.includes('high')) {
+              level = 'secondary';
+            } else if (glLower.includes('islamia') || glLower.includes('tahfeez')) {
+              level = 'islamia';
+            }
+
+            const primaryGuardian = s.student_guardians?.find((g: any) => g.is_primary_contact)?.parents_guardians 
+              || s.student_guardians?.[0]?.parents_guardians;
+
+            const extProfile = s.student_extended_profiles;
+
+            return {
+              id: s.id,
+              name: `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Student Record',
+              level: level,
+              grade: gradeLevel,
+              classSection: enrollment?.sections?.section_code || enrollment?.sections?.name || 'A',
+              parentName: primaryGuardian?.full_name || s.family_accounts?.family_name || 'Guardian',
+              parentEmail: primaryGuardian?.email || s.family_accounts?.primary_email || s.email || '',
+              parentPhone: primaryGuardian?.phone || s.family_accounts?.primary_phone || s.phone || '',
+              attendancePercentage: 98,
+              behaviorRating: 'Excellent',
+              milestones: {},
+              grades: {},
+              admissionDate: s.admission_date,
+              enrollmentNo: s.admission_number || `SAMS-${s.id.slice(0, 5)}`,
+              admissionStatus: s.status || 'Active',
+              branch: (s.branches?.branch_code as 'GN' | 'RS') || 'GN',
+              profile: {
+                gender: (s.gender === 'Male' ? 'Male' : 'Female'),
+                dob: s.date_of_birth || '',
+                address: s.address || '',
+                bloodGroup: extProfile?.blood_group || 'O+'
+              },
+              academicProgression: [],
+              homework: [],
+              notices: []
+            };
+          });
+
+          if (mappedStudents.length > 0) {
+            setStudents(mappedStudents);
+            setReportStudent((prev: any) => prev || mappedStudents[0]);
           }
-          setDbError("Academic database stream is currently synchronizing with server storage.");
+
+          // Fetch other core tables directly in parallel from Supabase
+          const [branchesRes, employeesRes, classesRes, sessionsRes, termsRes, eventsRes] = await Promise.allSettled([
+            supabase.from('branches').select('id, branch_name, branch_code'),
+            supabase.from('employees').select(`
+              *,
+              branches:branch_id (id, branch_name, branch_code),
+              teacher_subject_assignments (
+                id, class_id, section_id, subject_id, periods_per_week,
+                classes:class_id (id, name, grade_level),
+                subjects:subject_id (id, subject_name, subject_code)
+              )
+            `),
+            supabase.from('classes').select('*, branches:branch_id (id, branch_name, branch_code)'),
+            supabase.from('academic_sessions').select('*'),
+            supabase.from('terms').select('*'),
+            supabase.from('events').select('*')
+          ]);
+
+          if (branchesRes.status === 'fulfilled' && !branchesRes.value.error && Array.isArray(branchesRes.value.data) && branchesRes.value.data.length > 0) {
+            setAvailableBranches(branchesRes.value.data);
+          }
+          if (employeesRes.status === 'fulfilled' && !employeesRes.value.error && Array.isArray(employeesRes.value.data) && employeesRes.value.data.length > 0) {
+            const mappedTeachers = employeesRes.value.data.map((emp: any, idx: number) => {
+              const branch = (emp.branches?.branch_code as 'GN' | 'RS') || (idx % 2 === 0 ? 'RS' : 'GN');
+              return {
+                id: emp.id,
+                employeeId: emp.employee_id,
+                name: `${emp.first_name || ''} ${emp.last_name || ''}`.trim(),
+                email: emp.email,
+                phone: emp.phone,
+                level: ['primary'],
+                subjects: emp.teacher_subject_assignments?.map((a: any) => a.subjects?.subject_name).filter(Boolean) || ['General Studies'],
+                classesAssigned: emp.teacher_subject_assignments?.map((a: any) => a.classes?.name).filter(Boolean) || [],
+                qualification: emp.qualification || 'B.Ed',
+                status: emp.employment_status || 'Active',
+                employmentStatus: emp.employment_status || 'Active',
+                department: emp.department || 'Academic Faculty',
+                position: emp.position || 'Class Teacher',
+                address: emp.address || '',
+                branch: branch,
+                role: (emp.position || '').toLowerCase().includes('admin') ? 'management' : 'teaching',
+                salary: 150000,
+                joiningDate: emp.employment_date || '2022-09-01',
+                branchHistory: []
+              };
+            });
+            setTeachers(mappedTeachers);
+          }
+          if (classesRes.status === 'fulfilled' && !classesRes.value.error && Array.isArray(classesRes.value.data) && classesRes.value.data.length > 0) {
+            const mappedClasses = classesRes.value.data.map((c: any) => ({
+              id: c.id,
+              name: c.name,
+              level: (c.grade_level?.toLowerCase().includes('nursery') ? 'nursery' :
+                      c.grade_level?.toLowerCase().includes('secondary') ? 'secondary' :
+                      c.grade_level?.toLowerCase().includes('islamia') ? 'islamia' : 'primary') as any,
+              grade: c.grade_level || c.name,
+              capacity: c.capacity || 30,
+              enrolledCount: 0,
+              room: c.room_number || 'Room 101',
+              branch: (c.branches?.branch_code as 'GN' | 'RS') || 'GN',
+              classTeacherId: c.class_teacher_id || 'tch-1'
+            }));
+            setClasses(mappedClasses);
+          }
+          if (sessionsRes.status === 'fulfilled' && !sessionsRes.value.error && Array.isArray(sessionsRes.value.data) && sessionsRes.value.data.length > 0) {
+            setAcademicSessions(sessionsRes.value.data);
+          }
+          if (termsRes.status === 'fulfilled' && !termsRes.value.error && Array.isArray(termsRes.value.data) && termsRes.value.data.length > 0) {
+            setTerms(termsRes.value.data);
+          }
+          if (eventsRes.status === 'fulfilled' && !eventsRes.value.error && Array.isArray(eventsRes.value.data) && eventsRes.value.data.length > 0) {
+            setEvents(eventsRes.value.data);
+          }
+        }
+      } catch (supaErr) {
+        console.warn("Direct Supabase query notice:", supaErr);
+      }
+
+      // 3. Fallback to API endpoints only if Direct Supabase connection did not succeed
+      if (!directSuccess) {
+        let restSuccess = false;
+        try {
+          const unifiedRes = await fetch('/api/all_academic_data');
+          if (unifiedRes.ok) {
+            const contentType = unifiedRes.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+              const data = await unifiedRes.json();
+              if (data && typeof data === 'object') {
+                if (Array.isArray(data.students) && data.students.length > 0) setStudents(data.students);
+                if (Array.isArray(data.teachers) && data.teachers.length > 0) setTeachers(data.teachers);
+                if (Array.isArray(data.classes) && data.classes.length > 0) setClasses(data.classes);
+                if (Array.isArray(data.schedules)) setSchedules(data.schedules);
+                if (Array.isArray(data.curriculums)) setCurriculums(data.curriculums);
+                if (Array.isArray(data.exams)) setExams(data.exams);
+                if (Array.isArray(data.gradeScales)) setGradeScales(data.gradeScales);
+                if (Array.isArray(data.admissions)) setAdmissions(data.admissions);
+                if (Array.isArray(data.subjects)) setSubjects(data.subjects);
+                if (Array.isArray(data.academicSessions)) setAcademicSessions(data.academicSessions);
+                if (Array.isArray(data.terms)) setTerms(data.terms);
+                if (Array.isArray(data.holidays)) setHolidays(data.holidays);
+                if (Array.isArray(data.eventCategories)) setEventCategories(data.eventCategories);
+                if (Array.isArray(data.events)) setEvents(data.events);
+                if (Array.isArray(data.feeTemplates)) setFeeTemplates(data.feeTemplates);
+
+                if (Array.isArray(data.students) && data.students.length > 0) {
+                  setReportStudent((prev: any) => prev || data.students[0]);
+                }
+                setDbError(null);
+                restSuccess = true;
+              }
+            }
+          }
+        } catch (fastErr) {
+          console.warn("REST API fallback notice:", fastErr);
+        }
+
+        if (!restSuccess) {
+          // Individual endpoints fallback with Promise.allSettled
+          const fetchJsonSafe = async (url: string) => {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP ${res.status} on ${url}`);
+            const ct = res.headers.get('content-type') || '';
+            if (!ct.includes('application/json')) throw new Error(`Non-JSON response on ${url}`);
+            return res.json();
+          };
+
+          try {
+            const results = await Promise.allSettled([
+              fetchJsonSafe('/api/students'),
+              fetchJsonSafe('/api/teachers'),
+              fetchJsonSafe('/api/classes'),
+              fetchJsonSafe('/api/schedules'),
+              fetchJsonSafe('/api/curriculums'),
+              fetchJsonSafe('/api/exams'),
+              fetchJsonSafe('/api/grade-scales'),
+              fetchJsonSafe('/api/admissions'),
+              fetchJsonSafe('/api/subjects'),
+              fetchJsonSafe('/api/academic-sessions'),
+              fetchJsonSafe('/api/terms'),
+              fetchJsonSafe('/api/holidays'),
+              fetchJsonSafe('/api/event-categories'),
+              fetchJsonSafe('/api/events'),
+              fetchJsonSafe('/api/fee_templates')
+            ]);
+
+            let successCount = 0;
+            const getVal = (r: PromiseSettledResult<any>) => (r.status === 'fulfilled' ? r.value : null);
+
+            const r0 = getVal(results[0]); if (r0 && Array.isArray(r0) && r0.length > 0) { setStudents(r0); successCount++; setReportStudent((p: any) => p || r0[0]); }
+            const r1 = getVal(results[1]); if (r1 && Array.isArray(r1) && r1.length > 0) { setTeachers(r1); successCount++; }
+            const r2 = getVal(results[2]); if (r2 && Array.isArray(r2) && r2.length > 0) { setClasses(r2); successCount++; }
+            const r3 = getVal(results[3]); if (r3) { setSchedules(r3); successCount++; }
+            const r4 = getVal(results[4]); if (r4) { setCurriculums(r4); successCount++; }
+            const r5 = getVal(results[5]); if (r5) { setExams(r5); successCount++; }
+            const r6 = getVal(results[6]); if (r6) { setGradeScales(r6); successCount++; }
+            const r7 = getVal(results[7]); if (r7) { setAdmissions(r7); successCount++; }
+            const r8 = getVal(results[8]); if (r8) { setSubjects(r8); successCount++; }
+            const r9 = getVal(results[9]); if (r9) { setAcademicSessions(r9); successCount++; }
+            const r10 = getVal(results[10]); if (r10) { setTerms(r10); successCount++; }
+            const r11 = getVal(results[11]); if (r11) { setHolidays(r11); successCount++; }
+            const r12 = getVal(results[12]); if (r12) { setEventCategories(r12); successCount++; }
+            const r13 = getVal(results[13]); if (r13) { setEvents(r13); successCount++; }
+            const r14 = getVal(results[14]); if (r14) { setFeeTemplates(r14); successCount++; }
+
+            if (successCount > 0) {
+              setDbError(null);
+            } else {
+              if (retryCount < 2) {
+                setTimeout(() => fetchDatabase(retryCount + 1, isBackground), 1500);
+                return;
+              }
+              setDbError("Operating in local offline cache mode.");
+            }
+          } catch (e) {
+            if (retryCount < 2) {
+              setTimeout(() => fetchDatabase(retryCount + 1, isBackground), 1500);
+              return;
+            }
+            setDbError("Operating in local offline cache mode.");
+          }
         }
       }
     } catch (err: any) {
       console.error("fetchDatabase error:", err);
-      if (retryCount < 3) {
+      if (retryCount < 2) {
         setTimeout(() => fetchDatabase(retryCount + 1, isBackground), 1500);
         return;
       }
@@ -3546,42 +3736,31 @@ export default function App() {
         {/* ----- CONTENT CONTAINER ----- */}
         <main id="erp-content-panel" className="flex-1 p-3 md:p-4 overflow-y-auto max-w-7xl mx-auto w-full transition-all">
           
-          {loadingDb && students.length === 0 ? (
+          {loadingDb && students.length === 0 && teachers.length === 0 && (
             <div className="flex flex-col items-center justify-center py-24 text-slate-500">
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mb-4" />
               <p className="font-medium text-slate-700">Syncing centralized academic data streams...</p>
-              <p className="text-xs text-slate-400 mt-1">Contacting system container instances on port 3000</p>
+              <p className="text-xs text-slate-400 mt-1">Contacting system container instances</p>
             </div>
-          ) : dbError && students.length === 0 ? (
-            <div className="bg-rose-50 border border-rose-100 rounded-2xl p-6 text-center max-w-lg mx-auto my-12 text-rose-800">
-              <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-3" />
-              <h3 className="font-bold text-lg text-slate-900 mb-1">Database Disconnected</h3>
-              <p className="text-xs mb-4 text-slate-600">{dbError}</p>
-              <button 
+          )}
+
+          {dbError && (
+            <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between text-amber-800 text-xs shadow-sm">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Working in offline/cached mode. Academic database sync status: {dbError}</span>
+              </div>
+              <button
                 onClick={() => fetchDatabase(0)}
                 disabled={loadingDb}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs px-4 py-2 rounded-lg transition-colors shadow disabled:opacity-50 cursor-pointer"
+                className="underline font-semibold hover:text-amber-900 ml-3 shrink-0 cursor-pointer disabled:opacity-50"
               >
-                {loadingDb ? "Connecting..." : "Retry ERP Connection Check"}
+                {loadingDb ? "Connecting..." : "Sync Now"}
               </button>
             </div>
-          ) : (
-            <>
-              {dbError && (
-                <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between text-amber-800 text-xs">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span>Working in cached offline mode. Background sync is retrying connection...</span>
-                  </div>
-                  <button
-                    onClick={() => fetchDatabase(0)}
-                    className="underline font-semibold hover:text-amber-900 ml-3 shrink-0 cursor-pointer"
-                  >
-                    Sync Now
-                  </button>
-                </div>
-              )}
-              {/* --- TOP HEADER BAR: BREADCRUMBS, SEARCH, THEME TOGGLER --- */}
+          )}
+
+          {/* --- TOP HEADER BAR: BREADCRUMBS, SEARCH, THEME TOGGLER --- */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 mb-4 border-b border-slate-200/60 dark:border-slate-800/80">
                 {/* Breadcrumbs Navigation with literal human labels */}
                 <div className="flex flex-col">
@@ -15576,9 +15755,6 @@ export default function App() {
 
                 </div>
               )}
-
-            </>
-          )}
 
         </main>
 

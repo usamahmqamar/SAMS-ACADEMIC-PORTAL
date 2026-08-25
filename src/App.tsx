@@ -48,11 +48,16 @@ import {
   Star,
   Globe,
   Flame,
-  X
+  X,
+  LogOut
 } from 'lucide-react';
 
 import { motion, AnimatePresence } from 'motion/react';
+import { LoginScreen, SystemUser } from './components/LoginScreen';
+import { supabase } from './lib/supabaseClient';
 
+import { UnifiedDashboardRouter } from './components/dashboard/UnifiedDashboardRouter';
+import { DashboardHeader } from './components/dashboard/DashboardHeader';
 import PayrollRegister from './components/PayrollRegister';
 import FinancialAdjustments from './components/FinancialAdjustments';
 import AcademicCalendar from './components/AcademicCalendar';
@@ -77,6 +82,8 @@ import { DEFAULT_ACADEMIC_DB } from './data/defaultDatabase';
 import { EmployeeUserAccountsConsole } from './components/EmployeeUserAccountsConsole';
 import { EmployeeBranchHistory, EmploymentStatus, UserAccountStatus, EmployeeIdConfig } from './types/employeeIdentity';
 import { generateNextEmployeeId, logEmployeeAuditEvent, formatBranchName, hasBranchAccess, getAuthorizedBranches } from './utils/employeeIdentityUtils';
+import { studentService, DbStudent } from './services/studentService';
+import { staffService, DbEmployee } from './services/staffService';
 
 interface AttendanceLog {
   date: string;
@@ -492,10 +499,25 @@ export default function App() {
   }, []);
 
   // Multi-branch selection
-  const [selectedBranch, setSelectedBranch] = useState<'GN' | 'RS'>(() => {
+  const [selectedBranch, setSelectedBranch] = useState<'All' | 'GN' | 'RS'>(() => {
     const saved = localStorage.getItem('sams_selected_branch');
-    return (saved === 'RS' ? 'RS' : 'GN');
+    if (saved === 'All' || saved === 'RS' || saved === 'GN') return saved;
+    return 'GN';
   });
+
+  const [availableBranches, setAvailableBranches] = useState<Array<{ id: string; branch_name: string; branch_code: string }>>([
+    { id: 'br-gn', branch_name: 'Gawun Nama Campus', branch_code: 'GN' },
+    { id: 'br-rs', branch_name: 'Runjin Sambo Campus', branch_code: 'RS' }
+  ]);
+
+  useEffect(() => {
+    // Fetch branches from Supabase
+    supabase.from('branches').select('id, branch_name, branch_code').then(({ data }) => {
+      if (data && data.length > 0) {
+        setAvailableBranches(data);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('sams_selected_branch', selectedBranch);
@@ -790,30 +812,37 @@ export default function App() {
 
   // Multi-branch filtered subsets
   const branchStudents = useMemo(() => {
+    if (selectedBranch === 'All') return students;
     return students.filter(s => s.branch === selectedBranch || (!s.branch && selectedBranch === 'GN'));
   }, [students, selectedBranch]);
 
   const branchTeachers = useMemo(() => {
+    if (selectedBranch === 'All') return teachers;
     return teachers.filter(t => t.branch === selectedBranch || (!t.branch && selectedBranch === 'GN'));
   }, [teachers, selectedBranch]);
 
   const branchAdmissions = useMemo(() => {
+    if (selectedBranch === 'All') return admissions;
     return admissions.filter(a => a.branch === selectedBranch || (!a.branch && selectedBranch === 'GN'));
   }, [admissions, selectedBranch]);
 
   const branchSchedules = useMemo(() => {
+    if (selectedBranch === 'All') return schedules;
     return schedules.filter(sch => sch.branch === selectedBranch || (!sch.branch && selectedBranch === 'GN'));
   }, [schedules, selectedBranch]);
 
   const branchCurriculums = useMemo(() => {
+    if (selectedBranch === 'All') return curriculums;
     return curriculums.filter(c => c.branch === selectedBranch || (!c.branch && selectedBranch === 'GN'));
   }, [curriculums, selectedBranch]);
 
   const branchExams = useMemo(() => {
+    if (selectedBranch === 'All') return exams;
     return exams.filter(e => e.branch === selectedBranch || (!e.branch && selectedBranch === 'GN'));
   }, [exams, selectedBranch]);
 
   const branchClasses = useMemo(() => {
+    if (selectedBranch === 'All') return classes;
     return classes.filter(c => c.branch === selectedBranch || (!c.branch && selectedBranch === 'GN'));
   }, [classes, selectedBranch]);
 
@@ -826,9 +855,11 @@ export default function App() {
     const savedSchoolsStr = localStorage.getItem('sams_saas_schools');
     if (savedSchoolsStr) {
       try {
-        const schools: SaasSchoolConfig[] = JSON.parse(savedSchoolsStr);
-        const activeId = savedId || schools[0]?.id;
-        return schools.find(s => s.id === activeId) || schools[0] || null;
+        const schools = JSON.parse(savedSchoolsStr);
+        if (Array.isArray(schools) && schools.length > 0) {
+          const activeId = savedId || schools[0]?.id;
+          return schools.find((s: any) => s.id === activeId) || schools[0] || null;
+        }
       } catch (e) {}
     }
     return null;
@@ -1175,19 +1206,21 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        return parsed.map((usr: any) => {
-          if (usr.id === 'usr-admin' || usr.role === 'Super Administrator' || usr.role === 'Super Admin' || usr.email === 'admin@sams.com') {
-            usr.name = 'Engr. Usamah M. Qamar';
-            usr.email = 'usamah.m.qamar@gmail.com';
-            usr.password = 'Q@marm@jeed786';
-            usr.role = 'Super Administrator';
-          }
-          if (usr.role === 'Super Admin') usr.role = 'Super Administrator';
-          if (usr.role === 'Branch Admin') usr.role = 'Branch Administrator';
-          if (!usr.primaryBranch) usr.primaryBranch = usr.branch || 'RS';
-          if (!usr.additionalBranches) usr.additionalBranches = usr.branch === 'All' ? ['RS', 'GN'] : [usr.primaryBranch];
-          return usr;
-        });
+        if (Array.isArray(parsed)) {
+          return parsed.map((usr: any) => {
+            if (usr.id === 'usr-admin' || usr.role === 'Super Administrator' || usr.role === 'Super Admin' || usr.email === 'admin@sams.com') {
+              usr.name = 'Engr. Usamah M. Qamar';
+              usr.email = 'usamah.m.qamar@gmail.com';
+              usr.password = 'Q@marm@jeed786';
+              usr.role = 'Super Administrator';
+            }
+            if (usr.role === 'Super Admin') usr.role = 'Super Administrator';
+            if (usr.role === 'Branch Admin') usr.role = 'Branch Administrator';
+            if (!usr.primaryBranch) usr.primaryBranch = usr.branch || 'RS';
+            if (!usr.additionalBranches) usr.additionalBranches = usr.branch === 'All' ? ['RS', 'GN'] : [usr.primaryBranch];
+            return usr;
+          });
+        }
       } catch (e) {}
     }
     return [
@@ -1262,10 +1295,177 @@ export default function App() {
     }
   }), []);
 
+  // Supabase Authentication & IAM State
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
+
   // Personalized states
   const [currentUserId, setCurrentUserId] = useState<string>(() => {
     return localStorage.getItem('sams_current_user_id') || 'usr-admin';
   });
+
+  // Supabase Auth Session Management & Profile Resolution
+  useEffect(() => {
+    let isMounted = true;
+
+    const resolveUserProfile = async (authUser: any) => {
+      try {
+        // 1. Check system_user_profiles
+        const { data: profile } = await supabase
+          .from('system_user_profiles')
+          .select('*, roles(role_name, role_code), employees(*), user_branch_access(*, branches(*))')
+          .eq('auth_user_id', authUser.id)
+          .maybeSingle();
+
+        if (profile && isMounted) {
+          if (profile.status !== 'Active') {
+            await supabase.auth.signOut();
+            setIsAuthenticated(false);
+            setAuthLoading(false);
+            return;
+          }
+
+          const roleName = profile.roles?.role_name || (profile.is_super_admin ? 'Super Administrator' : 'Staff');
+          const branchCodes = profile.user_branch_access?.map((b: any) => b.branches?.branch_code).filter(Boolean) || [];
+          const primaryBranch = branchCodes.length > 1 ? 'All' : (branchCodes[0] || 'GN');
+
+          setSystemUsers(prev => {
+            const idx = prev.findIndex(u => u.email?.toLowerCase() === profile.email?.toLowerCase() || u.id === profile.id);
+            const mapped = {
+              id: profile.id,
+              name: profile.employees ? `${profile.employees.first_name} ${profile.employees.last_name}` : (profile.username || profile.email),
+              email: profile.email,
+              role: roleName,
+              branch: primaryBranch,
+              status: profile.status,
+              employeeId: profile.employees?.employee_id || profile.employee_id,
+              primaryBranch: primaryBranch,
+              additionalBranches: branchCodes,
+              phone: profile.employees?.phone,
+              accessCount: 1
+            };
+            if (idx >= 0) {
+              const copy = [...prev];
+              copy[idx] = { ...copy[idx], ...mapped };
+              return copy;
+            }
+            return [mapped, ...prev];
+          });
+
+          setCurrentUserId(profile.id);
+          setCurrentSimulatedRole(roleName);
+          if (primaryBranch && primaryBranch !== 'All') {
+            setSelectedBranch(primaryBranch as "GN" | "RS");
+          }
+          setIsAuthenticated(true);
+          setAuthLoading(false);
+          return;
+        }
+
+        // 2. Check parent_user_profiles
+        const { data: parentProfile } = await supabase
+          .from('parent_user_profiles')
+          .select('*, parents_guardians(*), family_accounts(*)')
+          .eq('auth_user_id', authUser.id)
+          .maybeSingle();
+
+        if (parentProfile && isMounted) {
+          const mappedParent = {
+            id: parentProfile.id,
+            name: parentProfile.primary_contact || parentProfile.parents_guardians?.full_name || 'Parent User',
+            email: parentProfile.email || authUser.email,
+            role: 'Parent',
+            branch: 'RS',
+            status: parentProfile.portal_status || 'Active',
+            primaryBranch: 'RS',
+            additionalBranches: ['RS'],
+            phone: parentProfile.phone,
+            accessCount: 1
+          };
+
+          setSystemUsers(prev => {
+            const idx = prev.findIndex(u => u.email?.toLowerCase() === mappedParent.email?.toLowerCase() || u.id === mappedParent.id);
+            if (idx >= 0) {
+              const copy = [...prev];
+              copy[idx] = { ...copy[idx], ...mappedParent };
+              return copy;
+            }
+            return [mappedParent, ...prev];
+          });
+
+          setCurrentUserId(parentProfile.id);
+          setCurrentSimulatedRole('Parent');
+          setSelectedBranch('RS');
+          setIsAuthenticated(true);
+          setAuthLoading(false);
+          return;
+        }
+
+        // 3. Fallback for Super Admin or local account
+        if (isMounted) {
+          const localMatch = systemUsers.find(u => u.email?.toLowerCase() === authUser.email?.toLowerCase());
+          if (localMatch) {
+            setCurrentUserId(localMatch.id);
+            setCurrentSimulatedRole(localMatch.role);
+            setIsAuthenticated(true);
+          } else if (authUser.email === 'usamah.m.qamar@gmail.com') {
+            setCurrentUserId('usr-admin');
+            setCurrentSimulatedRole('Super Administrator');
+            setIsAuthenticated(true);
+          } else {
+            setIsAuthenticated(true);
+          }
+          setAuthLoading(false);
+        }
+      } catch (e) {
+        console.error('Session profile resolution error:', e);
+        if (isMounted) {
+          setAuthLoading(false);
+        }
+      }
+    };
+
+    // Initial session lookup
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        resolveUserProfile(session.user);
+      } else {
+        if (isMounted) {
+          setAuthLoading(false);
+          setIsAuthenticated(false);
+        }
+      }
+    });
+
+    // Auth subscription listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT' || !session?.user) {
+        if (isMounted) {
+          setIsAuthenticated(false);
+          setAuthLoading(false);
+        }
+      } else if (session?.user) {
+        await resolveUserProfile(session.user);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // Logout handler
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
+    setIsAuthenticated(false);
+    setCurrentUserId('usr-admin');
+    addAuditLog('IAM Session', 'LOGOUT', 'User signed out from Supabase Auth session.', 'INFO');
+  };
 
   const [userPrefs, setUserPrefs] = useState<UserPreferences>(() => {
     const activeId = localStorage.getItem('sams_current_user_id') || 'usr-admin';
@@ -2306,6 +2506,34 @@ export default function App() {
   // Save changes back to a student profile (Grades, Milestones, Comments, etc)
   const saveStudentChanges = async (updatedStudent: Student) => {
     try {
+      // Optimistic local state update
+      setStudents(prev => prev.map(s => s.id === updatedStudent.id ? updatedStudent : s));
+      if (selectedStudent?.id === updatedStudent.id) setSelectedStudent(updatedStudent);
+      if (reportStudent?.id === updatedStudent.id) setReportStudent(updatedStudent);
+
+      // 1. Supabase direct sync
+      const names = (updatedStudent.name || '').trim().split(' ');
+      const firstName = names[0] || 'Student';
+      const lastName = names.slice(1).join(' ') || 'Learner';
+
+      studentService.saveStudent({
+        id: updatedStudent.id,
+        first_name: firstName,
+        last_name: lastName,
+        gender: updatedStudent.profile?.gender || 'Female',
+        date_of_birth: updatedStudent.profile?.dob || null,
+        address: updatedStudent.profile?.address || null,
+        status: (updatedStudent.admissionStatus as any) || 'Active',
+        profile_photo_url: updatedStudent.photoUrl || null
+      }, {
+        blood_group: updatedStudent.healthInfo?.bloodGroup,
+        medical_allergies: updatedStudent.healthInfo?.allergies,
+        special_educational_needs: updatedStudent.healthInfo?.medicalConditions,
+        emergency_contact_name: updatedStudent.parentName,
+        emergency_contact_phone: updatedStudent.parentPhone
+      }).catch(e => console.warn("Supabase student sync warning:", e));
+
+      // 2. Server API sync
       const response = await fetch(`/api/students/${updatedStudent.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -2313,20 +2541,12 @@ export default function App() {
       });
       if (response.ok) {
         const result = await response.json();
-        // Update state list
         setStudents(prev => prev.map(s => s.id === result.id ? result : s));
-        if (selectedStudent?.id === result.id) {
-          setSelectedStudent(result);
-        }
-        if (reportStudent?.id === result.id) {
-          setReportStudent(result);
-        }
-      } else {
-        alert("Failed to commit student revisions.");
+        if (selectedStudent?.id === result.id) setSelectedStudent(result);
+        if (reportStudent?.id === result.id) setReportStudent(result);
       }
     } catch (e) {
-      console.error(e);
-      alert("Error committing write operations: offline exception");
+      console.error("Error committing student write operations:", e);
     }
   };
 
@@ -2695,6 +2915,33 @@ export default function App() {
   // Save changes back to a teacher profile (leaves, payroll, lessonPlans, etc)
   const saveTeacherChanges = async (updatedTeacher: Teacher) => {
     try {
+      // Optimistic local state update
+      setTeachers(prev => prev.map(t => t.id === updatedTeacher.id ? updatedTeacher : t));
+      if (selectedTeacher?.id === updatedTeacher.id) setSelectedTeacher(updatedTeacher);
+
+      // 1. Supabase direct sync
+      const names = (updatedTeacher.name || '').trim().split(' ');
+      const firstName = names[0] || 'Staff';
+      const lastName = names.slice(1).join(' ') || 'Member';
+
+      staffService.saveEmployee({
+        id: updatedTeacher.id,
+        first_name: firstName,
+        last_name: lastName,
+        phone: updatedTeacher.phone || '08000000000',
+        email: updatedTeacher.email || `${updatedTeacher.id}@sams.edu.ng`,
+        position: updatedTeacher.position || 'Educator',
+        department: updatedTeacher.department || 'Academic',
+        qualification: updatedTeacher.qualification || 'B.Ed',
+        employment_status: (updatedTeacher.employmentStatus as any) || 'Active',
+        profile_photo_url: updatedTeacher.photoUrl || null
+      }, {
+        bank_name: updatedTeacher.bankName,
+        account_number: updatedTeacher.bankAccountNo,
+        account_name: updatedTeacher.bankAccountName || updatedTeacher.name
+      }).catch(e => console.warn("Supabase staff sync warning:", e));
+
+      // 2. Server API sync
       const response = await fetch(`/api/teachers/${updatedTeacher.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -2702,17 +2949,11 @@ export default function App() {
       });
       if (response.ok) {
         const result = await response.json();
-        // Update state list
         setTeachers(prev => prev.map(t => t.id === result.id ? result : t));
-        if (selectedTeacher?.id === result.id) {
-          setSelectedTeacher(result);
-        }
-      } else {
-        alert("Failed to commit teacher revisions.");
+        if (selectedTeacher?.id === result.id) setSelectedTeacher(result);
       }
     } catch (e) {
-      console.error(e);
-      alert("Error committing write operations: offline exception");
+      console.error("Error committing teacher write operations:", e);
     }
   };
 
@@ -3164,9 +3405,10 @@ export default function App() {
     return matchesSearch && matchesStatus;
   });
 
-  const handleSelectTab = (tab: 'operations' | 'overview' | 'students' | 'teachers' | 'classes' | 'grades' | 'scheduler' | 'assistant' | 'parent' | 'admission' | 'security' | 'consolidation' | 'calendar' | 'health' | 'financial_settings' | 'attendance_desk' | 'school_setup') => {
-    if (isTabRestricted(tab, currentSimulatedRole)) {
-      alert(`🔐 ACCESS RESTRICTED\n\nUnder school user roles & security guidelines, a "${currentSimulatedRole}" is restricted from accessing the "${tab.toUpperCase()}" module.\n\nTo view this module, please choose/simulate another authorized security group in the dropdown at the top of the header.`);
+  const handleSelectTab = (tab: string, submenu?: string) => {
+    const activeRole = currentActiveUser?.role || currentSimulatedRole;
+    if (isTabRestricted(tab as any, activeRole)) {
+      alert(`🔐 ACCESS RESTRICTED\n\nUnder school security guidelines, your role "${activeRole}" does not have privileges to access the "${tab.toUpperCase()}" module.\n\nPlease contact your School Administrator if you require additional permissions.`);
       return;
     }
     setActiveTab(tab);
@@ -3184,6 +3426,34 @@ export default function App() {
   };
 
   const activeColorTheme = activeSaaSSchool ? (brandThemeHexes[activeSaaSSchool.brandColor] || brandThemeHexes.indigo) : brandThemeHexes.indigo;
+
+  // Guard Unauthenticated Access - Render LoginScreen Gatekeeper
+  if (authLoading) {
+    return (
+      <div className="min-h-screen w-full bg-slate-950 flex flex-col items-center justify-center space-y-4 text-white font-sans">
+        <div className="w-10 h-10 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs font-mono text-slate-400">Verifying secure SAMS authentication session...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <LoginScreen 
+        systemUsers={systemUsers}
+        onLoginSuccess={(user) => {
+          setIsAuthenticated(true);
+          setCurrentUserId(user.id);
+          setCurrentSimulatedRole(user.role);
+          if (user.branch && (user.branch === 'GN' || user.branch === 'RS')) {
+            setSelectedBranch(user.branch as "GN" | "RS");
+          }
+          addAuditLog(user.name, 'AUTHENTICATION', `Successful Supabase Auth login as ${user.name} (${user.role}).`, 'SUCCESS');
+        }}
+        activeSaaSSchool={activeSaaSSchool}
+      />
+    );
+  }
 
   return (
     <div id="school-erp-parent" className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
@@ -3205,180 +3475,49 @@ export default function App() {
         .shadow-indigo-100 { --tw-shadow-color: var(--brand-primary-light) !important; }
       `}</style>
       
-      {/* ----------------- CORE HEADER ----------------- */}
-      <header id="erp-main-header" className="bg-white border-b border-slate-200/80 sticky top-0 z-40 px-4 py-2 flex flex-col lg:flex-row gap-3 items-center justify-between shadow-2xs">
-        <div className="flex items-center space-x-2.5 self-start lg:self-auto shrink-0">
-          <div className={`${activeSaaSSchool ? getSaaSSchoolColorBg(activeSaaSSchool.brandColor) : 'bg-indigo-600'} text-white p-1.5 rounded-lg shadow-sm flex items-center justify-center shrink-0`}>
-            {activeSaaSSchool ? renderSaaSSchoolLogo(activeSaaSSchool.logoType, activeSaaSSchool.shortCode) : <School className="w-4 h-4" />}
-          </div>
-          <div>
-            <h1 className="text-sm font-extrabold tracking-tight text-slate-900 flex items-center gap-1.5 leading-none">
-              <span>{activeSaaSSchool ? activeSaaSSchool.name : "SAMS Academic Portal"}</span>
-              <span className={`px-1.5 py-0.2 rounded-md text-[8.5px] font-bold uppercase tracking-wide border shrink-0 ${
-                activeSaaSSchool 
-                  ? getSaaSSchoolColorPill(activeSaaSSchool.brandColor) 
-                  : 'bg-indigo-50 border border-indigo-100 text-indigo-700'
-              }`}>
-                {activeSaaSSchool ? `${activeSaaSSchool.shortCode} ERP` : "Centralized"}
-              </span>
-            </h1>
-            <p className="text-[10px] text-slate-400 mt-0.5 hidden sm:block font-medium">
-              {activeSaaSSchool ? activeSaaSSchool.slogan : "Centralized Nursery, Primary & Secondary Division Academic Management System"}
-            </p>
-          </div>
-        </div>
-
-        {/* Dynamic Branch Location Switcher & Simulated Role Switcher */}
-        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-start lg:justify-end">
-          {/* Branch Select */}
-          <div className="flex items-center space-x-1.5 bg-slate-50 border border-slate-200/80 px-2 py-1 rounded-lg shadow-3xs text-[10px]">
-            <span className="text-[9px] text-slate-450 font-bold uppercase tracking-wider pl-0.5">Branch:</span>
-            <select
-              value={selectedBranch}
-              onChange={(e) => {
-                setSelectedBranch(e.target.value as "GN" | "RS");
-                setSelectedStudent(null);
-                setSelectedTeacher(null);
-              }}
-              className="bg-transparent border-none text-[10px] font-extrabold text-slate-700 p-0 outline-none cursor-pointer focus:ring-0"
-            >
-              {activeSaaSSchool && activeSaaSSchool.branches && activeSaaSSchool.branches.length > 0 ? (
-                activeSaaSSchool.branches.map(br => (
-                  <option key={br.id} value={br.code}>
-                    {br.code} ({br.name})
-                  </option>
-                ))
-              ) : (
-                <>
-                  <option value="GN">Gawun Nama (GN)</option>
-                  <option value="RS">Runjin Sambo (RS)</option>
-                </>
-              )}
-            </select>
-          </div>
-
-          {/* Role Simulation Indicator */}
-          <div className={`flex items-center space-x-1.5 border px-2 py-1 rounded-lg shadow-3xs text-[10px] ${
-            !(currentSimulatedRole === 'Super Administrator' || currentSimulatedRole === 'Super Admin' || currentSimulatedRole === 'Proprietor')
-              ? 'bg-amber-50 border-amber-250 text-amber-900'
-              : 'bg-indigo-50/55 border-indigo-150 text-indigo-900'
-          }`}>
-            <ShieldAlert className="w-3.5 h-3.5 shrink-0 text-amber-600" />
-            <span className="text-[9px] font-extrabold uppercase tracking-wider">Role:</span>
-            <select
-              value={currentSimulatedRole}
-              onChange={(e) => {
-                const targetRole = e.target.value;
-                const matchedUser = systemUsers.find(u => u.role === targetRole);
-                if (matchedUser) {
-                  handleSwitchUser(matchedUser.id);
-                } else {
-                  setCurrentSimulatedRole(targetRole);
-                  addAuditLog('System Admin', 'SIMULATION', `Simulated administrative role switched to ${targetRole}.`, 'INFO');
-                  if (targetRole === 'Parent') {
-                    setActiveTab('parent');
-                  } else if (targetRole === 'Teacher') {
-                    setActiveTab('teachers');
-                  } else if (targetRole === 'Accountant') {
-                    setActiveTab('students');
-                  } else if (targetRole === 'Store Manager') {
-                    setActiveTab('inventory');
-                  } else {
-                    setActiveTab('overview');
-                  }
-                }
-              }}
-              className="bg-transparent border-none text-[10px] font-extrabold text-slate-800 p-0 outline-none cursor-pointer focus:ring-0"
-            >
-              <option value="Super Administrator">👑 Super Admin</option>
-              <option value="Proprietor">👑 Proprietor</option>
-              <option value="Branch Administrator">🏢 Branch Admin</option>
-              <option value="Principal">🎓 Principal</option>
-              <option value="Accountant">💰 Accountant Officer</option>
-              <option value="Store Manager">📦 Store Manager</option>
-              <option value="Teacher">👩‍🏫 Academic Teacher</option>
-              <option value="Parent">👪 Parent Monitor</option>
-            </select>
-            {!(currentSimulatedRole === 'Super Administrator' || currentSimulatedRole === 'Super Admin' || currentSimulatedRole === 'Proprietor') && (
-              <button 
-                type="button"
-                onClick={() => {
-                  setCurrentSimulatedRole('Super Administrator');
-                  setActiveTab('overview');
-                }}
-                className="ml-1 bg-amber-200 hover:bg-amber-300 text-amber-950 font-mono font-bold text-[8.5px] px-1.5 py-0.5 rounded transition-colors uppercase cursor-pointer"
-                title="Reset simulation to full Super Admin view"
-              >
-                Reset 👑
-              </button>
-            )}
-          </div>
-
-          {/* Personnel Selection */}
-          {activeSaaSSchool && activeSaaSSchool.staff && activeSaaSSchool.staff.length > 0 && (
-            <div className="flex items-center space-x-1.5 bg-slate-50 border border-slate-200/80 px-2 py-1 rounded-lg shadow-3xs text-[10px]">
-              <span className="text-[9px] text-slate-450 font-bold uppercase tracking-wider pl-0.5">Personnel:</span>
-              <select
-                onChange={(e) => {
-                  const staffId = e.target.value;
-                  const found = activeSaaSSchool.staff.find(s => s.id === staffId);
-                  if (found) {
-                    const matchedUser = systemUsers.find(u => u.role === found.role);
-                    if (matchedUser) {
-                      handleSwitchUser(matchedUser.id);
-                    } else {
-                      setCurrentSimulatedRole(found.role);
-                      if (found.role === 'Teacher') {
-                        setActiveTab('teachers');
-                      } else if (found.role === 'Accountant') {
-                        setActiveTab('students');
-                      } else if (found.role === 'Super Admin') {
-                        setActiveTab('operations');
-                      } else {
-                        setActiveTab('operations');
-                      }
-                    }
-                    addAuditLog('System Admin', 'SIMULATION', `Assumed personnel profile simulation: ${found.name} (${found.role})`, 'SUCCESS');
-                    if (found.branchId) {
-                      const matchedBranch = activeSaaSSchool.branches.find(b => b.id === found.branchId);
-                      if (matchedBranch) {
-                        setSelectedBranch(matchedBranch.code as "GN" | "RS");
-                      }
-                    }
-                  }
-                }}
-                className="bg-transparent border-none text-[10px] font-extrabold text-slate-700 p-0 outline-none cursor-pointer focus:ring-0"
-              >
-                <option value="">Choose Staff...</option>
-                {activeSaaSSchool.staff.map(st => (
-                  <option key={st.id} value={st.id}>
-                    👤 {st.name} ({st.role})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* AI Connection state status */}
-          <div 
-            id="ai-con-badge" 
-            className={`flex items-center space-x-1 px-2 py-1 rounded-lg text-[10px] font-bold border transition-all shrink-0 ${
-              aiConfigured 
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60' 
-                : 'bg-amber-50 text-amber-700 border-amber-200/60'
-            }`}
-            title={aiConfigured ? 'Gemini AI Intelligent System Active' : 'Gemini AI Inactive'}
-          >
-            <Sparkles className={`w-3.5 h-3.5 ${aiConfigured ? 'fill-emerald-500 text-emerald-600 animate-pulse' : 'text-amber-500'}`} />
-            <span className="hidden sm:inline">{aiConfigured ? 'Gemini AI' : 'AI Offline'}</span>
-          </div>
-
-          <div id="auth-info-badge" className="text-[10px] text-slate-500 text-right hidden xl:block leading-tight border-l border-slate-200 pl-2 shrink-0">
-            <p className="font-bold text-slate-700">Admin Console</p>
-            <p className="font-mono text-[9px] text-slate-400">usamah.m.qamar@gmail.com</p>
-          </div>
-        </div>
-      </header>
+      {/* ----------------- CORE HEADER (Phase 10B SAMS DashboardHeader) ----------------- */}
+      <DashboardHeader 
+        currentActiveUser={currentActiveUser}
+        currentUser={currentActiveUser}
+        currentSimulatedRole={currentSimulatedRole}
+        currentRole={currentSimulatedRole}
+        selectedBranch={selectedBranch}
+        setSelectedBranch={setSelectedBranch}
+        availableBranches={availableBranches}
+        userPermittedBranches={currentActiveUser?.authorizedBranches || (currentSimulatedRole === 'Super Administrator' || currentSimulatedRole === 'Super Admin' || currentSimulatedRole === 'Proprietor' ? ['All', 'GN', 'RS'] : [selectedBranch])}
+        isSuperAdmin={currentSimulatedRole === 'Super Administrator' || currentSimulatedRole === 'Super Admin'}
+        aiConfigured={aiConfigured}
+        onBranchChange={(branch) => {
+          setSelectedBranch(branch);
+          setSelectedStudent(null);
+          setSelectedTeacher(null);
+        }}
+        onRoleChange={(targetRole) => {
+          const matchedUser = systemUsers.find(u => u.role === targetRole);
+          if (matchedUser) {
+            handleSwitchUser(matchedUser.id);
+          } else {
+            setCurrentSimulatedRole(targetRole);
+            addAuditLog('System Admin', 'SIMULATION', `Simulated administrative role switched to ${targetRole}.`, 'INFO');
+            if (targetRole === 'Parent') {
+              setActiveTab('parent');
+            } else if (targetRole === 'Teacher') {
+              setActiveTab('teachers');
+            } else if (targetRole === 'Accountant') {
+              setActiveTab('students');
+            } else if (targetRole === 'Store Manager') {
+              setActiveTab('inventory');
+            } else {
+              setActiveTab('overview');
+            }
+          }
+        }}
+        onLogout={handleLogout}
+        onProfileUpdated={() => {
+          fetchDatabase(0, true);
+        }}
+        onOpenSearch={() => setIsSearchOpen(true)}
+      />
 
       {/* ----------------- PRIMARY WORKSPACE LAYOUT ----------------- */}
       <div className="flex-1 flex flex-col md:flex-row">
@@ -3565,11 +3704,38 @@ export default function App() {
               )}
 
               {/* -------------------------------------------------------------
-                  TAB: SCHOOL OPERATIONS DASHBOARD
+                  TAB: SCHOOL OPERATIONS DASHBOARD (Phase 10B UnifiedDashboardRouter)
                   ------------------------------------------------------------- */}
               {activeTab === 'operations' && (
                 <div id="erp-view-operations" className="space-y-6">
-                  <OperationsDashboard activeBranch={selectedBranch} />
+                  <UnifiedDashboardRouter 
+                    currentRole={currentSimulatedRole}
+                    currentSimulatedRole={currentSimulatedRole}
+                    selectedBranch={selectedBranch}
+                    activeUser={currentActiveUser}
+                    currentActiveUser={currentActiveUser}
+                    branches={availableBranches}
+                    availableBranches={availableBranches}
+                    onNavigateTab={(tab, sub) => handleSelectTab(tab as any, sub)}
+                    onQuickAction={(action) => {
+                      if (action === 'add_student') setShowAddStudent(true);
+                      else if (action === 'add_teacher') setShowAddTeacher(true);
+                      else if (action === 'bulk_import') setShowBulkImport(true);
+                    }}
+                    onAddStudent={() => setShowAddStudent(true)}
+                    onAddStaff={() => setShowAddTeacher(true)}
+                    onReceivePayment={() => handleSelectTab('finance_payments')}
+                    onIssueReceipt={() => handleSelectTab('finance_payments')}
+                    onFamilyBilling={() => handleSelectTab('finance_family_billing')}
+                    onRecordLesson={() => handleSelectTab('academics_lessons')}
+                    onUploadEvidence={() => handleSelectTab('teachers_notes')}
+                    onMarkAttendance={() => handleSelectTab('attendance_student')}
+                    onEnterResults={() => handleSelectTab('results_entry')}
+                    onNewStoreSale={() => handleSelectTab('inventory_pos')}
+                    onReceiveStock={() => handleSelectTab('inventory_purchase')}
+                    onIssueMaterials={() => handleSelectTab('inventory_issuance')}
+                    onInventoryCatalog={() => handleSelectTab('inventory_catalog')}
+                  />
                 </div>
               )}
 

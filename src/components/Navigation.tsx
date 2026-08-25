@@ -424,7 +424,8 @@ export const SAMS_MODULES: PrimaryModule[] = [
 interface NavigationProps {
   activeTab: string;
   setActiveTab: (tab: any) => void;
-  currentSimulatedRole: string;
+  currentSimulatedRole?: string;
+  currentUserRole?: string;
   isTabRestricted: (tab: string, role: string) => boolean;
   systemUsersCount: number;
   securityLockdownMode: boolean;
@@ -441,6 +442,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   activeTab,
   setActiveTab,
   currentSimulatedRole,
+  currentUserRole,
   isTabRestricted,
   systemUsersCount,
   securityLockdownMode,
@@ -452,6 +454,8 @@ export const Navigation: React.FC<NavigationProps> = ({
   quickShortcuts,
   onSubmenuSelect
 }) => {
+  // Effective role
+  const effectiveRole = currentUserRole || currentSimulatedRole || 'Super Administrator';
   // Collapsed sidebar state on desktop/tablet
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
 
@@ -484,14 +488,14 @@ export const Navigation: React.FC<NavigationProps> = ({
 
   // Expanded submenu state for each of the 13 primary modules
   const [expandedModuleIds, setExpandedModuleIds] = useState<string[]>(() => {
-    const activeMod = modules.find(m => m.submenu.some(sub => sub.mappedTab === activeTab));
+    const activeMod = (modules || []).find(m => (m.submenu || []).some(sub => sub.mappedTab === activeTab));
     return activeMod ? [activeMod.id] : ['dashboard'];
   });
 
   // Track the custom sub-menu item selected state
   const [selectedSubmenuId, setSelectedSubmenuId] = useState<string>(() => {
-    const activeMod = modules.find(m => m.submenu.some(sub => sub.mappedTab === activeTab));
-    if (activeMod) {
+    const activeMod = (modules || []).find(m => (m.submenu || []).some(sub => sub.mappedTab === activeTab));
+    if (activeMod && Array.isArray(activeMod.submenu)) {
       const match = activeMod.submenu.find(sub => sub.mappedTab === activeTab);
       return match ? match.id : '';
     }
@@ -500,8 +504,8 @@ export const Navigation: React.FC<NavigationProps> = ({
 
   // Synchronize navigation selected state if tab is changed externally (e.g. from global search)
   useEffect(() => {
-    const activeMod = modules.find(m => m.submenu.some(sub => sub.mappedTab === activeTab));
-    if (activeMod) {
+    const activeMod = (modules || []).find(m => (m.submenu || []).some(sub => sub.mappedTab === activeTab));
+    if (activeMod && Array.isArray(activeMod.submenu)) {
       const match = activeMod.submenu.find(sub => sub.mappedTab === activeTab);
       if (match) {
         setSelectedSubmenuId(match.id);
@@ -522,8 +526,8 @@ export const Navigation: React.FC<NavigationProps> = ({
 
   // Filter modules and submenus dynamically according to role visibility and search criteria
   const filteredModules = useMemo(() => {
-    // 1. First filter by current simulated role's visible modules and submenus
-    const roleRules = ROLE_VISIBILITY[currentSimulatedRole] || ROLE_VISIBILITY[standardizeRole(currentSimulatedRole)] || {};
+    // 1. First filter by current role's visible modules and submenus
+    const roleRules = ROLE_VISIBILITY[effectiveRole] || ROLE_VISIBILITY[standardizeRole(effectiveRole)] || {};
     
     let visibleMods = modules;
 
@@ -560,7 +564,7 @@ export const Navigation: React.FC<NavigationProps> = ({
       }
       return null;
     }).filter(Boolean) as PrimaryModule[];
-  }, [searchQuery, modules, currentSimulatedRole]);
+  }, [searchQuery, modules, effectiveRole]);
 
   // --- SMART OPERATIONAL ASSISTANT DATA ENG & TELEMETRY ---
   const handleAssistantAction = (mappedTab: string, subId?: string) => {
@@ -579,8 +583,8 @@ export const Navigation: React.FC<NavigationProps> = ({
       }
     }
     
-    if (isTabRestricted(mappedTab, currentSimulatedRole)) {
-      alert(`🔒 ACCESS RESTRICTED: Your simulated role "${currentSimulatedRole}" does not have privileges to access this view.`);
+    if (isTabRestricted(mappedTab, effectiveRole)) {
+      alert(`🔒 ACCESS RESTRICTED: Your authenticated role "${effectiveRole}" does not have privileges to access this view.`);
       return;
     }
     setActiveTab(mappedTab);
@@ -613,19 +617,19 @@ export const Navigation: React.FC<NavigationProps> = ({
     let pendingApprovals = [
       { id: 'app-1', title: 'Teacher Medical Leave', description: 'Adeyemi T. (3 Days)', targetTab: 'staff', subId: 'staff_leave' },
       { id: 'app-2', title: 'New Admissions Intake', description: 'Amina Bello (Grade 10)', targetTab: 'admission', subId: 'admissions_hub' },
-      { id: 'app-3', title: 'Grade Moderation Release', description: 'Term 1 CA Results Review', targetTab: 'results', subId: 'results_publishing' }
+      { id: 'app-2', title: 'Grade Moderation Release', description: 'Term 1 CA Results Review', targetTab: 'results', subId: 'results_publishing' }
     ];
-    if (currentSimulatedRole === 'Teacher') {
+    if (effectiveRole === 'Teacher') {
       pendingApprovals = [
         { id: 'app-t1', title: 'Homework Grading Verification', description: 'Grade 10 Physics homework', targetTab: 'teachers', subId: 'results_ca' },
         { id: 'app-t2', title: 'Class attendance waiver review', description: 'Student absent request approval', targetTab: 'teachers', subId: 'attendance_student' }
       ];
-    } else if (currentSimulatedRole === 'Accountant') {
+    } else if (effectiveRole === 'Accountant') {
       pendingApprovals = [
         { id: 'app-a1', title: 'Tuition Fee Discount Claim', description: 'SAMS-ADM-924 Waiver Application', targetTab: 'students', subId: 'students_financial' },
         { id: 'app-a2', title: 'Restock Voucher Authorization', description: 'Laboratory equipment procurement', targetTab: 'students', subId: 'financial_payments' }
       ];
-    } else if (currentSimulatedRole === 'Parent') {
+    } else if (effectiveRole === 'Parent') {
       pendingApprovals = [
         { id: 'app-p1', title: 'Sign Enrollment Contract', description: 'Academic terms of service', targetTab: 'parent', subId: 'students_profile' }
       ];
@@ -637,17 +641,17 @@ export const Navigation: React.FC<NavigationProps> = ({
       { id: 'tsk-2', title: 'Reconcile weekly cash log entries', category: 'FINANCIAL', targetTab: 'students', subId: 'financial_payments', days: '1d overdue' },
       { id: 'tsk-3', title: 'Uniform inventory threshold update', category: 'INVENTORY', targetTab: 'inventory', subId: 'inventory_levels', days: '3d overdue' }
     ];
-    if (currentSimulatedRole === 'Teacher') {
+    if (effectiveRole === 'Teacher') {
       overdueTasks = [
         { id: 'tsk-t1', title: 'Upload weekly lesson structure', category: 'ACADEMICS', targetTab: 'teachers', subId: 'academics_lessons', days: '1d overdue' },
         { id: 'tsk-t2', title: 'Grade Grade 12 Mock Test results', category: 'GRADES', targetTab: 'teachers', subId: 'results_entry', days: '4d overdue' }
       ];
-    } else if (currentSimulatedRole === 'Accountant') {
+    } else if (effectiveRole === 'Accountant') {
       overdueTasks = [
         { id: 'tsk-a1', title: 'Submit quarterly branch payroll audit', category: 'FINANCIAL', targetTab: 'students', subId: 'staff_payroll', days: '2d overdue' },
         { id: 'tsk-a2', title: 'Outstanding fee collection follow-up', category: 'FINANCIAL', targetTab: 'students', subId: 'financial_billing', days: '1d overdue' }
       ];
-    } else if (currentSimulatedRole === 'Parent') {
+    } else if (effectiveRole === 'Parent') {
       overdueTasks = [
         { id: 'tsk-p1', title: 'Submit childhood immunisation chart', category: 'MEDICAL', targetTab: 'parent', subId: 'students_profile', days: '5d overdue' },
         { id: 'tsk-p2', title: 'Clear outstanding balance installment', category: 'FINANCIAL', targetTab: 'parent', subId: 'students_financial', days: '3d overdue' }
@@ -667,7 +671,7 @@ export const Navigation: React.FC<NavigationProps> = ({
       { id: 'fin-2', type: 'WARNING', msg: 'Supplier invoice #SUP-492 exceeded 30-day term.' },
       { id: 'fin-3', type: 'INFO', msg: 'June tax ledger generated awaiting board export.' }
     ];
-    if (currentSimulatedRole === 'Parent') {
+    if (effectiveRole === 'Parent') {
       financialAlerts = [
         { id: 'fin-p1', type: 'CRITICAL', msg: 'Tuition installment overdue: ₦250,000 balance.' },
         { id: 'fin-p2', type: 'INFO', msg: 'Optional school bus transport invoice available.' }
@@ -679,7 +683,7 @@ export const Navigation: React.FC<NavigationProps> = ({
       { id: 'att-1', type: 'CRITICAL', msg: 'Grade 10 Math attendance outlier: 14% absentee spike today.' },
       { id: 'att-2', type: 'WARNING', msg: '3 Teacher late sign-ins logged without class cover.' }
     ];
-    if (currentSimulatedRole === 'Parent') {
+    if (effectiveRole === 'Parent') {
       attendanceAlerts = [
         { id: 'att-p1', type: 'WARNING', msg: 'Late sign-in logged for student on Jul 18 (08:24 AM).' }
       ];
@@ -716,11 +720,11 @@ export const Navigation: React.FC<NavigationProps> = ({
       
       // Fallback defaults based on role if no modules have been clicked yet
       if (topList.length === 0) {
-        if (currentSimulatedRole.includes('Admin') || currentSimulatedRole === 'Proprietor') {
+        if (effectiveRole.includes('Admin') || effectiveRole === 'Proprietor') {
           frequentlyUsedList.push('dashboard_exec', 'admin_audit', 'ops_dashboard');
-        } else if (currentSimulatedRole === 'Teacher') {
+        } else if (effectiveRole === 'Teacher') {
           frequentlyUsedList.push('results_entry', 'academics_lessons');
-        } else if (currentSimulatedRole === 'Accountant') {
+        } else if (effectiveRole === 'Accountant') {
           frequentlyUsedList.push('financial_payments', 'students_financial');
         } else {
           frequentlyUsedList.push('dashboard_exec', 'students_directory');
@@ -741,7 +745,7 @@ export const Navigation: React.FC<NavigationProps> = ({
       unreadNotifications,
       frequentlyUsed: frequentlyUsedList
     };
-  }, [currentSimulatedRole, modules]);
+  }, [effectiveRole, modules]);
 
   // Auto-expand modules when search query is entered in sidebar
   useEffect(() => {
@@ -767,9 +771,9 @@ export const Navigation: React.FC<NavigationProps> = ({
 
   // Handle specific submenu item click
   const handleSubmenuClick = (sub: SubmenuItem) => {
-    // Check if view is locked for current simulated role
-    if (isTabRestricted(sub.mappedTab, currentSimulatedRole)) {
-      alert(`🔒 ACCESS RESTRICTED: Your simulated role "${currentSimulatedRole}" does not have privileges to access the "${sub.name}" sub-function.\n\nPlease update permissions inside the "Administration -> User Access & Security" panel.`);
+    // Check if view is locked for current role
+    if (isTabRestricted(sub.mappedTab, effectiveRole)) {
+      alert(`🔒 ACCESS RESTRICTED: Your authenticated role "${effectiveRole}" does not have privileges to access the "${sub.name}" sub-function.\n\nPlease contact the School Administrator to update access permissions.`);
       return;
     }
 
@@ -923,7 +927,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                 <div className="min-w-0">
                   <p className="text-[11px] font-black text-slate-950 dark:text-slate-100 leading-tight">SAMS Operational Copilot</p>
                   <p className="text-[9px] text-slate-500 dark:text-slate-400 leading-normal mt-1 font-medium">
-                    Welcome, <span className="font-bold text-indigo-600 dark:text-indigo-400">{currentSimulatedRole}</span>! This automated control room summarizes the institutional events requiring your attention today.
+                    Welcome, <span className="font-bold text-indigo-600 dark:text-indigo-400">{effectiveRole}</span>! This automated control room summarizes the institutional events requiring your attention today.
                   </p>
                 </div>
               </div>
@@ -940,7 +944,7 @@ export const Navigation: React.FC<NavigationProps> = ({
               {assistantData.financialAlerts.map(alert => (
                 <div 
                   key={alert.id}
-                  onClick={() => handleAssistantAction(currentSimulatedRole === 'Parent' ? 'parent' : 'students', currentSimulatedRole === 'Parent' ? 'students_financial' : 'financial_payments')}
+                  onClick={() => handleAssistantAction(effectiveRole === 'Parent' ? 'parent' : 'students', effectiveRole === 'Parent' ? 'students_financial' : 'financial_payments')}
                   className="p-2.5 rounded-xl bg-rose-50/45 hover:bg-rose-50 dark:bg-rose-950/10 dark:hover:bg-rose-950/20 border border-rose-100/70 dark:border-rose-900/30 text-[10px] flex items-start space-x-2 transition-all cursor-pointer hover:scale-[1.01]"
                 >
                   <TrendingUp className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
@@ -958,7 +962,7 @@ export const Navigation: React.FC<NavigationProps> = ({
               {assistantData.attendanceAlerts.map(alert => (
                 <div 
                   key={alert.id}
-                  onClick={() => handleAssistantAction(currentSimulatedRole === 'Parent' ? 'parent' : 'attendance_desk', currentSimulatedRole === 'Parent' ? 'students_profile' : 'attendance_student')}
+                  onClick={() => handleAssistantAction(effectiveRole === 'Parent' ? 'parent' : 'attendance_desk', effectiveRole === 'Parent' ? 'students_profile' : 'attendance_student')}
                   className="p-2.5 rounded-xl bg-amber-50/45 hover:bg-amber-50 dark:bg-amber-950/10 dark:hover:bg-amber-950/20 border border-amber-100/70 dark:border-amber-900/30 text-[10px] flex items-start space-x-2 transition-all cursor-pointer hover:scale-[1.01]"
                 >
                   <UserCheck className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
@@ -973,7 +977,7 @@ export const Navigation: React.FC<NavigationProps> = ({
               ))}
 
               {/* Low Stock Alerts */}
-              {(currentSimulatedRole.includes('Admin') || currentSimulatedRole === 'Store Manager' || currentSimulatedRole === 'Accountant' || currentSimulatedRole === 'Proprietor') && (
+              {(effectiveRole.includes('Admin') || effectiveRole === 'Store Manager' || effectiveRole === 'Accountant' || effectiveRole === 'Proprietor') && (
                 <div className="space-y-1.5">
                   {assistantData.lowStockAlerts.map(alert => (
                     <div 
@@ -1001,7 +1005,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                 {assistantData.unreadNotifications.map(notif => (
                   <div 
                     key={notif.id}
-                    onClick={() => handleAssistantAction(currentSimulatedRole === 'Parent' ? 'parent' : 'communication', currentSimulatedRole === 'Parent' ? 'students_profile' : 'comm_parent_notif')}
+                    onClick={() => handleAssistantAction(effectiveRole === 'Parent' ? 'parent' : 'communication', effectiveRole === 'Parent' ? 'students_profile' : 'comm_parent_notif')}
                     className="p-2.5 rounded-xl bg-blue-50/40 hover:bg-blue-50 dark:bg-blue-950/10 dark:hover:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 text-[10px] flex items-start space-x-2 transition-all cursor-pointer hover:scale-[1.01]"
                   >
                     <Bell className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5 animate-bounce" />
@@ -1070,7 +1074,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                 {assistantData.upcomingEvents.map(evt => (
                   <div 
                     key={evt.id}
-                    onClick={() => handleAssistantAction(currentSimulatedRole === 'Parent' ? 'parent' : 'calendar', 'ops_calendar')}
+                    onClick={() => handleAssistantAction(effectiveRole === 'Parent' ? 'parent' : 'calendar', 'ops_calendar')}
                     className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-900/20 dark:hover:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-[10px] flex items-start space-x-2 transition-all cursor-pointer hover:scale-[1.01]"
                   >
                     <Calendar className="w-3.5 h-3.5 text-indigo-500 shrink-0 mt-0.5" />
@@ -1488,7 +1492,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                       >
                         {mod.submenu.map((sub) => {
                           const isSubActive = selectedSubmenuId === sub.id;
-                          const isLocked = isTabRestricted(sub.mappedTab, currentSimulatedRole);
+                          const isLocked = isTabRestricted(sub.mappedTab, effectiveRole);
                           const isFav = favourites.includes(sub.id);
 
                           return (

@@ -188,24 +188,6 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
       }
     ].filter(act => !cleanedQuery || act.name.toLowerCase().includes(cleanedQuery) || act.description.toLowerCase().includes(cleanedQuery) || act.matches.some(m => m.includes(cleanedQuery)));
 
-    // 3. Simulated Roles Matching
-    const roles = ['Super Administrator', 'Proprietor', 'Branch Administrator', 'Principal', 'Accountant', 'Store Manager', 'Teacher', 'Parent'];
-    const roleItems = roles.map(role => ({
-      type: 'role',
-      id: `role-${role}`,
-      name: `Simulate role: ${role}`,
-      description: `Switch security authorization profile to ${role} view rules`,
-      icon: ShieldAlert,
-      action: () => {
-        // Trigger a custom event or callback to switch roles
-        const select = document.querySelector('select[value]') as HTMLSelectElement;
-        // We can dispatch role change or simulate select change
-        const event = new CustomEvent('sams-role-switch', { detail: role });
-        window.dispatchEvent(event);
-        onClose();
-      }
-    })).filter(r => !cleanedQuery || r.name.toLowerCase().includes(cleanedQuery) || r.description.toLowerCase().includes(cleanedQuery));
-
     // Combine sections
     let combined: any[] = [];
     
@@ -262,9 +244,8 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
         combined.push({ title: 'Recently Navigated Pages', items: recentItems });
       }
       
-      // Default actions and role switches
+      // Default actions
       combined.push({ title: 'Fast Administrative Actions', items: actionItems.slice(0, 3) });
-      combined.push({ title: 'SAMS Simulated Roles', items: roleItems.slice(0, 4) });
     } else {
       // Filtered items
       if (pageItems.length > 0) {
@@ -272,9 +253,6 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
       }
       if (actionItems.length > 0) {
         combined.push({ title: 'Quick Action Commands', items: actionItems });
-      }
-      if (roleItems.length > 0) {
-        combined.push({ title: 'Simulated Security Roles', items: roleItems });
       }
     }
 

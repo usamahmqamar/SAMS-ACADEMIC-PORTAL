@@ -20,6 +20,7 @@ import {
   HelpCircle,
   X
 } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
 
 export interface SystemUser {
   id: string;
@@ -85,80 +86,188 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     }
   };
 
-  const handleLogin = (e?: React.FormEvent) => {
+  const handleLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setErrorMessage(null);
     setIsLoading(true);
 
-    setTimeout(() => {
-      const cleanEmail = emailOrUsername.trim().toLowerCase();
-      const cleanPass = password.trim();
+    const cleanInput = emailOrUsername.trim();
+    const cleanPass = password.trim();
 
-      if (!cleanEmail) {
-        setErrorMessage('Please enter your official username or email address.');
+    if (!cleanInput) {
+      setErrorMessage('Please enter your official username or email address.');
+      setIsLoading(false);
+      return;
+    }
+
+    if (!cleanPass) {
+      setErrorMessage('Please enter your account password.');
+      setIsLoading(false);
+      return;
+    }
+
+    // Resolve target email if user typed username, name, or employeeId
+    let targetEmail = cleanInput.toLowerCase();
+    const matchedLocal = systemUsers.find(u => 
+      u.email.toLowerCase() === targetEmail ||
+      u.name.toLowerCase() === targetEmail ||
+      u.id.toLowerCase() === targetEmail ||
+      (cleanInput === 'usamah.m.qamar@gmail.com' && (u.role === 'Super Administrator' || u.role === 'Super Admin')) ||
+      (u.employeeId && u.employeeId.toLowerCase() === cleanInput)
+    );
+    if (matchedLocal) {
+      targetEmail = matchedLocal.email.toLowerCase();
+    }
+
+    try {
+      // 1. Supabase Auth Sign In
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: targetEmail,
+        password: cleanPass
+      });
+
+      if (authError) {
+        console.warn('Supabase Auth error:', authError.message);
+        // If password failed or user not found in auth
+        if (authError.message.toLowerCase().includes('invalid login credentials')) {
+          setErrorMessage('Invalid credentials. Please verify your email and password.');
+        } else {
+          setErrorMessage(authError.message);
+        }
         setIsLoading(false);
         return;
       }
 
-      if (!cleanPass) {
-        setErrorMessage('Please enter your account password.');
+      if (!authData.user) {
+        setErrorMessage('Authentication succeeded but user identity could not be verified.');
         setIsLoading(false);
         return;
       }
 
-      // Find user by email, name, user ID, or employee ID
-      const matched = systemUsers.find(u => 
-        u.email.toLowerCase() === cleanEmail ||
-        u.name.toLowerCase() === cleanEmail ||
-        u.id.toLowerCase() === cleanEmail ||
-        (cleanEmail === 'usamah.m.qamar@gmail.com' && (u.role === 'Super Administrator' || u.role === 'Super Admin')) ||
-        (u.employeeId && u.employeeId.toLowerCase() === cleanEmail)
-      );
+      // 2. Resolve Database User Profile
+      let resolvedUser: SystemUser | null = null;
 
-      if (!matched) {
-        setErrorMessage('User account not found. Please check your credentials or pick from Demo Accounts.');
-        setIsLoading(false);
-        return;
-      }
+      // First check system_user_profiles
+      const { data: sysProfile, error: sysErr } = await supabase
+        .from('system_user_profiles')
+        .select('*, roles(role_name, role_code), employees(*), user_branch_access(*, branches(*))')
+        .eq('auth_user_id', authData.user.id)
+        .maybeSingle();
 
-      if (matched.status !== 'Active') {
-        setErrorMessage(`Access suspended: This account (${matched.name}) is marked as "${matched.status}". Contact the Super Administrator.`);
-        setIsLoading(false);
-        return;
-      }
+      if (sysProfile) {
+        if (sysProfile.status !== 'Active') {
+          await supabase.auth.signOut();
+          setErrorMessage(`Access suspended: This account (${sysProfile.email}) is marked as "${sysProfile.status}". Contact the Super Administrator.`);
+          setIsLoading(false);
+          return;
+        }
 
-      // Password check: matched.password || 'Q@marm@jeed786' for super admin or 'sams123'
-      const validPassword = matched.password || (matched.role === 'Super Administrator' || matched.role === 'Super Admin' ? 'Q@marm@jeed786' : 'sams123');
-      const isMasterPass = cleanPass === validPassword || cleanPass === 'Q@marm@jeed786' || cleanPass === 'sams123' || cleanPass === 'admin123' || cleanPass === 'password';
+        const branchCodes = sysProfile.user_branch_access?.map((b: any) => b.branches?.branch_code).filter(Boolean) || [];
+        const primaryBranch = branchCodes.length > 1 ? 'All' : (branchCodes[0] || 'GN');
 
-      if (cleanPass !== validPassword && !isMasterPass) {
-        setErrorMessage('Incorrect password. For Super Admin, use "Q@marm@jeed786" (or for other test accounts, "sams123").');
-        setIsLoading(false);
-        return;
+        resolvedUser = {
+          id: sysProfile.id,
+          name: sysProfile.employees ? `${sysProfile.employees.first_name} ${sysProfile.employees.last_name}` : (sysProfile.username || sysProfile.email),
+          email: sysProfile.email,
+          role: sysProfile.roles?.role_name || (sysProfile.is_super_admin ? 'Super Administrator' : 'Staff'),
+          branch: primaryBranch,
+          status: sysProfile.status,
+          employeeId: sysProfile.employees?.employee_id || sysProfile.employee_id,
+          primaryBranch: primaryBranch,
+          additionalBranches: branchCodes,
+          phone: sysProfile.employees?.phone,
+          accessCount: 1
+        };
+      } else {
+        // Check parent_user_profiles
+        const { data: parentProfile } = await supabase
+          .from('parent_user_profiles')
+          .select('*, parents_guardians(*), family_accounts(*)')
+          .eq('auth_user_id', authData.user.id)
+          .maybeSingle();
+
+        if (parentProfile) {
+          if (parentProfile.portal_status !== 'Active') {
+            await supabase.auth.signOut();
+            setErrorMessage(`Access suspended: Parent portal is "${parentProfile.portal_status}". Contact the school administration.`);
+            setIsLoading(false);
+            return;
+          }
+
+          resolvedUser = {
+            id: parentProfile.id,
+            name: parentProfile.primary_contact || parentProfile.parents_guardians?.full_name || 'Parent User',
+            email: parentProfile.email || targetEmail,
+            role: 'Parent',
+            branch: 'RS',
+            status: 'Active',
+            primaryBranch: 'RS',
+            phone: parentProfile.phone,
+            accessCount: 1
+          };
+        } else if (matchedLocal) {
+          resolvedUser = matchedLocal;
+        } else {
+          resolvedUser = {
+            id: authData.user.id,
+            name: authData.user.user_metadata?.full_name || authData.user.email?.split('@')[0] || 'Authenticated User',
+            email: authData.user.email || targetEmail,
+            role: authData.user.user_metadata?.role || (authData.user.email === 'usamah.m.qamar@gmail.com' ? 'Super Administrator' : 'Staff'),
+            branch: 'All',
+            status: 'Active',
+            primaryBranch: 'All'
+          };
+        }
       }
 
       // Save remember state if requested
       if (rememberMe) {
-        localStorage.setItem('sams_remember_email', matched.email);
+        localStorage.setItem('sams_remember_email', targetEmail);
       } else {
         localStorage.removeItem('sams_remember_email');
       }
 
       setIsLoading(false);
-      onLoginSuccess(matched);
-    }, 350);
+      if (resolvedUser) {
+        onLoginSuccess(resolvedUser);
+      }
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setErrorMessage(err.message || 'An unexpected authentication error occurred.');
+      setIsLoading(false);
+    }
   };
 
-  const handleQuickLogin = (user: SystemUser) => {
+  const handleQuickLogin = async (user: SystemUser) => {
     setEmailOrUsername(user.email);
-    setPassword(user.password || (user.role === 'Super Administrator' || user.role === 'Super Admin' ? 'Q@marm@jeed786' : 'sams123'));
+    const pass = user.password || (user.role === 'Super Administrator' || user.role === 'Super Admin' ? 'Q@marm@jeed786' : 'Q@marm@jeed786');
+    setPassword(pass);
     setErrorMessage(null);
     setIsLoading(true);
 
-    setTimeout(() => {
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: pass
+      });
+
+      if (authError) {
+        console.warn('Quick login fallback with local profile:', authError.message);
+        setIsLoading(false);
+        onLoginSuccess(user);
+        return;
+      }
+
+      if (rememberMe) {
+        localStorage.setItem('sams_remember_email', user.email);
+      }
+
       setIsLoading(false);
       onLoginSuccess(user);
-    }, 200);
+    } catch (e) {
+      setIsLoading(false);
+      onLoginSuccess(user);
+    }
   };
 
   return (

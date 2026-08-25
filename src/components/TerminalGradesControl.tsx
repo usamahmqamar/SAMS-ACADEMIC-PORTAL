@@ -43,7 +43,8 @@ interface ClassRecord {
 }
 
 interface TerminalGradesControlProps {
-  currentSimulatedRole: string;
+  currentSimulatedRole?: string;
+  currentUserRole?: string;
   classes: ClassRecord[];
   students: Student[];
   selectedBranch: string;
@@ -57,6 +58,7 @@ interface TerminalGradesControlProps {
 
 export default function TerminalGradesControl({
   currentSimulatedRole,
+  currentUserRole,
   classes,
   students,
   selectedBranch,
@@ -79,13 +81,16 @@ export default function TerminalGradesControl({
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
   const [activeAction, setActiveAction] = useState<'lock' | 'rank' | 'release' | null>(null);
 
-  // Check if simulated role is an administrator
+  const effectiveRole = currentUserRole || currentSimulatedRole || 'Super Administrator';
+
+  // Check if authenticated user role is an administrator
   const isUserAdmin = 
-    currentSimulatedRole === 'Super Administrator' || 
-    currentSimulatedRole === 'Super Admin' || 
-    currentSimulatedRole === 'Proprietor' || 
-    currentSimulatedRole === 'Branch Administrator' || 
-    currentSimulatedRole === 'Branch Admin';
+    effectiveRole === 'Super Administrator' || 
+    effectiveRole === 'Super Admin' || 
+    effectiveRole === 'Proprietor' || 
+    effectiveRole === 'Branch Administrator' || 
+    effectiveRole === 'Branch Admin' ||
+    effectiveRole === 'Principal';
 
   if (!isUserAdmin) {
     return null;

@@ -27,7 +27,8 @@ import {
 } from 'lucide-react';
 
 interface QuickActionMenuProps {
-  currentSimulatedRole: string;
+  currentSimulatedRole?: string;
+  currentUserRole?: string;
   setActiveTab: (tab: string) => void;
   setFinancialActiveSection?: (section: any) => void;
   onAddStudent?: () => void;
@@ -36,6 +37,7 @@ interface QuickActionMenuProps {
 
 export const QuickActionMenu: React.FC<QuickActionMenuProps> = ({
   currentSimulatedRole,
+  currentUserRole,
   setActiveTab,
   setFinancialActiveSection,
   onAddStudent,
@@ -43,6 +45,9 @@ export const QuickActionMenu: React.FC<QuickActionMenuProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeModal, setActiveModal] = useState<string | null>(null);
+
+  // Authenticated Role
+  const effectiveRole = currentUserRole || currentSimulatedRole || 'Admin';
 
   // Mini interactive state for payment collection
   const [collectFeeStudent, setCollectFeeStudent] = useState('Fatima Musa');
@@ -100,7 +105,7 @@ export const QuickActionMenu: React.FC<QuickActionMenuProps> = ({
 
   // Define role actions dynamically
   const getRoleActions = () => {
-    const role = currentSimulatedRole;
+    const role = effectiveRole;
 
     if (role === 'Accountant') {
       return [
@@ -323,7 +328,7 @@ export const QuickActionMenu: React.FC<QuickActionMenuProps> = ({
                   <div className="flex items-center space-x-1.5">
                     <Zap className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
                     <span className="text-[10px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider">
-                      {currentSimulatedRole} Actions
+                      {effectiveRole} Actions
                     </span>
                   </div>
                   <span className="text-[8px] bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold px-1.5 py-0.5 rounded uppercase">
@@ -373,7 +378,7 @@ export const QuickActionMenu: React.FC<QuickActionMenuProps> = ({
                     <Zap className="w-4 h-4 text-indigo-600 dark:text-indigo-400 animate-pulse" />
                     <div>
                       <h4 className="text-xs font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider">
-                        {currentSimulatedRole} Workspace
+                        {effectiveRole} Workspace
                       </h4>
                       <p className="text-[9px] text-slate-400 font-medium">One-hand optimized quick access menu</p>
                     </div>

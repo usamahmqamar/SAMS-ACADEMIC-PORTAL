@@ -61,7 +61,7 @@ export const TeachingPerformanceReports: React.FC<TeachingPerformanceReportsProp
   teachers = [],
   selectedBranch,
   currentSimulatedRole,
-  academicSessions = ['2025/2026', '2024/2025', '2023/2024'],
+  academicSessions = ['2026/2027', '2025/2026', '2024/2025'],
   terms = ['First Term', 'Second Term', 'Third Term'],
   curriculumChecklists = defaultChecklists
 }) => {
@@ -75,7 +75,7 @@ export const TeachingPerformanceReports: React.FC<TeachingPerformanceReportsProp
   const [filterSubject, setFilterSubject] = useState<string>('All');
   const [filterTeacher, setFilterTeacher] = useState<string>('All');
   const [filterTerm, setFilterTerm] = useState<string>('All');
-  const [filterSession, setFilterSession] = useState<string>('2025/2026');
+  const [filterSession, setFilterSession] = useState<string>('2026/2027');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Export & Print state
@@ -314,7 +314,7 @@ export const TeachingPerformanceReports: React.FC<TeachingPerformanceReportsProp
 
   // 12. TERM HISTORICAL COMPARISON DATA (Term 1 vs Term 2 vs Term 3)
   const currentSessionTerms = useMemo(() => {
-    return HISTORICAL_TERMS_DATA[filterSession] || HISTORICAL_TERMS_DATA['2025/2026'];
+    return HISTORICAL_TERMS_DATA[filterSession] || HISTORICAL_TERMS_DATA['2026/2027'] || HISTORICAL_TERMS_DATA['2025/2026'];
   }, [filterSession]);
 
   // 13. ANNUAL SESSION COMPARISON DATA (Session vs Previous Sessions)
@@ -552,7 +552,7 @@ export const TeachingPerformanceReports: React.FC<TeachingPerformanceReportsProp
     setFilterSubject('All');
     setFilterTeacher('All');
     setFilterTerm('All');
-    setFilterSession('2025/2026');
+    setFilterSession('2026/2027');
     setSearchQuery('');
   };
 

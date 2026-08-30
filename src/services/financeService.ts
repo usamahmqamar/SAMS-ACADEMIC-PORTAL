@@ -1,5 +1,59 @@
 import { supabase } from '../lib/supabaseClient';
 
+export async function safeFetchJson<T = any>(url: string, options?: RequestInit): Promise<{ ok: boolean; status: number; data?: T; error?: string }> {
+  try {
+    const res = await fetch(url, options);
+    const contentType = res.headers.get('content-type') || '';
+    let data: any = null;
+    let textBody = '';
+
+    if (contentType.includes('application/json')) {
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        textBody = await res.text().catch(() => '');
+      }
+    } else {
+      textBody = await res.text().catch(() => '');
+    }
+
+    if (!res.ok) {
+      const errorMessage = (data && (data.error || data.message)) || textBody || `Request failed with status ${res.status}`;
+      return { ok: false, status: res.status, error: errorMessage, data };
+    }
+
+    return { ok: true, status: res.status, data: data !== null ? data : (textBody ? { message: textBody } : null) as any };
+  } catch (netErr: any) {
+    return { ok: false, status: 0, error: netErr?.message || 'Network request failed' };
+  }
+}
+
+export interface FinancialSetting {
+  id: string;
+  financialYear: string;
+  startDate?: string;
+  endDate?: string;
+  currency: string;
+  currencySymbol: string;
+  receiptPrefix: string;
+  autoReceiptNumber: boolean;
+  defaultDueDays: number;
+  defaultGracePeriod: number;
+  defaultPaymentThreshold: number;
+  defaultReceiptFooter: string;
+  isDefault: boolean;
+  status?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface FeeHeadCategoryRecord {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: string;
+}
+
 export interface FeeHeadRecord {
   id: string;
   name: string;
@@ -173,7 +227,336 @@ export interface FinancialTimelineRecord {
 
 class FinanceService {
   // ============================================================================
-  // 1. FEE HEADS
+  // 0. FINANCIAL SETTINGS & FISCAL YEARS (ACADEMIC SESSIONS ARCHITECTURE)
+  // ============================================================================
+  async getFinancialSettings(): Promise<FinancialSetting[]> {
+    try {
+      // 1. Direct Supabase query to existing production academic_sessions
+      const { data: dbSessions, error } = await supabase
+        .from('academic_sessions')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      // 2. Query store_eligibility_settings for payment thresholds
+      const { data: storeSettings } = await supabase
+        .from('store_eligibility_settings')
+        .select('*');
+
+      // 3. Query local storage overrides if any
+      let localConfigMap: Record<string, any> = {};
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          const stored = localStorage.getItem('sams_financial_settings_config');
+          if (stored) localConfigMap = JSON.parse(stored);
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      if (!error && dbSessions && dbSessions.length > 0) {
+        const settingsList: FinancialSetting[] = dbSessions.map((s: any) => {
+          const custom = localConfigMap[s.id] || localConfigMap[s.session_name] || {};
+          const storeSetting = (storeSettings || []).find((st: any) => st.session_id === s.id);
+          const yrMatch = (s.session_name || '').match(/\d{2,4}/);
+          const prefixYr = yrMatch ? yrMatch[0].slice(-2) : '26';
+
+          return {
+            id: s.id,
+            financialYear: s.session_name,
+            startDate: s.start_date,
+            endDate: s.end_date,
+            currency: custom.currency || 'NGN',
+            currencySymbol: custom.currencySymbol || '₦',
+            receiptPrefix: custom.receiptPrefix || `REC-${prefixYr}-`,
+            autoReceiptNumber: custom.autoReceiptNumber ?? true,
+            defaultDueDays: custom.defaultDueDays ?? 15,
+            defaultGracePeriod: custom.defaultGracePeriod ?? 7,
+            defaultPaymentThreshold: storeSetting ? Number(storeSetting.min_fee_payment_percentage) : (custom.defaultPaymentThreshold ?? 50),
+            defaultReceiptFooter: custom.defaultReceiptFooter || 'Thank you for choosing Najma International Schools.',
+            isDefault: s.is_current ?? (s.status === 'Active'),
+            status: s.status,
+            createdAt: s.created_at || new Date().toISOString(),
+            updatedAt: s.updated_at
+          };
+        });
+
+        return settingsList;
+      }
+    } catch (err) {
+      console.warn('FinanceService.getFinancialSettings Supabase fallback:', err);
+    }
+
+    // Fallback to API endpoint with safeFetchJson
+    const resp = await safeFetchJson<FinancialSetting[]>('/api/financial_settings');
+    if (resp.ok && Array.isArray(resp.data) && resp.data.length > 0) {
+      return resp.data;
+    }
+
+    // Fallback to localStorage if available
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const stored = localStorage.getItem('sams_financial_settings_list');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      }
+    } catch (e) {}
+
+    return [];
+  }
+
+  async saveFinancialSetting(payload: {
+    id?: string;
+    financialYear: string;
+    currency: string;
+    currencySymbol: string;
+    receiptPrefix: string;
+    autoReceiptNumber: boolean;
+    defaultDueDays: number;
+    defaultGracePeriod: number;
+    defaultPaymentThreshold: number;
+    defaultReceiptFooter: string;
+    isDefault: boolean;
+  }): Promise<FinancialSetting> {
+    const yearTrimmed = payload.financialYear.trim();
+    const yrNumbers = yearTrimmed.match(/\d{4}/g) || ['2026', '2027'];
+    const startYear = yrNumbers[0] || '2026';
+    const endYear = yrNumbers[1] || (parseInt(startYear) + 1).toString();
+    const startDate = `${startYear}-09-01`;
+    const endDate = `${endYear}-07-31`;
+
+    let savedRecord: any = null;
+
+    try {
+      // 1. If payload.isDefault is true, unset other current sessions in Supabase
+      if (payload.isDefault) {
+        await supabase
+          .from('academic_sessions')
+          .update({ is_current: false })
+          .neq('id', payload.id || '00000000-0000-0000-0000-000000000000');
+      }
+
+      if (payload.id && !payload.id.startsWith('fs-')) {
+        // Existing UUID record in Supabase
+        const { data, error } = await supabase
+          .from('academic_sessions')
+          .update({
+            session_name: yearTrimmed,
+            is_current: payload.isDefault,
+            status: payload.isDefault ? 'Active' : 'Upcoming',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', payload.id)
+          .select()
+          .single();
+
+        if (!error && data) savedRecord = data;
+      } else {
+        // Insert new academic_session in Supabase
+        const { data, error } = await supabase
+          .from('academic_sessions')
+          .insert({
+            session_name: yearTrimmed,
+            start_date: startDate,
+            end_date: endDate,
+            status: payload.isDefault ? 'Active' : 'Upcoming',
+            is_current: !!payload.isDefault
+          })
+          .select()
+          .single();
+
+        if (!error && data) savedRecord = data;
+      }
+
+      // Upsert store_eligibility_settings for payment threshold if record ID exists
+      if (savedRecord?.id) {
+        await supabase
+          .from('store_eligibility_settings')
+          .upsert({
+            session_id: savedRecord.id,
+            min_fee_payment_percentage: payload.defaultPaymentThreshold,
+            is_active: true
+          }, { onConflict: 'session_id' });
+      }
+    } catch (err) {
+      console.warn('FinanceService.saveFinancialSetting Supabase session update warning:', err);
+    }
+
+    // Sync with /api/financial_settings via safeFetchJson
+    const url = payload.id ? `/api/financial_settings/${payload.id}` : '/api/financial_settings';
+    const method = payload.id ? 'PUT' : 'POST';
+    const apiResp = await safeFetchJson(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...payload,
+        id: savedRecord?.id || payload.id
+      })
+    });
+
+    const finalSetting: FinancialSetting = {
+      id: savedRecord?.id || apiResp.data?.id || payload.id || `fs-${Date.now()}`,
+      financialYear: yearTrimmed,
+      currency: payload.currency,
+      currencySymbol: payload.currencySymbol,
+      receiptPrefix: payload.receiptPrefix,
+      autoReceiptNumber: payload.autoReceiptNumber,
+      defaultDueDays: payload.defaultDueDays,
+      defaultGracePeriod: payload.defaultGracePeriod,
+      defaultPaymentThreshold: payload.defaultPaymentThreshold,
+      defaultReceiptFooter: payload.defaultReceiptFooter,
+      isDefault: payload.isDefault,
+      createdAt: savedRecord?.created_at || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    // Persist config in localStorage
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const stored = localStorage.getItem('sams_financial_settings_config');
+        const configMap = stored ? JSON.parse(stored) : {};
+        configMap[finalSetting.id] = finalSetting;
+        configMap[finalSetting.financialYear] = finalSetting;
+        localStorage.setItem('sams_financial_settings_config', JSON.stringify(configMap));
+
+        // Update list in localStorage
+        const listStored = localStorage.getItem('sams_financial_settings_list');
+        let list = listStored ? JSON.parse(listStored) : [];
+        if (!Array.isArray(list)) list = [];
+        const idx = list.findIndex((x: any) => x.id === finalSetting.id || x.financialYear === finalSetting.financialYear);
+        if (idx >= 0) {
+          list[idx] = finalSetting;
+        } else {
+          list.push(finalSetting);
+        }
+        if (finalSetting.isDefault) {
+          list.forEach((x: any) => {
+            if (x.id !== finalSetting.id) x.isDefault = false;
+          });
+        }
+        localStorage.setItem('sams_financial_settings_list', JSON.stringify(list));
+      }
+    } catch (e) {}
+
+    return finalSetting;
+  }
+
+  async deleteFinancialSetting(id: string): Promise<boolean> {
+    try {
+      if (!id.startsWith('fs-')) {
+        await supabase
+          .from('academic_sessions')
+          .delete()
+          .eq('id', id);
+      }
+    } catch (e) {
+      console.warn('FinanceService.deleteFinancialSetting Supabase warning:', e);
+    }
+
+    await safeFetchJson(`/api/financial_settings/${id}`, { method: 'DELETE' });
+
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const listStored = localStorage.getItem('sams_financial_settings_list');
+        if (listStored) {
+          const list = JSON.parse(listStored);
+          if (Array.isArray(list)) {
+            const filtered = list.filter((x: any) => x.id !== id);
+            localStorage.setItem('sams_financial_settings_list', JSON.stringify(filtered));
+          }
+        }
+      }
+    } catch (e) {}
+
+    return true;
+  }
+
+  // ============================================================================
+  // 1. FEE HEAD CATEGORIES
+  // ============================================================================
+  async getFeeCategories(): Promise<FeeHeadCategoryRecord[]> {
+    const defaultCategories: FeeHeadCategoryRecord[] = [
+      { id: 'fhc-academic', name: 'Academic & Tuition', description: 'Core curriculum, instructional materials, and standard tuition', createdAt: new Date().toISOString() },
+      { id: 'fhc-admin', name: 'Administrative & Registration', description: 'Admission forms, ID cards, and record fees', createdAt: new Date().toISOString() },
+      { id: 'fhc-facilities', name: 'Facilities & ICT Infrastructure', description: 'Computer lab, library, sports ground, and school maintenance', createdAt: new Date().toISOString() },
+      { id: 'fhc-religious', name: 'Islamia & Tahfeez Curriculum', description: 'Tajweed books, Islamic studies manuals, and Tahfeez certifications', createdAt: new Date().toISOString() },
+      { id: 'fhc-activities', name: 'Activities & Excursions', description: 'Annual sports day, inter-house competitions, and educational trips', createdAt: new Date().toISOString() },
+      { id: 'fhc-optional', name: 'Optional Services & Welfare', description: 'School bus transport, hot lunches, and uniform kits', createdAt: new Date().toISOString() }
+    ];
+
+    try {
+      const resp = await safeFetchJson<FeeHeadCategoryRecord[]>('/api/fee_head_categories');
+      if (resp.ok && Array.isArray(resp.data) && resp.data.length > 0) {
+        return resp.data;
+      }
+    } catch (err) {
+      console.warn('Fee categories fetch fallback:', err);
+    }
+
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const stored = localStorage.getItem('sams_fee_categories_list');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      }
+    } catch (e) {}
+
+    return defaultCategories;
+  }
+
+  async saveFeeCategory(payload: { id?: string; name: string; description?: string }): Promise<FeeHeadCategoryRecord> {
+    const url = payload.id ? `/api/fee_head_categories/${payload.id}` : '/api/fee_head_categories';
+    const method = payload.id ? 'PUT' : 'POST';
+    const resp = await safeFetchJson<FeeHeadCategoryRecord>(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const finalCat: FeeHeadCategoryRecord = {
+      id: payload.id || resp.data?.id || `fhc-${Date.now()}`,
+      name: payload.name.trim(),
+      description: (payload.description || '').trim(),
+      createdAt: resp.data?.createdAt || new Date().toISOString()
+    };
+
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const stored = localStorage.getItem('sams_fee_categories_list');
+        let list = stored ? JSON.parse(stored) : [];
+        if (!Array.isArray(list)) list = [];
+        const idx = list.findIndex((c: any) => c.id === finalCat.id || c.name.toLowerCase() === finalCat.name.toLowerCase());
+        if (idx >= 0) list[idx] = finalCat;
+        else list.push(finalCat);
+        localStorage.setItem('sams_fee_categories_list', JSON.stringify(list));
+      }
+    } catch (e) {}
+
+    return finalCat;
+  }
+
+  async deleteFeeCategory(id: string): Promise<boolean> {
+    await safeFetchJson(`/api/fee_head_categories/${id}`, { method: 'DELETE' });
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const stored = localStorage.getItem('sams_fee_categories_list');
+        if (stored) {
+          const list = JSON.parse(stored);
+          if (Array.isArray(list)) {
+            const filtered = list.filter((c: any) => c.id !== id);
+            localStorage.setItem('sams_fee_categories_list', JSON.stringify(filtered));
+          }
+        }
+      }
+    } catch (e) {}
+    return true;
+  }
+
+  // ============================================================================
+  // 2. FEE HEADS
   // ============================================================================
   async getFeeHeads(): Promise<FeeHeadRecord[]> {
     try {
@@ -881,6 +1264,111 @@ class FinanceService {
       console.error('Error computing financial summary:', err);
       return null;
     }
+  }
+  async deleteFeeHead(id: string): Promise<boolean> {
+    try {
+      if (!id.startsWith('fh-')) {
+        await supabase
+          .from('fee_heads')
+          .delete()
+          .eq('id', id);
+      }
+    } catch (e) {
+      console.warn('FinanceService.deleteFeeHead Supabase delete warning:', e);
+    }
+
+    await safeFetchJson(`/api/fee_heads/${id}`, { method: 'DELETE' });
+    return true;
+  }
+
+  // ============================================================================
+  // 9. FINANCE SUMMARY COUNTS (Direct Supabase with API fallback)
+  // ============================================================================
+  async getFinanceSummaryCounts(): Promise<{
+    sectionsCount: number;
+    classesCount: number;
+    feeTemplatesCount: number;
+    billingCount: number;
+    familyCount: number;
+    paymentsCount: number;
+    optionalChargesCount: number;
+  }> {
+    let sectionsCount = 0;
+    let classesCount = 0;
+    let feeTemplatesCount = 0;
+    let billingCount = 0;
+    let familyCount = 0;
+    let paymentsCount = 0;
+    let optionalChargesCount = 0;
+
+    try {
+      const [secRes, clsRes, fsRes, chargesRes, famRes, payRes, optRes] = await Promise.all([
+        supabase.from('sections').select('*', { count: 'exact', head: true }),
+        supabase.from('classes').select('*', { count: 'exact', head: true }),
+        supabase.from('fee_structures').select('*', { count: 'exact', head: true }),
+        supabase.from('student_fee_charges').select('*', { count: 'exact', head: true }),
+        supabase.from('family_accounts').select('*', { count: 'exact', head: true }),
+        supabase.from('payments').select('*', { count: 'exact', head: true }),
+        supabase.from('optional_fee_charges').select('*', { count: 'exact', head: true })
+      ]);
+
+      if (secRes.count !== null && secRes.count !== undefined) sectionsCount = secRes.count;
+      if (clsRes.count !== null && clsRes.count !== undefined) classesCount = clsRes.count;
+      if (fsRes.count !== null && fsRes.count !== undefined) feeTemplatesCount = fsRes.count;
+      if (chargesRes.count !== null && chargesRes.count !== undefined) billingCount = chargesRes.count;
+      if (famRes.count !== null && famRes.count !== undefined) familyCount = famRes.count;
+      if (payRes.count !== null && payRes.count !== undefined) paymentsCount = payRes.count;
+      if (optRes.count !== null && optRes.count !== undefined) optionalChargesCount = optRes.count;
+    } catch (e) {
+      console.warn('FinanceService.getFinanceSummaryCounts direct count fallback:', e);
+    }
+
+    // If counts are 0, check API endpoints with safeFetchJson
+    try {
+      const [secApi, clsApi, tempApi, billApi, famApi, payApi, optApi] = await Promise.all([
+        safeFetchJson('/api/sections'),
+        safeFetchJson('/api/classes'),
+        safeFetchJson('/api/fee_templates'),
+        safeFetchJson('/api/student_fee_ledgers'),
+        safeFetchJson('/api/family_accounts'),
+        safeFetchJson('/api/student_payments'),
+        safeFetchJson('/api/optional_charges')
+      ]);
+
+      if (secApi.ok && Array.isArray(secApi.data) && secApi.data.length > sectionsCount) {
+        sectionsCount = secApi.data.length;
+      }
+      if (clsApi.ok && Array.isArray(clsApi.data) && clsApi.data.length > classesCount) {
+        classesCount = clsApi.data.length;
+      }
+      if (tempApi.ok && Array.isArray(tempApi.data) && tempApi.data.length > feeTemplatesCount) {
+        feeTemplatesCount = tempApi.data.length;
+      }
+      if (billApi.ok && Array.isArray(billApi.data) && billApi.data.length > billingCount) {
+        billingCount = billApi.data.length;
+      }
+      if (famApi.ok && Array.isArray(famApi.data) && famApi.data.length > familyCount) {
+        familyCount = famApi.data.length;
+      }
+      if (payApi.ok && Array.isArray(payApi.data) && payApi.data.length > paymentsCount) {
+        paymentsCount = payApi.data.length;
+      }
+      if (optApi.ok && Array.isArray(optApi.data) && optApi.data.length > optionalChargesCount) {
+        optionalChargesCount = optApi.data.length;
+      }
+    } catch (apiErr) {
+      console.warn('FinanceService.getFinanceSummaryCounts api fallback warning:', apiErr);
+    }
+
+    return {
+      sectionsCount,
+      classesCount,
+      feeTemplatesCount,
+      billingCount,
+      familyCount,
+      paymentsCount,
+      optionalChargesCount
+    };
   }
 }
 

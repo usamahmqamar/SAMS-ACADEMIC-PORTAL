@@ -1112,8 +1112,8 @@ export default function FeeTemplateBuilder() {
               className="w-full bg-white border border-slate-200 rounded-xl px-2 py-1.5 text-[11px] font-bold text-slate-600 focus:border-indigo-500 outline-none transition-all"
             >
               <option value="All">All Branches</option>
-              <option value="GN">Gwarinpa Campus (GN)</option>
-              <option value="RS">Road Safety Campus (RS)</option>
+              <option value="GN">Gawun Nama Campus (GN)</option>
+              <option value="RS">Runjin Sambo Campus (RS)</option>
             </select>
           </div>
 
@@ -1184,7 +1184,7 @@ export default function FeeTemplateBuilder() {
                       <div className="space-y-1">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className="text-[9px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-black uppercase tracking-wider">
-                            {temp.branch === 'RS' ? 'Road Safety' : 'Gwarinpa (GN)'}
+                            {temp.branch === 'RS' ? 'Runjin Sambo' : 'Gawun Nama (GN)'}
                           </span>
                           <span className="text-[9px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md font-bold">
                             {sessObj?.name || 'Unknown Session'}
@@ -1547,8 +1547,8 @@ export default function FeeTemplateBuilder() {
                       disabled={!!editingTemplate}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-700 focus:border-indigo-500 focus:bg-white outline-none transition-all disabled:opacity-60"
                     >
-                      <option value="GN">Gwarinpa Campus (GN)</option>
-                      <option value="RS">Road Safety Campus (RS)</option>
+                      <option value="GN">Gawun Nama Campus (GN)</option>
+                      <option value="RS">Runjin Sambo Campus (RS)</option>
                     </select>
                   </div>
 

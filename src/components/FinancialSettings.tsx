@@ -12,29 +12,9 @@ import FinancialTimeline from './FinancialTimeline';
 import ExpenseManagement from './ExpenseManagement';
 import FinancialReports from './FinancialReports';
 import SiblingDiscountManagement from './SiblingDiscountManagement';
+import financeService, { FinancialSetting, FeeHeadCategoryRecord, FeeHeadRecord } from '../services/financeService';
 
-interface FinancialSetting {
-  id: string;
-  financialYear: string;
-  currency: string;
-  currencySymbol: string;
-  receiptPrefix: string;
-  autoReceiptNumber: boolean;
-  defaultDueDays: number;
-  defaultGracePeriod: number;
-  defaultPaymentThreshold: number;
-  defaultReceiptFooter: string;
-  isDefault: boolean;
-  createdAt: string;
-  updatedAt?: string;
-}
-
-interface FeeHeadCategory {
-  id: string;
-  name: string;
-  description: string;
-  createdAt: string;
-}
+type FeeHeadCategory = FeeHeadCategoryRecord;
 
 interface FeeHead {
   id: string;
@@ -153,11 +133,7 @@ export default function FinancialSettings({ currentRole, activeSection: propActi
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch('/api/financial_settings');
-      if (!res.ok) {
-        throw new Error('Failed to load financial settings.');
-      }
-      const data = await res.json();
+      const data = await financeService.getFinancialSettings();
       setSettings(data);
     } catch (err: any) {
       console.error(err);
@@ -172,17 +148,10 @@ export default function FinancialSettings({ currentRole, activeSection: propActi
     try {
       setFeeLoading(true);
       setFeeError(null);
-      const [catsRes, headsRes] = await Promise.all([
-        fetch('/api/fee_head_categories'),
-        fetch('/api/fee_heads')
+      const [catsData, headsData] = await Promise.all([
+        financeService.getFeeCategories(),
+        financeService.getFeeHeads()
       ]);
-
-      if (!catsRes.ok || !headsRes.ok) {
-        throw new Error('Failed to retrieve school fee ledger guidelines.');
-      }
-
-      const catsData = await catsRes.json();
-      const headsData = await headsRes.json();
 
       setFeeCategories(catsData);
       setFeeHeads(headsData);
@@ -208,36 +177,13 @@ export default function FinancialSettings({ currentRole, activeSection: propActi
 
   const fetchSectionsClassesCounts = async () => {
     try {
-      const [secRes, classRes, tempRes, billingRes, familyRes, paymentsRes] = await Promise.all([
-        fetch('/api/sections'),
-        fetch('/api/classes'),
-        fetch('/api/fee_templates'),
-        fetch('/api/student_fee_ledgers'),
-        fetch('/api/family_accounts'),
-        fetch('/api/student_payments')
-      ]);
-      if (secRes.ok && classRes.ok) {
-        const secData = await secRes.json();
-        const classData = await classRes.json();
-        setSectionsCount(secData.length || 0);
-        setClassesCount(classData.length || 0);
-      }
-      if (tempRes && tempRes.ok) {
-        const tempData = await tempRes.json();
-        setFeeTemplatesCount(tempData.length || 0);
-      }
-      if (billingRes && billingRes.ok) {
-        const billingData = await billingRes.json();
-        setBillingCount(billingData.length || 0);
-      }
-      if (familyRes && familyRes.ok) {
-        const familyData = await familyRes.json();
-        setFamilyCount(familyData.length || 0);
-      }
-      if (paymentsRes && paymentsRes.ok) {
-        const paymentsData = await paymentsRes.json();
-        setPaymentsCount(paymentsData.length || 0);
-      }
+      const counts = await financeService.getFinanceSummaryCounts();
+      setSectionsCount(counts.sectionsCount);
+      setClassesCount(counts.classesCount);
+      setFeeTemplatesCount(counts.feeTemplatesCount);
+      setBillingCount(counts.billingCount);
+      setFamilyCount(counts.familyCount);
+      setPaymentsCount(counts.paymentsCount);
     } catch (err) {
       console.error('Error fetching sections/classes/templates/billing/family/payments counts:', err);
     }
@@ -287,20 +233,10 @@ export default function FinancialSettings({ currentRole, activeSection: propActi
 
   const handleSetDefault = async (setting: FinancialSetting) => {
     try {
-      const res = await fetch(`/api/financial_settings/${setting.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...setting,
-          isDefault: true
-        })
+      await financeService.saveFinancialSetting({
+        ...setting,
+        isDefault: true
       });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to update configuration.');
-      }
-
       await fetchSettings();
     } catch (err: any) {
       alert(err.message || 'Could not apply settings.');
@@ -317,14 +253,7 @@ export default function FinancialSettings({ currentRole, activeSection: propActi
     }
 
     try {
-      const res = await fetch(`/api/financial_settings/${setting.id}`, {
-        method: 'DELETE'
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to delete setting.');
-      }
-
+      await financeService.deleteFinancialSetting(setting.id);
       await fetchSettings();
     } catch (err: any) {
       alert(err.message || 'Could not delete configuration.');
@@ -384,34 +313,20 @@ export default function FinancialSettings({ currentRole, activeSection: propActi
 
     try {
       const payload = {
-        financialYear,
-        currency,
-        currencySymbol,
-        receiptPrefix,
-        autoReceiptNumber,
-        defaultDueDays,
-        defaultGracePeriod,
-        defaultPaymentThreshold,
-        defaultReceiptFooter,
-        isDefault
+        ...(editingSetting ? { id: editingSetting.id } : {}),
+        financialYear: financialYear.trim(),
+        currency: currency.trim(),
+        currencySymbol: currencySymbol.trim(),
+        receiptPrefix: receiptPrefix.trim(),
+        autoReceiptNumber: !!autoReceiptNumber,
+        defaultDueDays: Number(defaultDueDays),
+        defaultGracePeriod: Number(defaultGracePeriod),
+        defaultPaymentThreshold: Number(defaultPaymentThreshold),
+        defaultReceiptFooter: defaultReceiptFooter.trim(),
+        isDefault: !!isDefault
       };
 
-      const url = editingSetting 
-        ? `/api/financial_settings/${editingSetting.id}` 
-        : '/api/financial_settings';
-        
-      const method = editingSetting ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Server validation failed.');
-      }
+      await financeService.saveFinancialSetting(payload);
 
       setFormSuccess(editingSetting ? 'Configuration updated successfully.' : 'New configuration registered successfully.');
       await fetchSettings();
@@ -464,26 +379,12 @@ export default function FinancialSettings({ currentRole, activeSection: propActi
 
     try {
       const payload = {
+        ...(editingCategory ? { id: editingCategory.id } : {}),
         name: categoryName.trim(),
         description: categoryDescription.trim()
       };
 
-      const url = editingCategory 
-        ? `/api/fee_head_categories/${editingCategory.id}` 
-        : '/api/fee_head_categories';
-      const method = editingCategory ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Server rejected category update.');
-      }
-
+      await financeService.saveFeeCategory(payload);
       await fetchFeeData();
       setIsCategoryModalOpen(false);
     } catch (err: any) {
@@ -504,15 +405,7 @@ export default function FinancialSettings({ currentRole, activeSection: propActi
     }
 
     try {
-      const res = await fetch(`/api/fee_head_categories/${cat.id}`, {
-        method: 'DELETE'
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Failed to delete category.');
-      }
-
+      await financeService.deleteFeeCategory(cat.id);
       await fetchFeeData();
     } catch (err: any) {
       alert(err.message || 'Error removing category.');
@@ -595,6 +488,7 @@ export default function FinancialSettings({ currentRole, activeSection: propActi
 
     try {
       const payload = {
+        ...(editingFeeHead ? { id: editingFeeHead.id } : {}),
         code: feeHeadCode.trim().toUpperCase(),
         name: feeHeadName.trim(),
         description: feeHeadDescription.trim(),
@@ -606,22 +500,7 @@ export default function FinancialSettings({ currentRole, activeSection: propActi
         displayOrder: Number(feeHeadDisplayOrder)
       };
 
-      const url = editingFeeHead 
-        ? `/api/fee_heads/${editingFeeHead.id}` 
-        : '/api/fee_heads';
-      const method = editingFeeHead ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Server validation failed.');
-      }
-
+      await financeService.saveFeeHead(payload);
       await fetchFeeData();
       setIsFeeHeadModalOpen(false);
     } catch (err: any) {
@@ -635,14 +514,7 @@ export default function FinancialSettings({ currentRole, activeSection: propActi
     }
 
     try {
-      const res = await fetch(`/api/fee_heads/${head.id}`, {
-        method: 'DELETE'
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to delete Fee Head.');
-      }
-
+      await financeService.deleteFeeHead(head.id);
       await fetchFeeData();
       setToast({ message: "Fee head deleted successfully.", type: "info" });
     } catch (err: any) {

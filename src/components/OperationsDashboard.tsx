@@ -2493,7 +2493,7 @@ export default function OperationsDashboard({ activeBranch }: { activeBranch: 'G
                     </div>
                     <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                       <p className="text-[10px] font-bold text-slate-400 uppercase">Academic Session</p>
-                      <p className="font-bold text-slate-800 mt-0.5">2025/2026 Term 3</p>
+                      <p className="font-bold text-slate-800 mt-0.5">2026/2027 Term 1</p>
                     </div>
                   </div>
 

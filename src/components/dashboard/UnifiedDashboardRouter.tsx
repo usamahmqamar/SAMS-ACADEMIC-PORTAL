@@ -76,8 +76,8 @@ export const UnifiedDashboardRouter: React.FC<UnifiedDashboardRouterProps> = ({
     { id: '2', branch_name: 'Runjin Sambo Campus', branch_code: 'RS' }
   ];
   // Date Context States
-  const [currentSessionName, setCurrentSessionName] = useState<string>('2025/2026 Academic Session');
-  const [currentTermName, setCurrentTermName] = useState<string>('Third Term');
+  const [currentSessionName, setCurrentSessionName] = useState<string>('2026/2027 Academic Session');
+  const [currentTermName, setCurrentTermName] = useState<string>('First Term');
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [currentTermId, setCurrentTermId] = useState<string | null>(null);
   const [currentDateStr, setCurrentDateStr] = useState<string>('');

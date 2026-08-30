@@ -42,17 +42,20 @@ function getPgPool(): Pool | null {
   return pgPool;
 }
 
-// Initialize Gemini SDK with User-Agent telemetry headers
+// Initialize Gemini SDK lazily with User-Agent telemetry headers
 let ai: GoogleGenAI | null = null;
-if (process.env.GEMINI_API_KEY) {
-  ai = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
+function getAi(): GoogleGenAI | null {
+  if (!ai && process.env.GEMINI_API_KEY) {
+    ai = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
       },
-    },
-  });
+    });
+  }
+  return ai;
 }
 
 // Durable local state file configuration
@@ -3110,7 +3113,9 @@ app.get('/api/all_academic_data', (req, res) => {
     holidays: dbState.holidays || [],
     eventCategories: dbState.eventCategories || [],
     events: dbState.events || [],
-    feeTemplates: dbState.fee_templates || []
+    feeTemplates: dbState.fee_templates || [],
+    familyAccounts: dbState.family_accounts || [],
+    familyMembers: dbState.family_members || []
   });
 });
 
@@ -3281,6 +3286,144 @@ app.post('/api/students', (req, res) => {
   dbState.students.push(newStudent);
   saveDB(dbState);
   res.status(201).json(newStudent);
+});
+
+// BULK STUDENT IMPORT ENDPOINT (For batch migration & CSV template uploads)
+app.post('/api/students/bulk', (req, res) => {
+  const { students: incomingStudents = [] } = req.body;
+
+  if (!Array.isArray(incomingStudents) || incomingStudents.length === 0) {
+    return res.status(400).json({ error: "An array of student records is required." });
+  }
+
+  const registeredStudents: any[] = [];
+  let currentLastSerial = (dbState.students || []).reduce((max: number, s: any) => Math.max(max, parseInt(s.serialNumber) || 0), 1000);
+
+  incomingStudents.forEach((rawStudent: any, index: number) => {
+    const studentName = (rawStudent.name || `Student ${index + 1}`).trim();
+    const rawLevel = (rawStudent.level || 'primary').toLowerCase();
+    const level = (['nursery', 'primary', 'secondary', 'islamia'].includes(rawLevel) ? rawLevel : 'primary') as any;
+    const grade = rawStudent.grade || (level === 'nursery' ? 'K1 (Ages 3-4)' : level === 'secondary' ? 'Grade 9' : 'Grade 1');
+    const classSection = rawStudent.classSection || 'A';
+    const activeBranch = rawStudent.branch === 'RS' ? 'RS' : 'GN';
+    const finalAdmissionDate = rawStudent.admissionDate || new Date().toISOString().split('T')[0];
+
+    // Determine serial number
+    let finalSerialNumber = parseInt(rawStudent.serialNumber);
+    if (isNaN(finalSerialNumber) || finalSerialNumber <= 0) {
+      currentLastSerial += 1;
+      finalSerialNumber = currentLastSerial;
+    } else {
+      if (finalSerialNumber > currentLastSerial) {
+        currentLastSerial = finalSerialNumber;
+      }
+    }
+
+    // Determine session year
+    let finalSessionYear = rawStudent.sessionYear || "26";
+    if (!rawStudent.sessionYear && finalAdmissionDate) {
+      finalSessionYear = finalAdmissionDate.split("-")[0].slice(2, 4);
+    }
+
+    // Preserve previous portal admission number if provided, otherwise compile standard SAMS admission code
+    const finalEnrollmentNo = rawStudent.enrollmentNo && String(rawStudent.enrollmentNo).trim().length > 0
+      ? String(rawStudent.enrollmentNo).trim()
+      : compileAdmissionNumber(activeBranch, finalSessionYear, grade, finalSerialNumber);
+
+    const initialMilestones = level === 'nursery' ? {
+      "Fine Motor Skills (pencil grip, scissor cuts)": "Introduced",
+      "Social Sharing & Interaction": "Introduced",
+      "Count up to 10 & Pattern Recognition": "Introduced",
+      "Expressive Communication & Vocabulary": "Introduced",
+      "Listening & Task Completion": "Introduced"
+    } : (rawStudent.milestones || {});
+
+    const initialGrades = level !== 'nursery' ? {
+      "Mathematics": 80,
+      "Science": 85,
+      "English Language": 80,
+      "Social Studies": 80,
+      "Creative Arts": 80
+    } : (rawStudent.grades || {});
+
+    const newStudent = {
+      id: rawStudent.id || `std-${Date.now()}-${index}-${Math.floor(Math.random() * 1000)}`,
+      name: studentName,
+      level,
+      grade,
+      classSection,
+      parentName: rawStudent.parentName || `Guardian of ${studentName}`,
+      parentEmail: rawStudent.parentEmail || `parent.${studentName.toLowerCase().replace(/[^a-z0-9]/g, '')}@example.com`,
+      parentPhone: rawStudent.parentPhone || "+234 " + Math.floor(8000000000 + Math.random() * 100000000),
+      attendancePercentage: rawStudent.attendancePercentage || 100,
+      behaviorRating: rawStudent.behaviorRating || 'Good',
+      milestones: initialMilestones,
+      grades: initialGrades,
+      reportComment: rawStudent.reportComment || "",
+      branch: activeBranch,
+      serialNumber: finalSerialNumber,
+      sessionYear: finalSessionYear,
+      enrollmentNo: finalEnrollmentNo,
+      admissionDate: finalAdmissionDate,
+      admissionStatus: "Active",
+      profile: rawStudent.profile || {
+        gender: rawStudent.gender || (index % 2 === 0 ? "Male" : "Female"),
+        dob: rawStudent.dob || "2018-05-15",
+        address: rawStudent.address || (activeBranch === 'GN' ? "Gawun Nama Area, Kano Road, Sokoto" : "opp. Sambo Primary School, Runjin Sambo, Sokoto"),
+        bloodGroup: rawStudent.bloodGroup || "O+"
+      },
+      attendanceLogs: [
+        { date: finalAdmissionDate, status: "Present" as const }
+      ],
+      disciplinaryRecords: [],
+      extracurriculars: rawStudent.extracurriculars || ["Cultural Club"],
+      healthInfo: rawStudent.healthInfo || {
+        allergies: "None",
+        medicalConditions: "None",
+        bloodGroup: rawStudent.bloodGroup || "O+",
+        vaccinations: "Completed"
+      },
+      academicProgression: [],
+      homework: [],
+      notices: [],
+      feeStatements: {
+        invoices: [],
+        outstandingBalance: 0
+      }
+    };
+
+    registeredStudents.push(newStudent);
+  });
+
+  if (!dbState.students) dbState.students = [];
+  dbState.students.push(...registeredStudents);
+  saveDB(dbState);
+
+  res.status(201).json({
+    success: true,
+    count: registeredStudents.length,
+    students: registeredStudents
+  });
+});
+
+// SCHOOL BRANDING & LOGO CONFIGURATION ENDPOINTS
+app.get('/api/school/config', (req, res) => {
+  const config = dbState.school_config || null;
+  res.json({ config });
+});
+
+app.post('/api/school/config', (req, res) => {
+  const config = req.body;
+  if (!config || typeof config !== 'object') {
+    return res.status(400).json({ error: "Invalid school configuration payload" });
+  }
+  dbState.school_config = {
+    ...(dbState.school_config || {}),
+    ...config,
+    updatedAt: new Date().toISOString()
+  };
+  saveDB(dbState);
+  res.json({ success: true, config: dbState.school_config });
 });
 
 app.put('/api/students/:id', (req, res) => {
@@ -3863,8 +4006,103 @@ app.post('/api/admissions/parent-submit', (req, res) => {
   res.json(application);
 });
 
+// Helper to automatically look up and compute the class fee and fee heads based on branch, level, grade, and section
+function determineClassFeeStructure(branch: string, level: string, grade: string, allocatedSection: string) {
+  const activeBranch = branch || "GN";
+  const normLevel = (level || "").toLowerCase();
+  const normGrade = (grade || "").toLowerCase();
+
+  // Determine sectionId
+  let sectionId = "";
+  if (normLevel === 'nursery' || normGrade.includes('k1') || normGrade.includes('k2') || normGrade.includes('nursery') || normGrade.includes('reception') || normGrade.includes('preschool')) {
+    sectionId = activeBranch === 'RS' ? 'sec-nursery-rs' : 'sec-nursery';
+  } else if (normLevel === 'secondary' || normGrade.includes('jss') || normGrade.includes('ss') || normGrade.includes('grade 7') || normGrade.includes('grade 8') || normGrade.includes('grade 9') || normGrade.includes('grade 10') || normGrade.includes('grade 11') || normGrade.includes('grade 12')) {
+    sectionId = activeBranch === 'RS' ? 'sec-junior-secondary-rs' : 'sec-junior-secondary';
+  } else if (normLevel === 'islamia' || normGrade.includes('islamia') || normGrade.includes('tahfeez')) {
+    sectionId = activeBranch === 'RS' ? 'sec-islamia-rs' : 'sec-islamia';
+  } else {
+    sectionId = activeBranch === 'RS' ? 'sec-primary-rs' : 'sec-primary';
+  }
+
+  // Look up matching template
+  const templates = dbState.fee_templates || [];
+  const matchingTemplate = templates.find((t: any) => 
+    t.branch === activeBranch && (t.sectionId === sectionId || t.sectionId === sectionId.replace('-rs', ''))
+  ) || templates.find((t: any) => t.branch === activeBranch) || templates[0];
+
+  const feeHeads = dbState.fee_heads || [];
+  
+  if (matchingTemplate && matchingTemplate.totalFee) {
+    const items = (matchingTemplate.items || []).map((it: any) => {
+      const head = feeHeads.find((h: any) => h.id === it.feeHeadId);
+      return {
+        name: head ? head.name : "Tuition Fee",
+        feeHeadId: it.feeHeadId,
+        amount: it.amount
+      };
+    });
+
+    return {
+      templateId: matchingTemplate.id,
+      sectionId,
+      totalFee: matchingTemplate.totalFee,
+      items: items.length > 0 ? items : [
+        { name: "Tuition", feeHeadId: "fh-1", amount: matchingTemplate.totalFee * 0.75 },
+        { name: "Books", feeHeadId: "fh-2", amount: matchingTemplate.totalFee * 0.15 },
+        { name: "Stationery", feeHeadId: "fh-3", amount: matchingTemplate.totalFee * 0.10 }
+      ]
+    };
+  }
+
+  // Fallback defaults per educational level
+  if (sectionId.includes('nursery')) {
+    return {
+      templateId: `temp-auto-nursery-${activeBranch.toLowerCase()}`,
+      sectionId,
+      totalFee: 150000,
+      items: [
+        { name: "Tuition", feeHeadId: "fh-1", amount: 115000 },
+        { name: "Books", feeHeadId: "fh-2", amount: 25000 },
+        { name: "Stationery", feeHeadId: "fh-3", amount: 10000 }
+      ]
+    };
+  } else if (sectionId.includes('secondary')) {
+    return {
+      templateId: `temp-auto-secondary-${activeBranch.toLowerCase()}`,
+      sectionId,
+      totalFee: 165000,
+      items: [
+        { name: "Tuition", feeHeadId: "fh-1", amount: 130000 },
+        { name: "Books", feeHeadId: "fh-2", amount: 25000 },
+        { name: "Stationery", feeHeadId: "fh-3", amount: 10000 }
+      ]
+    };
+  } else if (sectionId.includes('islamia')) {
+    return {
+      templateId: `temp-auto-islamia-${activeBranch.toLowerCase()}`,
+      sectionId,
+      totalFee: 75000,
+      items: [
+        { name: "Tuition", feeHeadId: "fh-1", amount: 60000 },
+        { name: "Books", feeHeadId: "fh-2", amount: 15000 }
+      ]
+    };
+  } else {
+    return {
+      templateId: `temp-auto-primary-${activeBranch.toLowerCase()}`,
+      sectionId,
+      totalFee: 155000,
+      items: [
+        { name: "Tuition", feeHeadId: "fh-1", amount: 120000 },
+        { name: "Books", feeHeadId: "fh-2", amount: 25000 },
+        { name: "Stationery", feeHeadId: "fh-3", amount: 10000 }
+      ]
+    };
+  }
+}
+
 app.post('/api/admissions/ht-review', (req, res) => {
-  const { id, htNotes, htEvaluation, htReviewedBy, interviewScorecard } = req.body;
+  const { id, htNotes, htEvaluation, htReviewedBy, interviewScorecard, familyAccountId, familyHeadName, isExistingFamily } = req.body;
   if (!id || !htEvaluation) {
     return res.status(400).json({ error: "Missing required Review parameters" });
   }
@@ -3883,13 +4121,22 @@ app.post('/api/admissions/ht-review', (req, res) => {
   if (interviewScorecard) {
     application.interviewScorecard = interviewScorecard;
   }
+  if (familyAccountId) {
+    application.familyAccountId = familyAccountId;
+  }
+  if (familyHeadName) {
+    application.familyHeadName = familyHeadName;
+  }
+  if (isExistingFamily !== undefined) {
+    application.isExistingFamily = isExistingFamily;
+  }
 
   saveDB(dbState);
   res.json(application);
 });
 
 app.post('/api/admissions/chairman-approve', (req, res) => {
-  const { id, chairmanNotes, allocatedSection, feeTemplateId } = req.body;
+  const { id, chairmanNotes, allocatedSection } = req.body;
   if (!id || !allocatedSection) {
     return res.status(400).json({ error: "Application ID and Class Section allocation are required" });
   }
@@ -3904,32 +4151,104 @@ app.post('/api/admissions/chairman-approve', (req, res) => {
   application.allocatedSection = allocatedSection;
   application.chairmanApprovedDate = new Date().toISOString().split('T')[0];
   application.status = "Approved & Allocated";
-  if (feeTemplateId) {
-    application.feeTemplateId = feeTemplateId;
-  }
+
+  // Automatically determine the class fee structure without manual template selection
+  const activeBranch = application.branch || "GN";
+  const feeStructure = determineClassFeeStructure(activeBranch, application.level, application.grade, allocatedSection);
+  application.feeTemplateId = feeStructure.templateId;
+  application.autoClassFee = feeStructure.totalFee;
 
   // Calculate unique serial number
   const lastSerial = dbState.students.reduce((max: number, s: any) => Math.max(max, parseInt(s.serialNumber) || 0), 1000);
   const finalSerialNumber = lastSerial + 1;
-  const activeBranch = application.branch || "GN";
   const finalSessionYear = application.chairmanApprovedDate.split("-")[0].slice(2, 4);
   const finalEnrollmentNo = compileAdmissionNumber(activeBranch, finalSessionYear, application.grade, finalSerialNumber);
 
-  // Look up Selected Fee Template
-  const templates = dbState.fee_templates || [];
-  const template = templates.find((t: any) => t.id === feeTemplateId);
-  const finalFeeAmount = template ? (template.totalFee || 155000) : 1500;
-  const finalFeeDescription = template 
-    ? `Tuition Fee Billing Template (Ref: ${template.id})` 
-    : "Admission Tuition & Uniform Desk Levy";
+  const finalFeeAmount = feeStructure.totalFee;
+  const finalFeeDescription = `Class Fee Schedule: Term 1 (${application.grade} - Section ${allocatedSection})`;
 
-  // Promote to active students
-  const newStudent = {
-    id: `std-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+  const studentId = `std-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+  // Handle Family Portfolio & Sibling Grouping
+  let finalFamilyId = application.familyAccountId;
+  
+  if (finalFamilyId) {
+    const existingFam = (dbState.family_accounts || []).find((f: any) => f.id === finalFamilyId);
+    if (existingFam) {
+      dbState.family_members = dbState.family_members || [];
+      const alreadyMember = dbState.family_members.find((m: any) => m.familyAccountId === finalFamilyId && m.studentId === studentId);
+      if (!alreadyMember) {
+        dbState.family_members.push({
+          id: `fmem-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          familyAccountId: finalFamilyId,
+          studentId: studentId,
+          relationship: 'Child',
+          createdAt: new Date().toISOString()
+        });
+      }
+    } else {
+      finalFamilyId = undefined;
+    }
+  }
+
+  if (!finalFamilyId) {
+    // Check if matching parent exists by email / phone / name
+    const parentEmail = (application.parentEmail || '').trim().toLowerCase();
+    const parentPhone = (application.parentPhone || '').trim();
+    const parentName = (application.parentName || '').trim().toLowerCase();
+
+    const matchedFam = (dbState.family_accounts || []).find((f: any) => {
+      const fe = (f.primaryParentEmail || '').trim().toLowerCase();
+      const fp = (f.primaryParentPhone || '').trim();
+      const fn = (f.primaryParentName || '').trim().toLowerCase();
+      return (parentEmail && fe && fe === parentEmail) ||
+             (parentPhone && fp && fp === parentPhone) ||
+             (parentName && fn && (fn === parentName || fn.includes(parentName) || parentName.includes(fn)));
+    });
+
+    if (matchedFam) {
+      finalFamilyId = matchedFam.id;
+      dbState.family_members = dbState.family_members || [];
+      dbState.family_members.push({
+        id: `fmem-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        familyAccountId: finalFamilyId,
+        studentId: studentId,
+        relationship: 'Child',
+        createdAt: new Date().toISOString()
+      });
+    } else {
+      // Auto-create new family account for the student
+      finalFamilyId = `fam-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      const newFam = {
+        id: finalFamilyId,
+        familyName: `${(application.parentName || 'Parent').split(' ')[0]} Family`,
+        primaryParentName: application.parentName || 'Parent / Guardian',
+        primaryParentEmail: application.parentEmail || '',
+        primaryParentPhone: application.parentPhone || '',
+        createdAt: new Date().toISOString()
+      };
+      dbState.family_accounts = dbState.family_accounts || [];
+      dbState.family_accounts.push(newFam);
+
+      dbState.family_members = dbState.family_members || [];
+      dbState.family_members.push({
+        id: `fmem-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        familyAccountId: finalFamilyId,
+        studentId: studentId,
+        relationship: 'Child',
+        createdAt: new Date().toISOString()
+      });
+    }
+  }
+
+  // Promote to active student record
+  const newStudent: any = {
+    id: studentId,
     name: application.name,
     level: application.level,
     grade: application.grade,
     classSection: allocatedSection,
+    familyId: finalFamilyId,
     parentName: application.parentName,
     parentEmail: application.parentEmail,
     parentPhone: application.parentPhone,
@@ -3947,7 +4266,7 @@ app.post('/api/admissions/chairman-approve', (req, res) => {
       "Science": 85,
       "English Language": 85
     } : {},
-    reportComment: `Officially admitted on ${application.chairmanApprovedDate} by central board command. Allocated to SAMS branch ${application.branch === 'RS' ? 'Runjin Sambo' : 'Gawun Nama'} in Section ${allocatedSection}.`,
+    reportComment: `Officially admitted on ${application.chairmanApprovedDate} by central board command. Allocated to SAMS branch ${application.branch === 'RS' ? 'Runjin Sambo' : 'Gawun Nama'} in Section ${allocatedSection}. Auto-enrolled in class fee schedule.`,
     admissionDate: application.chairmanApprovedDate,
     serialNumber: finalSerialNumber,
     enrollmentNo: finalEnrollmentNo,
@@ -3987,8 +4306,54 @@ app.post('/api/admissions/chairman-approve', (req, res) => {
 
   dbState.students = dbState.students || [];
   dbState.students.push(newStudent);
+
+  // Synchronize with student_fee_ledgers and student_fee_items for institutional ledger integration
+  const matchingClass = (dbState.classes || []).find((c: any) => 
+    c.name.toLowerCase() === (application.grade || '').toLowerCase() || 
+    c.level === application.level
+  );
+  
+  const ledgerId = `sfl-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+  const newLedger = {
+    id: ledgerId,
+    studentId: newStudent.id,
+    studentName: newStudent.name,
+    classId: matchingClass?.id || '',
+    sectionId: feeStructure.sectionId,
+    branch: activeBranch,
+    sessionId: 'ses-2026',
+    termId: 'term-1',
+    status: 'Pending',
+    baseTermFee: finalFeeAmount,
+    optionalChargesFee: 0,
+    discountAmount: 0,
+    scholarshipAmount: 0,
+    carryForward: 0,
+    outstanding: finalFeeAmount,
+    grandTotal: finalFeeAmount,
+    billingDate: application.chairmanApprovedDate,
+    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    createdAt: new Date().toISOString()
+  };
+
+  dbState.student_fee_ledgers = dbState.student_fee_ledgers || [];
+  dbState.student_fee_ledgers.push(newLedger);
+
+  dbState.student_fee_items = dbState.student_fee_items || [];
+  feeStructure.items.forEach((it: any) => {
+    dbState.student_fee_items.push({
+      id: `sfi-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+      ledgerId,
+      type: 'term_fee',
+      referenceId: it.feeHeadId || '',
+      name: it.name,
+      amount: it.amount,
+      createdAt: new Date().toISOString()
+    });
+  });
+
   saveDB(dbState);
-  res.json({ application, student: newStudent });
+  res.json({ application, student: newStudent, familyId: finalFamilyId });
 });
 
 // -------------------------------------------------------------
@@ -3996,77 +4361,167 @@ app.post('/api/admissions/chairman-approve', (req, res) => {
 // -------------------------------------------------------------
 
 // Academic Sessions CRUD
-app.get('/api/academic-sessions', (req, res) => {
-  res.json(dbState.academicSessions || []);
+app.get('/api/academic-sessions', async (req, res) => {
+  try {
+    const pool = getPgPool();
+    if (pool) {
+      const qRes = await pool.query('SELECT * FROM public.academic_sessions ORDER BY created_at DESC');
+      if (qRes.rows && qRes.rows.length > 0) {
+        const mapped = qRes.rows.map((r: any) => ({
+          id: r.id,
+          name: r.session_name,
+          startDate: r.start_date,
+          endDate: r.end_date,
+          status: (r.status || 'planned').toLowerCase(),
+          isCurrent: !!r.is_current,
+          createdAt: r.created_at
+        }));
+        return res.json(mapped);
+      }
+    }
+    return res.json(dbState.academicSessions || []);
+  } catch (err: any) {
+    console.error('Error in GET /api/academic-sessions:', err);
+    return res.json(dbState.academicSessions || []);
+  }
 });
 
-app.post('/api/academic-sessions', (req, res) => {
-  const { name, startDate, endDate, status } = req.body;
-  if (!name || !startDate || !endDate) {
-    return res.status(400).json({ error: "Missing required session fields" });
-  }
-  const newSession = {
-    id: `ses-${Date.now()}`,
-    name,
-    startDate,
-    endDate,
-    status: status || 'planned'
-  };
+app.post('/api/academic-sessions', async (req, res) => {
+  try {
+    const { name, startDate, endDate, status } = req.body;
+    if (!name || !startDate || !endDate) {
+      return res.status(400).json({ error: "Missing required session fields" });
+    }
 
-  dbState.academicSessions = dbState.academicSessions || [];
-  
-  // If status is active, make other sessions planned/archived
-  if (newSession.status === 'active') {
-    dbState.academicSessions.forEach((s: any) => {
-      if (s.status === 'active') s.status = 'archived';
-    });
-  }
+    const pool = getPgPool();
+    let dbId: string | null = null;
+    const isActive = (status || '').toLowerCase() === 'active';
 
-  dbState.academicSessions.push(newSession);
-  saveDB(dbState);
-  res.status(201).json(newSession);
-});
+    if (pool) {
+      if (isActive) {
+        await pool.query('UPDATE public.academic_sessions SET is_current = FALSE').catch(() => {});
+      }
 
-app.put('/api/academic-sessions/:id', (req, res) => {
-  const { id } = req.params;
-  const { name, startDate, endDate, status } = req.body;
-  const sessionIndex = (dbState.academicSessions || []).findIndex((s: any) => s.id === id);
-  if (sessionIndex === -1) {
-    return res.status(404).json({ error: "Academic session not found" });
-  }
+      const qRes = await pool.query(
+        `INSERT INTO public.academic_sessions (session_name, start_date, end_date, status, is_current, updated_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())
+         ON CONFLICT (session_name) DO UPDATE
+         SET start_date = EXCLUDED.start_date, end_date = EXCLUDED.end_date, status = EXCLUDED.status, is_current = EXCLUDED.is_current, updated_at = NOW()
+         RETURNING *`,
+        [name.trim(), startDate, endDate, isActive ? 'Active' : 'Planned', isActive]
+      ).catch((e) => {
+        console.warn('Postgres academic_sessions insert warning:', e.message);
+        return null;
+      });
 
-  const session = dbState.academicSessions[sessionIndex];
-  if (name) session.name = name;
-  if (startDate) session.startDate = startDate;
-  if (endDate) session.endDate = endDate;
-  if (status) {
-    session.status = status;
-    if (status === 'active') {
+      if (qRes && qRes.rows && qRes.rows[0]) {
+        dbId = qRes.rows[0].id;
+      }
+    }
+
+    const newSession = {
+      id: dbId || `ses-${Date.now()}`,
+      name: name.trim(),
+      startDate,
+      endDate,
+      status: status || 'planned'
+    };
+
+    dbState.academicSessions = dbState.academicSessions || [];
+    
+    // If status is active, make other sessions planned/archived
+    if (newSession.status === 'active') {
       dbState.academicSessions.forEach((s: any) => {
-        if (s.id !== id && s.status === 'active') s.status = 'archived';
+        if (s.status === 'active') s.status = 'archived';
       });
     }
-  }
 
-  saveDB(dbState);
-  res.json(session);
+    dbState.academicSessions.push(newSession);
+    saveDB(dbState);
+    return res.status(201).json(newSession);
+  } catch (err: any) {
+    console.error('Error in POST /api/academic-sessions:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error creating academic session.' });
+  }
 });
 
-app.delete('/api/academic-sessions/:id', (req, res) => {
-  const { id } = req.params;
-  const sessionIndex = (dbState.academicSessions || []).findIndex((s: any) => s.id === id);
-  if (sessionIndex === -1) {
-    return res.status(404).json({ error: "Academic session not found" });
+app.put('/api/academic-sessions/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, startDate, endDate, status } = req.body;
+    const sessionIndex = (dbState.academicSessions || []).findIndex((s: any) => s.id === id);
+    
+    const pool = getPgPool();
+    const isActive = (status || '').toLowerCase() === 'active';
+
+    if (pool) {
+      if (isActive) {
+        await pool.query('UPDATE public.academic_sessions SET is_current = FALSE WHERE id != $1', [id]).catch(() => {});
+      }
+
+      await pool.query(
+        `UPDATE public.academic_sessions
+         SET session_name = COALESCE($1, session_name),
+             start_date = COALESCE($2, start_date),
+             end_date = COALESCE($3, end_date),
+             status = COALESCE($4, status),
+             is_current = COALESCE($5, is_current),
+             updated_at = NOW()
+         WHERE id = $6 OR session_name = $1`,
+        [name ? name.trim() : null, startDate || null, endDate || null, status ? (isActive ? 'Active' : status) : null, status ? isActive : null, id]
+      ).catch(() => {});
+    }
+
+    if (sessionIndex === -1 && !pool) {
+      return res.status(404).json({ error: "Academic session not found" });
+    }
+
+    let session = (dbState.academicSessions || [])[sessionIndex] || { id, name, startDate, endDate, status };
+    if (name) session.name = name;
+    if (startDate) session.startDate = startDate;
+    if (endDate) session.endDate = endDate;
+    if (status) {
+      session.status = status;
+      if (status === 'active') {
+        (dbState.academicSessions || []).forEach((s: any) => {
+          if (s.id !== id && s.status === 'active') s.status = 'archived';
+        });
+      }
+    }
+
+    saveDB(dbState);
+    return res.json(session);
+  } catch (err: any) {
+    console.error('Error in PUT /api/academic-sessions/:id:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error updating academic session.' });
   }
+});
 
-  const removed = dbState.academicSessions.splice(sessionIndex, 1);
-  
-  // Cascade delete terms & holidays belonging to this session
-  dbState.terms = (dbState.terms || []).filter((t: any) => t.sessionId !== id);
-  dbState.holidays = (dbState.holidays || []).filter((h: any) => h.sessionId !== id);
+app.delete('/api/academic-sessions/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const pool = getPgPool();
+    if (pool && !id.startsWith('ses-')) {
+      await pool.query('DELETE FROM public.academic_sessions WHERE id = $1', [id]).catch(() => {});
+    }
 
-  saveDB(dbState);
-  res.json({ success: true, removed: removed[0] });
+    const sessionIndex = (dbState.academicSessions || []).findIndex((s: any) => s.id === id);
+    let removedItem = null;
+    if (sessionIndex !== -1) {
+      const removed = dbState.academicSessions.splice(sessionIndex, 1);
+      removedItem = removed[0];
+    }
+    
+    // Cascade delete terms & holidays belonging to this session
+    dbState.terms = (dbState.terms || []).filter((t: any) => t.sessionId !== id);
+    dbState.holidays = (dbState.holidays || []).filter((h: any) => h.sessionId !== id);
+
+    saveDB(dbState);
+    return res.json({ success: true, removed: removedItem || { id } });
+  } catch (err: any) {
+    console.error('Error in DELETE /api/academic-sessions/:id:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error deleting academic session.' });
+  }
 });
 
 // -------------------------------------------------------------
@@ -7210,7 +7665,8 @@ function generateOfflineReportComment(
 app.post('/api/generate-comment', async (req, res) => {
   const { name, level, grade, grades, milestones, behaviorRating, customFocus } = req.body;
 
-  if (!ai) {
+  const gemini = getAi();
+  if (!gemini) {
     const fallbackComment = generateOfflineReportComment(name, level, grade, grades, milestones, behaviorRating, customFocus);
     return res.json({ comment: fallbackComment, mode: "offline" });
   }
@@ -7246,8 +7702,8 @@ Ensure the report card comment satisfies the following:
   - Secondary comments should relate to analytic precision, organization, intellectual commitment, study routines, and overall subject mastery.
 - Output ONLY the comment text itself. Do not write intros or headers like "Here is the comment:".`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+    const response = await gemini.models.generateContent({
+      model: "gemini-3.7-flash",
       contents: userPrompt,
       config: {
         systemInstruction: systemPrompt,
@@ -7366,7 +7822,8 @@ app.post('/api/ai-assistant', async (req, res) => {
     return res.status(400).json({ error: "Missing assistant request prompt." });
   }
 
-  if (!ai) {
+  const gemini = getAi();
+  if (!gemini) {
     const offlineReply = generateOfflineAssistantResponse(prompt);
     return res.json({ text: offlineReply, mode: "offline" });
   }
@@ -7383,8 +7840,8 @@ app.post('/api/ai-assistant', async (req, res) => {
       { role: 'user', parts: [{ text: prompt }] }
     ];
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+    const response = await gemini.models.generateContent({
+      model: "gemini-3.7-flash",
       contents: fullContents,
       config: {
         systemInstruction: `You are the central School ERP AI Consultant. You assist Nursery, Primary, and Secondary school administrators and classroom teachers with advanced tasks, including but not limited to:
@@ -7747,7 +8204,8 @@ app.post('/api/operations/health/brief', async (req, res) => {
   const safeScore = typeof compositeScore === 'number' ? compositeScore : 82;
   const safeBranch = String(branch || 'All');
 
-  if (!ai) {
+  const gemini = getAi();
+  if (!gemini) {
     const offlineBrief = generateOfflineHealthBrief(safeScore, categories, safeBranch);
     return res.json({ brief: offlineBrief, mode: "offline" });
   }
@@ -7777,8 +8235,8 @@ Generate a concise, elite **Executive Institutional Briefing**:
 
 Use clean markdown, bullet lists, elegant typography, and keep it strictly under 200 words. Do not include introductory filler.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+    const response = await gemini.models.generateContent({
+      model: "gemini-3.7-flash",
       contents: userPrompt,
       config: {
         systemInstruction,
@@ -7798,162 +8256,259 @@ Use clean markdown, bullet lists, elegant typography, and keep it strictly under
 // -------------------------------------------------------------
 // FINANCIAL SETTINGS CRUD ENDPOINTS
 // -------------------------------------------------------------
-app.get('/api/financial_settings', (req, res) => {
-  res.json(dbState.financial_settings || []);
-});
+app.get('/api/financial_settings', async (req, res) => {
+  try {
+    const pool = getPgPool();
+    if (pool) {
+      const sessionRes = await pool.query('SELECT * FROM public.academic_sessions ORDER BY created_at DESC');
+      const storeRes = await pool.query('SELECT * FROM public.store_eligibility_settings').catch(() => ({ rows: [] }));
 
-app.post('/api/financial_settings', (req, res) => {
-  const { 
-    financialYear, 
-    currency, 
-    currencySymbol, 
-    receiptPrefix, 
-    autoReceiptNumber, 
-    defaultDueDays, 
-    defaultGracePeriod, 
-    defaultPaymentThreshold, 
-    defaultReceiptFooter,
-    isDefault
-  } = req.body;
+      if (sessionRes.rows && sessionRes.rows.length > 0) {
+        const mappedList = sessionRes.rows.map((s: any) => {
+          const storeSetting = (storeRes.rows || []).find((st: any) => st.session_id === s.id);
+          const cached = (dbState.financial_settings || []).find((c: any) => c.id === s.id || c.financialYear === s.session_name) || {};
+          const yrMatch = (s.session_name || '').match(/\d{2,4}/);
+          const prefixYr = yrMatch ? yrMatch[0].slice(-2) : '26';
 
-  if (!financialYear) {
-    return res.status(400).json({ error: "Financial Year is required." });
-  }
+          return {
+            id: s.id,
+            financialYear: s.session_name,
+            startDate: s.start_date,
+            endDate: s.end_date,
+            currency: cached.currency || "NGN",
+            currencySymbol: cached.currencySymbol || "₦",
+            receiptPrefix: cached.receiptPrefix || `REC-${prefixYr}-`,
+            autoReceiptNumber: cached.autoReceiptNumber !== undefined ? cached.autoReceiptNumber : true,
+            defaultDueDays: cached.defaultDueDays !== undefined ? cached.defaultDueDays : 15,
+            defaultGracePeriod: cached.defaultGracePeriod !== undefined ? cached.defaultGracePeriod : 7,
+            defaultPaymentThreshold: storeSetting ? Number(storeSetting.min_fee_payment_percentage) : (cached.defaultPaymentThreshold !== undefined ? cached.defaultPaymentThreshold : 50),
+            defaultReceiptFooter: cached.defaultReceiptFooter || "Thank you for choosing Najma International Schools.",
+            isDefault: s.is_current !== undefined ? s.is_current : (s.status === 'Active'),
+            status: s.status,
+            createdAt: s.created_at || new Date().toISOString(),
+            updatedAt: s.updated_at
+          };
+        });
 
-  // Prevent duplicate configuration
-  const exists = (dbState.financial_settings || []).some(
-    (item: any) => item.financialYear.trim().toLowerCase() === financialYear.trim().toLowerCase()
-  );
-  if (exists) {
-    return res.status(400).json({ error: `A configuration for financial year "${financialYear}" already exists.` });
-  }
-
-  const newSetting = {
-    id: `fs-${Date.now()}`,
-    financialYear: financialYear.trim(),
-    currency: (currency || "NGN").trim(),
-    currencySymbol: (currencySymbol || "₦").trim(),
-    receiptPrefix: (receiptPrefix || "").trim(),
-    autoReceiptNumber: !!autoReceiptNumber,
-    defaultDueDays: parseInt(defaultDueDays) || 0,
-    defaultGracePeriod: parseInt(defaultGracePeriod) || 0,
-    defaultPaymentThreshold: parseFloat(defaultPaymentThreshold) || 0,
-    defaultReceiptFooter: (defaultReceiptFooter || "").trim(),
-    isDefault: !!isDefault,
-    createdAt: new Date().toISOString()
-  };
-
-  if (newSetting.isDefault) {
-    // Unset others
-    (dbState.financial_settings || []).forEach((item: any) => {
-      item.isDefault = false;
-    });
-  }
-
-  // If this is the only setting, make it default automatically
-  if ((dbState.financial_settings || []).length === 0) {
-    newSetting.isDefault = true;
-  }
-
-  dbState.financial_settings = [...(dbState.financial_settings || []), newSetting];
-  saveDB(dbState);
-
-  res.status(201).json(newSetting);
-});
-
-app.put('/api/financial_settings/:id', (req, res) => {
-  const { id } = req.params;
-  const { 
-    financialYear, 
-    currency, 
-    currencySymbol, 
-    receiptPrefix, 
-    autoReceiptNumber, 
-    defaultDueDays, 
-    defaultGracePeriod, 
-    defaultPaymentThreshold, 
-    defaultReceiptFooter,
-    isDefault
-  } = req.body;
-
-  const list = dbState.financial_settings || [];
-  const idx = list.findIndex((item: any) => item.id === id);
-
-  if (idx === -1) {
-    return res.status(404).json({ error: "Financial setting not found." });
-  }
-
-  if (!financialYear) {
-    return res.status(400).json({ error: "Financial Year is required." });
-  }
-
-  // Prevent duplicate configuration (exclude current record)
-  const exists = list.some(
-    (item: any) => item.id !== id && item.financialYear.trim().toLowerCase() === financialYear.trim().toLowerCase()
-  );
-  if (exists) {
-    return res.status(400).json({ error: `A configuration for financial year "${financialYear}" already exists.` });
-  }
-
-  const updatedSetting = {
-    ...list[idx],
-    financialYear: financialYear.trim(),
-    currency: (currency || "NGN").trim(),
-    currencySymbol: (currencySymbol || "₦").trim(),
-    receiptPrefix: (receiptPrefix || "").trim(),
-    autoReceiptNumber: !!autoReceiptNumber,
-    defaultDueDays: parseInt(defaultDueDays) || 0,
-    defaultGracePeriod: parseInt(defaultGracePeriod) || 0,
-    defaultPaymentThreshold: parseFloat(defaultPaymentThreshold) || 0,
-    defaultReceiptFooter: (defaultReceiptFooter || "").trim(),
-    isDefault: !!isDefault,
-    updatedAt: new Date().toISOString()
-  };
-
-  if (updatedSetting.isDefault) {
-    // Unset others
-    list.forEach((item: any) => {
-      if (item.id !== id) {
-        item.isDefault = false;
+        return res.json(mappedList);
       }
-    });
-  } else {
-    // Check if this was default, and if so, prevent unsetting it if it's the only one, or force another to be default
-    const defaultCount = list.filter((item: any) => item.id !== id && item.isDefault).length;
-    if (defaultCount === 0) {
-      // Force keeping this one as default since there is no other default
-      updatedSetting.isDefault = true;
     }
+
+    return res.json(dbState.financial_settings || []);
+  } catch (err: any) {
+    console.error('Error in GET /api/financial_settings:', err);
+    return res.json(dbState.financial_settings || []);
   }
-
-  list[idx] = updatedSetting;
-  dbState.financial_settings = list;
-  saveDB(dbState);
-
-  res.json(updatedSetting);
 });
 
-app.delete('/api/financial_settings/:id', (req, res) => {
-  const { id } = req.params;
-  const list = dbState.financial_settings || [];
-  const idx = list.findIndex((item: any) => item.id === id);
+app.post('/api/financial_settings', async (req, res) => {
+  try {
+    const { 
+      financialYear, 
+      currency, 
+      currencySymbol, 
+      receiptPrefix, 
+      autoReceiptNumber, 
+      defaultDueDays, 
+      defaultGracePeriod, 
+      defaultPaymentThreshold, 
+      defaultReceiptFooter,
+      isDefault
+    } = req.body;
 
-  if (idx === -1) {
-    return res.status(404).json({ error: "Financial setting not found." });
+    if (!financialYear) {
+      return res.status(400).json({ error: "Financial Year is required." });
+    }
+
+    const yearTrimmed = financialYear.trim();
+    const pool = getPgPool();
+    let dbRecordId: string | null = null;
+
+    if (pool) {
+      const yrNumbers = yearTrimmed.match(/\d{4}/g) || ['2026', '2027'];
+      const startYear = yrNumbers[0] || '2026';
+      const endYear = yrNumbers[1] || (parseInt(startYear) + 1).toString();
+      const startDate = `${startYear}-09-01`;
+      const endDate = `${endYear}-07-31`;
+
+      if (isDefault) {
+        await pool.query('UPDATE public.academic_sessions SET is_current = FALSE').catch(() => {});
+      }
+
+      const insertRes = await pool.query(
+        `INSERT INTO public.academic_sessions (session_name, start_date, end_date, status, is_current, updated_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())
+         ON CONFLICT (session_name) DO UPDATE 
+         SET is_current = EXCLUDED.is_current, status = EXCLUDED.status, updated_at = NOW()
+         RETURNING *`,
+        [yearTrimmed, startDate, endDate, isDefault ? 'Active' : 'Upcoming', !!isDefault]
+      ).catch((err) => {
+        console.warn('Postgres insert academic_sessions warning:', err.message);
+        return null;
+      });
+
+      if (insertRes && insertRes.rows && insertRes.rows[0]) {
+        dbRecordId = insertRes.rows[0].id;
+        
+        // Upsert store_eligibility_settings
+        const thresh = parseFloat(defaultPaymentThreshold) || 50;
+        await pool.query(
+          `INSERT INTO public.store_eligibility_settings (session_id, min_fee_payment_percentage, is_active)
+           VALUES ($1, $2, TRUE)
+           ON CONFLICT (session_id) DO UPDATE 
+           SET min_fee_payment_percentage = EXCLUDED.min_fee_payment_percentage, is_active = TRUE`,
+          [dbRecordId, thresh]
+        ).catch(() => {});
+      }
+    }
+
+    const newSetting = {
+      id: dbRecordId || `fs-${Date.now()}`,
+      financialYear: yearTrimmed,
+      currency: (currency || "NGN").trim(),
+      currencySymbol: (currencySymbol || "₦").trim(),
+      receiptPrefix: (receiptPrefix || "").trim(),
+      autoReceiptNumber: !!autoReceiptNumber,
+      defaultDueDays: parseInt(defaultDueDays) || 15,
+      defaultGracePeriod: parseInt(defaultGracePeriod) || 7,
+      defaultPaymentThreshold: parseFloat(defaultPaymentThreshold) || 50,
+      defaultReceiptFooter: (defaultReceiptFooter || "").trim(),
+      isDefault: !!isDefault,
+      createdAt: new Date().toISOString()
+    };
+
+    if (newSetting.isDefault) {
+      (dbState.financial_settings || []).forEach((item: any) => {
+        item.isDefault = false;
+      });
+    }
+
+    if ((dbState.financial_settings || []).length === 0) {
+      newSetting.isDefault = true;
+    }
+
+    const existingIdx = (dbState.financial_settings || []).findIndex((s: any) => s.financialYear.toLowerCase() === yearTrimmed.toLowerCase());
+    if (existingIdx >= 0) {
+      dbState.financial_settings[existingIdx] = newSetting;
+    } else {
+      dbState.financial_settings = [...(dbState.financial_settings || []), newSetting];
+    }
+    saveDB(dbState);
+
+    return res.status(201).json(newSetting);
+  } catch (err: any) {
+    console.error('Error in POST /api/financial_settings:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error saving financial setting.' });
   }
+});
 
-  const wasDefault = list[idx].isDefault;
-  const filtered = list.filter((item: any) => item.id !== id);
+app.put('/api/financial_settings/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      financialYear, 
+      currency, 
+      currencySymbol, 
+      receiptPrefix, 
+      autoReceiptNumber, 
+      defaultDueDays, 
+      defaultGracePeriod, 
+      defaultPaymentThreshold, 
+      defaultReceiptFooter,
+      isDefault
+    } = req.body;
 
-  if (filtered.length > 0 && wasDefault) {
-    // Set the first one as default
-    filtered[0].isDefault = true;
+    const list = dbState.financial_settings || [];
+    const idx = list.findIndex((item: any) => item.id === id || item.financialYear === financialYear);
+
+    if (!financialYear) {
+      return res.status(400).json({ error: "Financial Year is required." });
+    }
+
+    const yearTrimmed = financialYear.trim();
+    const pool = getPgPool();
+
+    if (pool) {
+      if (isDefault) {
+        await pool.query('UPDATE public.academic_sessions SET is_current = FALSE WHERE id != $1', [id]).catch(() => {});
+      }
+
+      await pool.query(
+        `UPDATE public.academic_sessions 
+         SET session_name = $1, is_current = $2, status = $3, updated_at = NOW()
+         WHERE id = $4 OR session_name = $1`,
+        [yearTrimmed, !!isDefault, isDefault ? 'Active' : 'Upcoming', id]
+      ).catch(() => {});
+
+      if (id && !id.startsWith('fs-')) {
+        const thresh = parseFloat(defaultPaymentThreshold) || 50;
+        await pool.query(
+          `INSERT INTO public.store_eligibility_settings (session_id, min_fee_payment_percentage, is_active)
+           VALUES ($1, $2, TRUE)
+           ON CONFLICT (session_id) DO UPDATE 
+           SET min_fee_payment_percentage = EXCLUDED.min_fee_payment_percentage, is_active = TRUE`,
+          [id, thresh]
+        ).catch(() => {});
+      }
+    }
+
+    const updatedSetting = {
+      ...(idx >= 0 ? list[idx] : {}),
+      id: id,
+      financialYear: yearTrimmed,
+      currency: (currency || "NGN").trim(),
+      currencySymbol: (currencySymbol || "₦").trim(),
+      receiptPrefix: (receiptPrefix || "").trim(),
+      autoReceiptNumber: !!autoReceiptNumber,
+      defaultDueDays: parseInt(defaultDueDays) || 15,
+      defaultGracePeriod: parseInt(defaultGracePeriod) || 7,
+      defaultPaymentThreshold: parseFloat(defaultPaymentThreshold) || 50,
+      defaultReceiptFooter: (defaultReceiptFooter || "").trim(),
+      isDefault: !!isDefault,
+      updatedAt: new Date().toISOString()
+    };
+
+    if (updatedSetting.isDefault) {
+      list.forEach((item: any) => {
+        if (item.id !== id) {
+          item.isDefault = false;
+        }
+      });
+    }
+
+    if (idx >= 0) {
+      list[idx] = updatedSetting;
+    } else {
+      list.push(updatedSetting);
+    }
+    dbState.financial_settings = list;
+    saveDB(dbState);
+
+    return res.json(updatedSetting);
+  } catch (err: any) {
+    console.error('Error in PUT /api/financial_settings/:id:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error updating financial setting.' });
   }
+});
 
-  dbState.financial_settings = filtered;
-  saveDB(dbState);
+app.delete('/api/financial_settings/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const pool = getPgPool();
+    if (pool && id && !id.startsWith('fs-')) {
+      await pool.query('DELETE FROM public.academic_sessions WHERE id = $1', [id]).catch(() => {});
+    }
 
-  res.json({ success: true, id });
+    const list = dbState.financial_settings || [];
+    const filtered = list.filter((item: any) => item.id !== id);
+    dbState.financial_settings = filtered;
+    saveDB(dbState);
+
+    return res.json({ success: true, id });
+  } catch (err: any) {
+    console.error('Error in DELETE /api/financial_settings/:id:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error deleting financial setting.' });
+  }
 });
 
 
@@ -11626,7 +12181,8 @@ To optimize SAMS capital reserves and lower systemic operational risk, we recomm
 app.post('/api/operations/financial_reports/insights', async (req, res) => {
   const reportData = req.body || {};
 
-  if (!ai) {
+  const gemini = getAi();
+  if (!gemini) {
     const offlineInsights = generateOfflineFinancialInsights(reportData);
     return res.json({ brief: offlineInsights, mode: "offline" });
   }
@@ -11659,8 +12215,8 @@ Keep the advice realistic, pragmatic, highly detailed (referencing the actual nu
 Please analyze and return your professional strategic advice.`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+    const response = await gemini.models.generateContent({
+      model: "gemini-3.7-flash",
       contents: userPrompt,
       config: {
         systemInstruction: systemPrompt,
@@ -11680,7 +12236,7 @@ Please analyze and return your professional strategic advice.`;
 
 // Health / State Endpoint
 app.get('/api/status', (req, res) => {
-  res.json({ status: "alive", geminiConfigured: !!ai, userEmail: "usamah.m.qamar@gmail.com" });
+  res.json({ status: "alive", geminiConfigured: !!getAi(), userEmail: "usamah.m.qamar@gmail.com" });
 });
 
 // 404 handler for unmatched /api routes (ensures API always returns JSON, never HTML)
@@ -11734,15 +12290,7 @@ async function startServer() {
 }
 
 // In local dev/production containers, boot server. In Vercel serverless functions, do NOT execute app.listen()
-const shouldStartServer = () => {
-  if (isVercel) return false;
-  if (process.env.NODE_ENV === 'test') return false;
-  if (!process.argv || !process.argv[1]) return false;
-  const script = process.argv[1];
-  return script.endsWith('server.ts') || script.endsWith('server.cjs') || script.endsWith('server.js');
-};
-
-if (shouldStartServer()) {
+if (!isVercel && process.env.NODE_ENV !== 'test') {
   startServer();
 }
 

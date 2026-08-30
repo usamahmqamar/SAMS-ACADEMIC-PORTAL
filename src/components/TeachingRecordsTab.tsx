@@ -124,6 +124,7 @@ export const TeachingRecordsTab: React.FC<TeachingRecordsTabProps> = ({
 
   // Active filters for Records View
   const [statusFilter, setStatusFilter] = useState<'All' | TeachingRecordStatus>('All');
+  const [selectedSessionFilter, setSelectedSessionFilter] = useState<string>('2026/2027');
   const [selectedClassFilter, setSelectedClassFilter] = useState<string>('All');
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState<string>('All');
   const [selectedWeekFilter, setSelectedWeekFilter] = useState<string>('All');
@@ -215,6 +216,13 @@ export const TeachingRecordsTab: React.FC<TeachingRecordsTabProps> = ({
       // Status filter
       if (statusFilter !== 'All' && record.status !== statusFilter) {
         return false;
+      }
+
+      // Session filter (strictly show selected session by default)
+      if (selectedSessionFilter !== 'All') {
+        if (record.academicSession && !record.academicSession.includes(selectedSessionFilter)) {
+          return false;
+        }
       }
 
       // Class filter
@@ -322,7 +330,7 @@ export const TeachingRecordsTab: React.FC<TeachingRecordsTabProps> = ({
     setFormData({
       id: `tr-${Date.now()}`,
       branch: defaultBranch,
-      academicSession: '2025/2026',
+      academicSession: '2026/2027',
       term: 'First Term',
       classId: defaultClass,
       subject: defaultSubject,
@@ -481,7 +489,7 @@ export const TeachingRecordsTab: React.FC<TeachingRecordsTabProps> = ({
     const updatedRecord: TeachingRecord = {
       id: formData.id || `tr-${Date.now()}`,
       branch: formData.branch || selectedBranch || 'GN',
-      academicSession: formData.academicSession || '2025/2026',
+      academicSession: formData.academicSession || '2026/2027',
       term: formData.term || 'First Term',
       classId: formData.classId || branchClasses[0]?.name || 'Primary 5 - Gold',
       subject: formData.subject || subjects[0]?.name || 'Primary Mathematics',
@@ -1217,7 +1225,24 @@ export const TeachingRecordsTab: React.FC<TeachingRecordsTabProps> = ({
 
           {/* Records Search & Filter Bar */}
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              {/* Session Filter */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                  Academic Session
+                </label>
+                <select
+                  value={selectedSessionFilter}
+                  onChange={e => setSelectedSessionFilter(e.target.value)}
+                  className="w-full text-xs font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:bg-white cursor-pointer"
+                >
+                  <option value="2026/2027">2026/2027 (Active)</option>
+                  <option value="2025/2026">2025/2026</option>
+                  <option value="2024/2025">2024/2025</option>
+                  <option value="All">All Sessions</option>
+                </select>
+              </div>
+
               {/* Class Filter */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
@@ -1589,10 +1614,11 @@ export const TeachingRecordsTab: React.FC<TeachingRecordsTabProps> = ({
                   <div>
                     <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Academic Session</label>
                     <select
-                      value={formData.academicSession || '2025/2026'}
+                      value={formData.academicSession || '2026/2027'}
                       onChange={e => setFormData({ ...formData, academicSession: e.target.value })}
                       className="w-full text-xs font-semibold bg-white border border-slate-300 rounded-xl p-2"
                     >
+                      <option value="2026/2027">2026/2027</option>
                       <option value="2025/2026">2025/2026</option>
                       <option value="2024/2025">2024/2025</option>
                     </select>

@@ -33,6 +33,7 @@ interface PayrollRegisterProps {
   teachers: Teacher[];
   onSaveTeacher: (updatedTeacher: Teacher) => Promise<void>;
   currentSimulatedRole: string;
+  defaultViewTab?: 'attendanceMatrix' | 'salaryLedger';
   loans: {
     [teacherId: string]: {
       id: string;
@@ -74,6 +75,7 @@ export default function PayrollRegister({
   teachers, 
   onSaveTeacher, 
   currentSimulatedRole,
+  defaultViewTab = 'salaryLedger',
   loans,
   setLoans,
   advanceSalaries,
@@ -85,7 +87,13 @@ export default function PayrollRegister({
   const [selectedMonth, setSelectedMonth] = useState<string>("June 2026");
   const [selectedRole, setSelectedRole] = useState<'all' | 'teaching' | 'non-teaching' | 'management'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [activeViewTab, setActiveViewTab] = useState<'attendanceMatrix' | 'salaryLedger'>('salaryLedger');
+  const [activeViewTab, setActiveViewTab] = useState<'attendanceMatrix' | 'salaryLedger'>(defaultViewTab);
+  
+  useEffect(() => {
+    if (defaultViewTab) {
+      setActiveViewTab(defaultViewTab);
+    }
+  }, [defaultViewTab]);
   const [activeLoanSetupTeacher, setActiveLoanSetupTeacher] = useState<Teacher | null>(null);
   
   // Custom salary overrides with persistence

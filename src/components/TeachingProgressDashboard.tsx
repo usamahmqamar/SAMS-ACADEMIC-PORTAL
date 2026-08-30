@@ -107,7 +107,7 @@ export const TeachingProgressDashboard: React.FC<TeachingProgressDashboardProps>
   const [filterSubject, setFilterSubject] = useState<string>('All');
   const [filterTeacher, setFilterTeacher] = useState<string>('All');
   const [filterTerm, setFilterTerm] = useState<string>('First Term');
-  const [filterSession, setFilterSession] = useState<string>('2025/2026');
+  const [filterSession, setFilterSession] = useState<string>('2026/2027');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'On Schedule' | 'Needs Attention' | 'Behind Schedule'>('All');
 
@@ -342,7 +342,7 @@ export const TeachingProgressDashboard: React.FC<TeachingProgressDashboardProps>
             teacherId: teacher.id,
             teacherName: teacher.name,
             term: filterTerm === 'All' ? 'First Term' : filterTerm,
-            academicSession: filterSession === 'All' ? '2025/2026' : filterSession,
+            academicSession: filterSession === 'All' ? '2026/2027' : filterSession,
             topicsPlanned: totalPlanned,
             topicsTaught: taughtCount,
             topicsCompleted: completedCount,
@@ -682,8 +682,9 @@ export const TeachingProgressDashboard: React.FC<TeachingProgressDashboardProps>
               onChange={(e) => setFilterSession(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-800 focus:border-indigo-500 focus:bg-white outline-none transition-all cursor-pointer"
             >
+              <option value="2026/2027">2026/2027 (Active)</option>
               <option value="2025/2026">2025/2026</option>
-              <option value="2026/2027">2026/2027</option>
+              <option value="2024/2025">2024/2025</option>
               <option value="All">All Sessions</option>
             </select>
           </div>

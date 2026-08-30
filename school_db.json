@@ -341,7 +341,8 @@
       "startDate": "2026-10-12",
       "endDate": "2026-10-16",
       "weight": 20,
-      "status": "Scheduled"
+      "status": "Scheduled",
+      "branch": "GN"
     },
     {
       "id": "exam-2026-t1-ca2",
@@ -349,7 +350,8 @@
       "startDate": "2026-11-16",
       "endDate": "2026-11-20",
       "weight": 20,
-      "status": "Scheduled"
+      "status": "Scheduled",
+      "branch": "GN"
     },
     {
       "id": "exam-2026-t1-final",
@@ -357,7 +359,8 @@
       "startDate": "2026-12-07",
       "endDate": "2026-12-15",
       "weight": 60,
-      "status": "Scheduled"
+      "status": "Scheduled",
+      "branch": "GN"
     }
   ],
   "gradeScales": [
@@ -536,7 +539,7 @@
       "id": "fs-1",
       "financialYear": "2026/2027",
       "currency": "NGN",
-      "currencySymbol": "\u20a6",
+      "currencySymbol": "₦",
       "receiptPrefix": "REC-26-",
       "autoReceiptNumber": true,
       "defaultDueDays": 15,
@@ -1339,7 +1342,7 @@
       "termName": "First Term",
       "type": "begun",
       "date": "2026-07-04",
-      "details": "Automatically generated 11 fee ledgers, carrying \u20a60 previous outstanding balances forward. Sent notifications to parents. Due dates set to 14 days post term start.",
+      "details": "Automatically generated 11 fee ledgers, carrying ₦0 previous outstanding balances forward. Sent notifications to parents. Due dates set to 14 days post term start.",
       "timestamp": "2026-08-20T09:47:17.693Z"
     },
     {
@@ -1348,7 +1351,7 @@
       "termName": "First Term",
       "type": "ended",
       "date": "2026-07-04",
-      "details": "Term ended. Identified 11 ledgers with unpaid dues. Outstanding balances (Totaling \u20a61,645,000) have been flagged to be carried forward to the next term's ledger.",
+      "details": "Term ended. Identified 11 ledgers with unpaid dues. Outstanding balances (Totaling ₦1,645,000) have been flagged to be carried forward to the next term's ledger.",
       "timestamp": "2026-08-20T09:47:17.697Z"
     },
     {
@@ -1357,7 +1360,7 @@
       "termName": "Second Term",
       "type": "begun",
       "date": "2026-07-04",
-      "details": "Automatically generated 11 fee ledgers, carrying \u20a61,645,000 previous outstanding balances forward. Sent notifications to parents. Due dates set to 14 days post term start.",
+      "details": "Automatically generated 11 fee ledgers, carrying ₦1,645,000 previous outstanding balances forward. Sent notifications to parents. Due dates set to 14 days post term start.",
       "timestamp": "2026-08-20T09:47:17.698Z"
     },
     {
@@ -1366,7 +1369,7 @@
       "termName": "Second Term",
       "type": "ended",
       "date": "2026-07-04",
-      "details": "Term ended. Identified 11 ledgers with unpaid dues. Outstanding balances (Totaling \u20a63,325,000) have been flagged to be carried forward to the next term's ledger.",
+      "details": "Term ended. Identified 11 ledgers with unpaid dues. Outstanding balances (Totaling ₦3,325,000) have been flagged to be carried forward to the next term's ledger.",
       "timestamp": "2026-08-20T09:47:17.699Z"
     },
     {
@@ -1375,7 +1378,7 @@
       "termName": "Third Term",
       "type": "begun",
       "date": "2026-07-04",
-      "details": "Automatically generated 11 fee ledgers, carrying \u20a64,970,000 previous outstanding balances forward. Sent notifications to parents. Due dates set to 14 days post term start.",
+      "details": "Automatically generated 11 fee ledgers, carrying ₦4,970,000 previous outstanding balances forward. Sent notifications to parents. Due dates set to 14 days post term start.",
       "timestamp": "2026-08-20T09:47:17.699Z"
     }
   ],
@@ -1508,7 +1511,7 @@
   "classes": [
     {
       "id": "cls-1",
-      "name": "Preschool (Ages 2-3)",
+      "name": "DAY CARE (1-3)",
       "level": "nursery",
       "branch": "GN",
       "subjects": [
@@ -1519,7 +1522,7 @@
     },
     {
       "id": "cls-2",
-      "name": "K1 (Ages 3-4)",
+      "name": "NURSERY 1 (Ages 3-4)",
       "level": "nursery",
       "branch": "GN",
       "subjects": [
@@ -1531,7 +1534,7 @@
     },
     {
       "id": "cls-3",
-      "name": "K2 (Ages 4-5)",
+      "name": "NURSERY 2 (Ages 4-5)",
       "level": "nursery",
       "branch": "GN",
       "subjects": [
@@ -1657,7 +1660,7 @@
     },
     {
       "id": "cls-rs1",
-      "name": "Preschool (Ages 2-3)",
+      "name": "NURSERY 3 (Ages 5-6)",
       "level": "nursery",
       "branch": "RS",
       "subjects": [
@@ -2019,9 +2022,84 @@
       "category": "Administrative",
       "branch": "All",
       "description": "Release of 1st Term report cards and official closing for Christmas & New Year break."
+    },
+    {
+      "id": "evt-8",
+      "title": "Grand Cultural Heritage Day",
+      "description": "Exhibitions, custom culinary displays, regional attire, and music performance.",
+      "startDate": "2026-06-12",
+      "endDate": "2026-06-13",
+      "categoryId": "cat-act-cul",
+      "branchId": "All",
+      "sessionId": "ses-2026",
+      "termId": "term-3"
     }
   ],
-  "event_tasks": [],
+  "event_tasks": [
+    {
+      "id": "tsk-td-1",
+      "eventId": "evt-1",
+      "title": "Weekly Teaching Record",
+      "description": "Log classroom instruction topics, board work layout, student notebook instructions, and book work coverage counts.",
+      "assignedUser": "All Teachers",
+      "assignedRole": "Teacher",
+      "dueDate": "2026-07-10",
+      "dueTime": "17:00",
+      "status": "In Progress",
+      "taskType": "teaching_record",
+      "week": 1,
+      "reminderNotice": "Due Friday at 5:00 PM. Please attach photos of classroom board and notebook samples.",
+      "submissionStatus": "Pending",
+      "branch": "All"
+    },
+    {
+      "id": "tsk-td-2",
+      "eventId": "evt-1",
+      "title": "Weekly Lesson Plan",
+      "description": "Submit structured weekly lesson plans, behavioral objectives, learning aids, and assessment strategies.",
+      "assignedUser": "All Teachers",
+      "assignedRole": "Teacher",
+      "dueDate": "2026-07-06",
+      "dueTime": "08:00",
+      "status": "Pending",
+      "taskType": "lesson_plan",
+      "week": 2,
+      "reminderNotice": "Due Monday at 8:00 AM before first period assembly.",
+      "submissionStatus": "Pending",
+      "branch": "All"
+    },
+    {
+      "id": "tsk-td-3",
+      "eventId": "evt-1",
+      "title": "Monthly Curriculum Progress",
+      "description": "Audit syllabus milestones coverage vs. scheme of work for the entire month across all assigned grades.",
+      "assignedUser": "All Teachers",
+      "assignedRole": "Teacher",
+      "dueDate": "2026-07-31",
+      "dueTime": "16:00",
+      "status": "Pending",
+      "taskType": "curriculum_progress",
+      "reminderNotice": "Due at the end of the month. Compare planned topics vs taught topics.",
+      "submissionStatus": "Pending",
+      "branch": "All"
+    },
+    {
+      "id": "tsk-td-4",
+      "eventId": "evt-1",
+      "title": "Scheme of Work Review",
+      "description": "Departmental Scheme of Work progress audit, curriculum pace check, and remedial adjustment review.",
+      "assignedUser": "All Teachers",
+      "assignedRole": "Teacher",
+      "dueDate": "2026-07-17",
+      "dueTime": "15:00",
+      "status": "Pending",
+      "taskType": "scheme_review",
+      "week": 4,
+      "reminderNotice": "Due Week 4 Friday. Review milestone pacing and student work coverage.",
+      "submissionStatus": "Pending",
+      "branch": "All"
+    }
+  ],
   "event_assignments": [],
   "fee_campaigns": [],
   "event_budgets": [],
@@ -2174,7 +2252,86 @@
       "lastChecked": "2026-07-04"
     }
   ],
-  "teacher_reviews": [],
+  "teacher_reviews": [
+    {
+      "id": "rev-act-101",
+      "teacherId": "staff-1",
+      "teacherName": "Aisha Garba",
+      "subject": "Primary Mathematics",
+      "classId": "Primary 5 - Gold",
+      "branch": "GN",
+      "term": "First Term",
+      "academicSession": "2025/2026",
+      "reviewerName": "Hajiya Maryam (Academic Vice Principal)",
+      "reviewDate": "2026-06-18",
+      "actionType": "Set Improvement Target",
+      "status": "Pending Follow-Up",
+      "performanceSummary": "Teaching progress is currently 1 week behind schedule on Decimals & Fractions unit.",
+      "comments": "Lesson plan structure is thorough; however, pacing on fractions requires accelerated practice sessions.",
+      "correctionsRequested": "Provide differentiated practice worksheets for bottom 25% pupils on Fractions simplification.",
+      "improvementTarget": "Complete Fractions and Decimals revision by Week 8.",
+      "followUpTaskTitle": "Complete Fractions and Decimals revision by Week 8",
+      "followUpDeadline": "2026-06-28",
+      "followUpStatus": "Pending",
+      "timelineTaskId": "task-followup-101",
+      "auditLogs": [
+        {
+          "id": "log-1",
+          "timestamp": "2026-06-18T10:15:00Z",
+          "action": "Review Created & Target Set",
+          "actor": "Hajiya Maryam (Academic Vice Principal)",
+          "notes": "Identified pacing lag in Primary 5 Math; set target: Complete Fractions and Decimals revision by Week 8."
+        },
+        {
+          "id": "log-2",
+          "timestamp": "2026-06-18T10:16:00Z",
+          "action": "Timeline Task Generated",
+          "actor": "System Automation",
+          "notes": "Created follow-up task on Operations Timeline with due date 2026-06-28."
+        }
+      ]
+    },
+    {
+      "id": "rev-act-102",
+      "teacherId": "staff-4",
+      "teacherName": "Aliyu Usman",
+      "subject": "Basic English & Grammar",
+      "classId": "Primary 4 - Diamond",
+      "branch": "GN",
+      "term": "First Term",
+      "academicSession": "2025/2026",
+      "reviewerName": "Malam Sanusi (Head of Department)",
+      "reviewDate": "2026-06-12",
+      "actionType": "Request Correction",
+      "status": "Follow-Up Completed",
+      "performanceSummary": "Student notebook marking coverage was recorded at 72%, below the 80% institutional benchmark.",
+      "comments": "Grammar lesson delivery is satisfactory, but student essay workbook marking is delayed by 4 days.",
+      "correctionsRequested": "Complete marking and teacher signature remarks for all 28 student essay exercise books.",
+      "improvementTarget": "Achieve 100% student book marking coverage with constructive remarks.",
+      "followUpTaskTitle": "Mark & Sign all Primary 4 English Composition Workbooks",
+      "followUpDeadline": "2026-06-17",
+      "followUpStatus": "Completed",
+      "followUpCompletedDate": "2026-06-16",
+      "followUpCompletedNotes": "Teacher completed marking for all 28 notebooks; sample audited by HOD Sanusi with positive remarks.",
+      "timelineTaskId": "task-followup-102",
+      "auditLogs": [
+        {
+          "id": "log-3",
+          "timestamp": "2026-06-12T14:30:00Z",
+          "action": "Correction Requested",
+          "actor": "Malam Sanusi (Head of Department)",
+          "notes": "Requested complete marking of 28 essay composition workbooks."
+        },
+        {
+          "id": "log-4",
+          "timestamp": "2026-06-16T11:20:00Z",
+          "action": "Follow-Up Marked Completed",
+          "actor": "Malam Sanusi (Head of Department)",
+          "notes": "Verified physical sample of 10 student books. Quality and stamp compliance verified."
+        }
+      ]
+    }
+  ],
   "currentSimulatedDate": "2026-09-01",
   "inventory_store_items": [
     {
@@ -2416,8 +2573,106 @@
       "bin": "Cabinet #B"
     }
   ],
-  "inventory_store_sales": [],
+  "inventory_store_sales": [
+    {
+      "id": "REC-STR-2026-001",
+      "saleDate": "2026-07-20",
+      "time": "10:30 AM",
+      "branch": "Main Campus",
+      "store": "Uniform Depot",
+      "customerType": "Parent",
+      "studentId": "s-101",
+      "studentName": "Zainab Ibrahim",
+      "parentName": "Hajiya Fatima Ibrahim",
+      "parentPhone": "+234 803 456 7890",
+      "grade": "Grade 10-A",
+      "items": [
+        {
+          "itemId": "item-1",
+          "itemCode": "MAT-MET-01",
+          "itemName": "Uniform Material - Navy Blue (Terylene Wool)",
+          "unit": "Meter",
+          "quantity": 2.5,
+          "unitPrice": 2500,
+          "subtotal": 6250
+        },
+        {
+          "itemId": "item-5",
+          "itemCode": "ACC-TIE-01",
+          "itemName": "Official Woven School Crest Tie (Senior)",
+          "unit": "Piece",
+          "quantity": 1,
+          "unitPrice": 1800,
+          "subtotal": 1800
+        }
+      ],
+      "subtotal": 8050,
+      "discountAmount": 0,
+      "totalAmount": 8050,
+      "paymentMethod": "POS Card",
+      "referenceNo": "POS-TXN-88412",
+      "cashierName": "Mal. Abubakar (Store Mgr)",
+      "notes": "2.5 meters fabric measured and cut for senior uniform tailoring",
+      "createdAt": "2026-08-27T16:37:36.026Z"
+    },
+    {
+      "id": "REC-STR-2026-002",
+      "saleDate": "2026-07-21",
+      "time": "02:15 PM",
+      "branch": "Main Campus",
+      "store": "Uniform Depot",
+      "customerType": "Parent",
+      "studentId": "s-102",
+      "studentName": "Emmanuel Okafor",
+      "parentName": "Dr. Chukwudi Okafor",
+      "parentPhone": "+234 802 333 4455",
+      "grade": "Grade 11-B",
+      "items": [
+        {
+          "itemId": "item-7",
+          "itemCode": "UNI-BLZ-01",
+          "itemName": "Secondary School Wool-Blend Blazer (Navy, Medium)",
+          "unit": "Piece",
+          "quantity": 1,
+          "unitPrice": 16500,
+          "subtotal": 16500
+        },
+        {
+          "itemId": "item-3",
+          "itemCode": "UNI-SHT-01",
+          "itemName": "Ready-Made Short Sleeve Oxford Shirt (Size 14-16)",
+          "unit": "Piece",
+          "quantity": 2,
+          "unitPrice": 4500,
+          "subtotal": 9000
+        },
+        {
+          "itemId": "item-6",
+          "itemCode": "ACC-BLT-01",
+          "itemName": "Embossed Leather School Uniform Belt",
+          "unit": "Piece",
+          "quantity": 1,
+          "unitPrice": 2000,
+          "subtotal": 2000
+        }
+      ],
+      "subtotal": 27500,
+      "discountAmount": 0,
+      "totalAmount": 27500,
+      "paymentMethod": "Bank Transfer",
+      "referenceNo": "GTB-TRF-991204",
+      "cashierName": "Mal. Abubakar (Store Mgr)",
+      "notes": "Full senior secondary kit purchased",
+      "createdAt": "2026-08-27T16:37:36.027Z"
+    }
+  ],
   "student_store_history": [],
   "inventory_store_audit_logs": [],
-  "combined_payments": []
+  "combined_payments": [],
+  "combined_payment_audit_logs": [],
+  "expense_heads": [],
+  "expenses": [],
+  "financial_timeline": [],
+  "teacher_evaluation_settings": [],
+  "teacher_management_reviews": []
 }

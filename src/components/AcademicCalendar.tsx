@@ -5173,7 +5173,7 @@ export default function AcademicCalendar({
                   <input
                     type="text"
                     required
-                    placeholder="e.g. 2025/2026 Academic Year"
+                    placeholder="e.g. 2026/2027 Academic Session"
                     value={sessionForm.name}
                     onChange={(e) => setSessionForm(prev => ({ ...prev, name: e.target.value }))}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs focus:border-indigo-500 focus:bg-white outline-none transition-all"

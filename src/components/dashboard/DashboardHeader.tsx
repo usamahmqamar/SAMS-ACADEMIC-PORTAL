@@ -43,6 +43,9 @@ interface DashboardHeaderProps {
   aiConfigured?: boolean;
   onRoleChange?: (role: string) => void;
   onProfileUpdated?: () => void;
+  activeSchoolConfig?: any;
+  schoolLogoUrl?: string;
+  onOpenSchoolSettings?: () => void;
 }
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -62,7 +65,10 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   setTheme,
   aiConfigured = false,
   onRoleChange,
-  onProfileUpdated
+  onProfileUpdated,
+  activeSchoolConfig,
+  schoolLogoUrl,
+  onOpenSchoolSettings
 }) => {
   const activeUser = propActiveUser || propUser;
   const activeRole = propSimRole || propRole || activeUser?.role || 'Super Administrator';
@@ -145,22 +151,34 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         className="bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 sticky top-0 z-40 px-3 md:px-6 py-2.5 flex items-center justify-between shadow-3xs"
       >
         {/* Left Side: Brand Logo & Title */}
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 md:w-9 md:h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-xs shrink-0">
-            <School className="w-4 h-4 md:w-5 md:h-5" />
+        <div 
+          onClick={onOpenSchoolSettings}
+          className={`flex items-center space-x-3 ${onOpenSchoolSettings ? 'cursor-pointer group' : ''}`}
+          title={onOpenSchoolSettings ? "Click to manage School Brand Identity & Logo" : undefined}
+        >
+          <div className="w-8 h-8 md:w-9 md:h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-xs shrink-0 overflow-hidden p-1 border border-indigo-500/30">
+            {schoolLogoUrl || activeSchoolConfig?.customLogoUrl ? (
+              <img
+                src={schoolLogoUrl || activeSchoolConfig.customLogoUrl}
+                alt={activeSchoolConfig?.name || "School Logo"}
+                className="max-h-full max-w-full object-contain rounded-lg"
+              />
+            ) : (
+              <School className="w-4 h-4 md:w-5 md:h-5 text-white" />
+            )}
           </div>
 
           <div className="leading-tight">
             <div className="flex items-center space-x-1.5">
-              <span className="font-extrabold text-sm md:text-base tracking-tight text-slate-950 dark:text-white uppercase font-sans">
-                SAMS ERP
+              <span className="font-extrabold text-sm md:text-base tracking-tight text-slate-950 dark:text-white uppercase font-sans group-hover:text-indigo-600 transition-colors">
+                {activeSchoolConfig?.shortCode ? `${activeSchoolConfig.shortCode} ERP` : 'SAMS ERP'}
               </span>
               <span className="px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-mono text-[9px] font-bold border border-indigo-200/60 dark:border-indigo-800">
                 PROD
               </span>
             </div>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium hidden sm:block">
-              Integrated School Administration
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium hidden sm:block truncate max-w-[200px]">
+              {activeSchoolConfig?.name || 'Integrated School Administration'}
             </p>
           </div>
         </div>

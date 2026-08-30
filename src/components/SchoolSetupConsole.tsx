@@ -2,11 +2,9 @@ import React, { useState, useEffect } from 'react';
 import {
   School,
   Building2,
-  Sliders,
   Users,
   BookOpen,
   Trophy,
-  Award,
   Plus,
   Trash2,
   Edit2,
@@ -24,11 +22,24 @@ import {
   MapPin,
   Flame,
   Star,
-  FileSpreadsheet,
   Globe,
   Phone,
   Mail,
-  UserCheck
+  UserCheck,
+  UploadCloud,
+  Image as ImageIcon,
+  X,
+  Camera,
+  ArrowRight,
+  ArrowLeft,
+  Settings,
+  ChevronRight,
+  Search,
+  Sliders,
+  CheckSquare,
+  Award,
+  Compass,
+  FileCheck
 } from 'lucide-react';
 
 // Interfaces for School setup
@@ -63,7 +74,8 @@ export interface SaasSchoolConfig {
   name: string;
   shortCode: string;
   slogan: string;
-  logoType: 'shield' | 'book' | 'star' | 'cap' | 'globe' | 'lamp' | 'initials';
+  logoType: 'shield' | 'book' | 'star' | 'cap' | 'globe' | 'lamp' | 'initials' | 'custom';
+  customLogoUrl?: string;
   brandColor: 'indigo' | 'teal' | 'emerald' | 'rose' | 'amber' | 'purple' | 'sky';
   address: string;
   phone: string;
@@ -94,13 +106,13 @@ interface SchoolSetupConsoleProps {
   activeSchoolId: string;
 }
 
-// Preset Preset Schools for SaaS Demos
-const PRESET_SCHOOLS: SaasSchoolConfig[] = [
+// Preset Schools Available Out-of-the-box
+export const PRESET_SCHOOLS: SaasSchoolConfig[] = [
   {
-    id: "tenant-sams",
-    name: "Sokoto Academic Management Group",
+    id: "sams-default",
+    name: "Sokoto Academic Model School (SAMS)",
     shortCode: "SAMS",
-    slogan: "Nursery, Primary & Secondary Division Academic Portal",
+    slogan: "Knowledge, Discipline & Spiritual Excellence",
     logoType: "shield",
     brandColor: "indigo",
     address: "12 Gawun Nama Road, Sokoto, Sokoto State, Nigeria",
@@ -223,21 +235,64 @@ export default function SchoolSetupConsole({
   onSeedDemoData,
   activeSchoolId
 }: SchoolSetupConsoleProps) {
-  // SaaS Clients State
+  // Load saved tenants from localStorage or fallback to defaults
   const [schools, setSchools] = useState<SaasSchoolConfig[]>(() => {
-    const saved = localStorage.getItem('sams_saas_schools');
-    return saved ? JSON.parse(saved) : PRESET_SCHOOLS;
+    try {
+      const saved = localStorage.getItem('sams_saas_schools');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return PRESET_SCHOOLS;
   });
 
-  // Active School currently being edited (can be activeSchoolId or a new workspace)
+  // Active School currently being edited
   const [editingSchoolId, setEditingSchoolId] = useState<string>(activeSchoolId || PRESET_SCHOOLS[0].id);
-  const [activeConsoleTab, setActiveConsoleTab] = useState<'clients' | 'details' | 'branches' | 'classes' | 'staff' | 'subjects' | 'grading'>('clients');
+  
+  // Simplified Navigation Tabs: 'wizard' (Step-by-step) | 'profile' | 'branches_classes' | 'staff' | 'academics_grading' | 'tenants'
+  const [activeTab, setActiveTab] = useState<'wizard' | 'profile' | 'branches_classes' | 'staff' | 'academics_grading' | 'tenants'>('profile');
+  
+  // Setup Wizard step: 1 = Identity & Brand, 2 = Campuses & Classes, 3 = Academics & Grading
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
 
-  // Form states for creating a new tenant school
+  // Quick form states for adding items
   const [newSchoolName, setNewSchoolName] = useState('');
   const [newSchoolSlogan, setNewSchoolSlogan] = useState('');
   const [newSchoolShort, setNewSchoolShort] = useState('');
   const [newSchoolColor, setNewSchoolColor] = useState<SaasSchoolConfig['brandColor']>('indigo');
+  const [showAddSchoolModal, setShowAddSchoolModal] = useState(false);
+
+  // Branch inline add
+  const [newBranchName, setNewBranchName] = useState('');
+  const [newBranchCode, setNewBranchCode] = useState('');
+  const [newBranchAddress, setNewBranchAddress] = useState('');
+  const [newBranchManager, setNewBranchManager] = useState('');
+  const [newBranchPhone, setNewBranchPhone] = useState('');
+
+  // Class inline add
+  const [newClassName, setNewClassName] = useState('');
+
+  // Subject inline add
+  const [subName, setSubName] = useState('');
+  const [subLvl, setSubLvl] = useState<'nursery' | 'primary' | 'secondary' | 'islamia'>('primary');
+  const [subComp, setSubComp] = useState(true);
+  const [subjectSearch, setSubjectSearch] = useState('');
+
+  // Staff inline add
+  const [staffName, setStaffName] = useState('');
+  const [staffEmail, setStaffEmail] = useState('');
+  const [staffRole, setStaffRole] = useState<SaaSStaff['role']>('Teacher');
+  const [staffBranch, setStaffBranch] = useState('');
+  const [staffSearch, setStaffSearch] = useState('');
+
+  // Toast / notification feedback
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   // Active editing school object
   const school = schools.find(s => s.id === editingSchoolId) || schools[0];
@@ -251,172 +306,24 @@ export default function SchoolSetupConsole({
   const updateSchoolConfig = (updated: SaasSchoolConfig) => {
     const newSchools = schools.map(s => s.id === updated.id ? updated : s);
     setSchools(newSchools);
-    // If it is the currently activated app-wide school, propagate changes
     if (updated.id === activeSchoolId) {
       onActivateSchool(updated);
     }
   };
 
-  // Create a new empty school profile
-  const handleAddNewSchool = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newSchoolName.trim() || !newSchoolShort.trim()) {
-      alert("Please provide at least a School Name and Short Abbreviation.");
-      return;
-    }
-
-    const newConfig: SaasSchoolConfig = {
-      id: 'tenant-' + Date.now(),
-      name: newSchoolName.trim(),
-      shortCode: newSchoolShort.trim().toUpperCase(),
-      slogan: newSchoolSlogan.trim() || "Empowering the Next Generation",
-      logoType: 'shield',
-      brandColor: newSchoolColor,
-      address: "100 Innovation Way, Sokoto",
-      phone: "+234 800 000 0000",
-      email: `admin@${newSchoolShort.toLowerCase().replace(/\s+/g, '')}.edu.ng`,
-      website: `www.${newSchoolShort.toLowerCase().replace(/\s+/g, '')}.edu.ng`,
-      sectionsEnabled: { nursery: true, primary: true, secondary: true, islamia: true },
-      branches: [
-        { id: 'br-' + Date.now(), name: "Main Campus", code: "MAIN", address: "Campus Headquarters, Sokoto", manager: "Administrator", phone: "+234 800 111 2222" }
-      ],
-      classes: ["Grade 1", "Grade 2", "Grade 3"],
-      staff: [
-        { id: 'st-' + Date.now(), name: "System Administrator", email: `superadmin@${newSchoolShort.toLowerCase()}.edu.ng`, role: "Super Admin", branchId: 'br-' + Date.now(), assignedClasses: [] }
-      ],
-      subjects: [
-        { name: "Mathematics", level: "primary", isCompulsory: true },
-        { name: "English", level: "primary", isCompulsory: true }
-      ],
-      caWeight: 40,
-      examWeight: 60,
-      passingScore: 40,
-      gradeScales: [
-        { grade: "A", minScore: 75, maxScore: 100, gpa: 4.0, remarks: "Excellent" },
-        { grade: "B", minScore: 60, maxScore: 74, gpa: 3.0, remarks: "Good" },
-        { grade: "C", minScore: 50, maxScore: 59, gpa: 2.0, remarks: "Average" },
-        { grade: "F", minScore: 0, maxScore: 49, gpa: 0.0, remarks: "Fail" }
-      ]
-    };
-
-    const updatedSchools = [...schools, newConfig];
-    setSchools(updatedSchools);
-    setEditingSchoolId(newConfig.id);
-    setNewSchoolName('');
-    setNewSchoolSlogan('');
-    setNewSchoolShort('');
-    setActiveConsoleTab('details');
-    alert(`🎉 Successfully created "${newConfig.name}"! Now let's configure its specific settings.`);
+  // Calculate completeness percentage
+  const calculateCompleteness = (s: SaasSchoolConfig) => {
+    let score = 0;
+    if (s.name && s.shortCode) score += 20;
+    if (s.address && s.phone) score += 15;
+    if (s.branches && s.branches.length > 0) score += 20;
+    if (s.classes && s.classes.length > 0) score += 15;
+    if (s.staff && s.staff.length > 0) score += 15;
+    if (s.subjects && s.subjects.length > 0) score += 15;
+    return Math.min(100, score);
   };
 
-  // Branch CRUD State Helpers
-  const [bName, setBName] = useState('');
-  const [bCode, setBCode] = useState('');
-  const [bAddr, setBAddr] = useState('');
-  const [bMgr, setBMgr] = useState('');
-  const [bPhone, setBPhone] = useState('');
-
-  const handleAddBranch = () => {
-    if (!bName || !bCode) {
-      alert("Branch Name and Branch Code are required!");
-      return;
-    }
-    const nb: SaaSBranch = {
-      id: 'br-' + Date.now(),
-      name: bName,
-      code: bCode.toUpperCase(),
-      address: bAddr || "Sokoto, Nigeria",
-      manager: bMgr || "Unassigned",
-      phone: bPhone || ""
-    };
-    updateSchoolConfig({
-      ...school,
-      branches: [...school.branches, nb]
-    });
-    setBName(''); setBCode(''); setBAddr(''); setBMgr(''); setBPhone('');
-  };
-
-  // Staff CRUD State Helpers
-  const [stName, setStName] = useState('');
-  const [stEmail, setStEmail] = useState('');
-  const [stRole, setStRole] = useState<'Super Admin' | 'Branch Admin' | 'Accountant' | 'Teacher' | 'Store Manager'>('Teacher');
-  const [stBranchId, setStBranchId] = useState('');
-
-  const handleAddStaff = () => {
-    if (!stName || !stEmail) {
-      alert("Staff Name and Email are required!");
-      return;
-    }
-    const ns: SaaSStaff = {
-      id: 'st-' + Date.now(),
-      name: stName,
-      email: stEmail,
-      role: stRole,
-      branchId: stBranchId || (school.branches[0]?.id || ''),
-      assignedClasses: []
-    };
-    updateSchoolConfig({
-      ...school,
-      staff: [...school.staff, ns]
-    });
-    setStName(''); setStEmail('');
-  };
-
-  // Class setup helper
-  const [newClassName, setNewClassName] = useState('');
-  const handleAddClass = () => {
-    if (!newClassName.trim()) return;
-    if (school.classes.includes(newClassName.trim())) {
-      alert("This class is already setup!");
-      return;
-    }
-    updateSchoolConfig({
-      ...school,
-      classes: [...school.classes, newClassName.trim()]
-    });
-    setNewClassName('');
-  };
-
-  // Subject helpers
-  const [subName, setSubName] = useState('');
-  const [subLvl, setSubLvl] = useState<'nursery' | 'primary' | 'secondary' | 'islamia'>('primary');
-  const [subComp, setSubComp] = useState(true);
-
-  const handleAddSubject = () => {
-    if (!subName.trim()) return;
-    updateSchoolConfig({
-      ...school,
-      subjects: [...school.subjects, { name: subName.trim(), level: subLvl, isCompulsory: subComp }]
-    });
-    setSubName('');
-  };
-
-  // Grading scale helpers
-  const [grLetter, setGrLetter] = useState('');
-  const [grMin, setGrMin] = useState(50);
-  const [grMax, setGrMax] = useState(100);
-  const [grGpa, setGrGpa] = useState(4.0);
-  const [grRemark, setGrRemark] = useState('');
-
-  const handleAddGradeScale = () => {
-    if (!grLetter) return;
-    const newGs: SaasGradeScale = {
-      grade: grLetter.toUpperCase(),
-      minScore: Number(grMin),
-      maxScore: Number(grMax),
-      gpa: Number(grGpa),
-      remarks: grRemark || "Satisfactory"
-    };
-    // Ensure chronological order
-    const copy = [...school.gradeScales].filter(g => g.grade !== newGs.grade);
-    copy.push(newGs);
-    copy.sort((a, b) => b.minScore - a.minScore);
-    updateSchoolConfig({
-      ...school,
-      gradeScales: copy
-    });
-    setGrLetter(''); setGrRemark('');
-  };
+  const completeness = calculateCompleteness(school);
 
   // Color mappings
   const getColorClasses = (c: SaasSchoolConfig['brandColor']) => {
@@ -433,1411 +340,1585 @@ export default function SchoolSetupConsole({
 
   const currentTheme = getColorClasses(school?.brandColor || 'indigo');
 
+  // Render logo icon preview
+  const renderLogoIcon = (type: SaasSchoolConfig['logoType'], size = "w-6 h-6", customUrl?: string) => {
+    if (type === 'custom' && customUrl) {
+      return <img src={customUrl} alt="Logo" className={`${size} object-contain rounded`} />;
+    }
+    switch (type) {
+      case 'shield': return <ShieldCheck className={size} />;
+      case 'book': return <BookOpen className={size} />;
+      case 'star': return <Star className={size} />;
+      case 'cap': return <Award className={size} />;
+      case 'globe': return <Globe className={size} />;
+      case 'lamp': return <Sparkles className={size} />;
+      default: return <span className="font-black text-xs">{school.shortCode || 'SCH'}</span>;
+    }
+  };
+
+  // Add new branch handler
+  const handleAddBranch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newBranchName.trim() || !newBranchCode.trim()) return;
+    const newBr: SaaSBranch = {
+      id: 'br-' + Date.now(),
+      name: newBranchName.trim(),
+      code: newBranchCode.trim().toUpperCase(),
+      address: newBranchAddress.trim() || school.address,
+      manager: newBranchManager.trim() || 'Branch Administrator',
+      phone: newBranchPhone.trim() || school.phone
+    };
+    updateSchoolConfig({
+      ...school,
+      branches: [...school.branches, newBr]
+    });
+    setNewBranchName('');
+    setNewBranchCode('');
+    setNewBranchAddress('');
+    setNewBranchManager('');
+    setNewBranchPhone('');
+    showToast("Branch campus added successfully!");
+  };
+
+  // Delete branch
+  const handleDeleteBranch = (id: string) => {
+    if (school.branches.length <= 1) {
+      alert("A school must have at least one active campus branch.");
+      return;
+    }
+    updateSchoolConfig({
+      ...school,
+      branches: school.branches.filter(b => b.id !== id)
+    });
+    showToast("Branch removed.");
+  };
+
+  // Add class cohort
+  const handleAddClass = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newClassName.trim()) return;
+    if (school.classes.includes(newClassName.trim())) {
+      alert("This class name already exists.");
+      return;
+    }
+    updateSchoolConfig({
+      ...school,
+      classes: [...school.classes, newClassName.trim()]
+    });
+    setNewClassName('');
+    showToast(`Added class: ${newClassName.trim()}`);
+  };
+
+  // Delete class cohort
+  const handleDeleteClass = (cls: string) => {
+    updateSchoolConfig({
+      ...school,
+      classes: school.classes.filter(c => c !== cls)
+    });
+  };
+
+  // Quick class presets
+  const handleAddClassPreset = (preset: 'nursery' | 'primary' | 'secondary') => {
+    let toAdd: string[] = [];
+    if (preset === 'nursery') toAdd = ['Nursery 1', 'Nursery 2', 'Nursery 3'];
+    if (preset === 'primary') toAdd = ['Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6'];
+    if (preset === 'secondary') toAdd = ['JSS 1', 'JSS 2', 'JSS 3', 'SSS 1', 'SSS 2', 'SSS 3'];
+
+    const combined = Array.from(new Set([...school.classes, ...toAdd]));
+    updateSchoolConfig({
+      ...school,
+      classes: combined
+    });
+    showToast(`Added ${preset} class grade cohort pack.`);
+  };
+
+  // Add Subject
+  const handleAddSubject = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subName.trim()) return;
+    if (school.subjects.some(s => s.name.toLowerCase() === subName.trim().toLowerCase())) {
+      alert("Subject already exists.");
+      return;
+    }
+    updateSchoolConfig({
+      ...school,
+      subjects: [...school.subjects, { name: subName.trim(), level: subLvl, isCompulsory: subComp }]
+    });
+    setSubName('');
+    showToast(`Added subject: ${subName.trim()}`);
+  };
+
+  // Delete Subject
+  const handleDeleteSubject = (name: string) => {
+    updateSchoolConfig({
+      ...school,
+      subjects: school.subjects.filter(s => s.name !== name)
+    });
+  };
+
+  // Add Staff
+  const handleAddStaff = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!staffName.trim() || !staffEmail.trim()) return;
+    const targetBranch = staffBranch || school.branches[0]?.id || '';
+    const newSt: SaaSStaff = {
+      id: 'st-' + Date.now(),
+      name: staffName.trim(),
+      email: staffEmail.trim().toLowerCase(),
+      role: staffRole,
+      branchId: targetBranch,
+      assignedClasses: []
+    };
+    updateSchoolConfig({
+      ...school,
+      staff: [...school.staff, newSt]
+    });
+    setStaffName('');
+    setStaffEmail('');
+    showToast(`Added staff account for ${newSt.name}`);
+  };
+
+  // Delete Staff
+  const handleDeleteStaff = (id: string) => {
+    updateSchoolConfig({
+      ...school,
+      staff: school.staff.filter(s => s.id !== id)
+    });
+  };
+
+  // Apply Grade Scale Preset
+  const handleApplyGradePreset = (type: 'waec' | 'standard' | 'primary') => {
+    let scales: SaasGradeScale[] = [];
+    if (type === 'waec') {
+      scales = [
+        { grade: "A1", minScore: 75, maxScore: 100, gpa: 4.0, remarks: "Excellent" },
+        { grade: "B2", minScore: 70, maxScore: 74, gpa: 3.5, remarks: "Very Good" },
+        { grade: "B3", minScore: 65, maxScore: 69, gpa: 3.0, remarks: "Good" },
+        { grade: "C4", minScore: 60, maxScore: 64, gpa: 2.5, remarks: "Credit" },
+        { grade: "C5", minScore: 55, maxScore: 59, gpa: 2.0, remarks: "Credit" },
+        { grade: "C6", minScore: 50, maxScore: 54, gpa: 1.5, remarks: "Credit Pass" },
+        { grade: "D7", minScore: 45, maxScore: 49, gpa: 1.0, remarks: "Pass" },
+        { grade: "E8", minScore: 40, maxScore: 44, gpa: 0.5, remarks: "Pass" },
+        { grade: "F9", minScore: 0, maxScore: 39, gpa: 0.0, remarks: "Fail" }
+      ];
+    } else if (type === 'primary') {
+      scales = [
+        { grade: "Distinction", minScore: 80, maxScore: 100, gpa: 4.0, remarks: "Outstanding" },
+        { grade: "Merit", minScore: 60, maxScore: 79, gpa: 3.0, remarks: "Very Good" },
+        { grade: "Pass", minScore: 50, maxScore: 59, gpa: 2.0, remarks: "Satisfactory" },
+        { grade: "Fail", minScore: 0, maxScore: 49, gpa: 0.0, remarks: "Needs Attention" }
+      ];
+    } else {
+      scales = [
+        { grade: "A", minScore: 75, maxScore: 100, gpa: 4.0, remarks: "Excellent" },
+        { grade: "B", minScore: 65, maxScore: 74, gpa: 3.0, remarks: "Very Good" },
+        { grade: "C", minScore: 50, maxScore: 64, gpa: 2.0, remarks: "Credit" },
+        { grade: "D", minScore: 45, maxScore: 49, gpa: 1.5, remarks: "Pass" },
+        { grade: "E", minScore: 40, maxScore: 44, gpa: 1.0, remarks: "Weak Pass" },
+        { grade: "F", minScore: 0, maxScore: 39, gpa: 0.0, remarks: "Fail" }
+      ];
+    }
+
+    updateSchoolConfig({
+      ...school,
+      gradeScales: scales
+    });
+    showToast(`Applied ${type.toUpperCase()} grading template.`);
+  };
+
+  // Create new tenant school
+  const handleAddNewSchool = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSchoolName.trim() || !newSchoolShort.trim()) {
+      alert("Please provide at least a School Name and Short Abbreviation.");
+      return;
+    }
+
+    const newConfig: SaasSchoolConfig = {
+      id: 'tenant-' + Date.now(),
+      name: newSchoolName.trim(),
+      shortCode: newSchoolShort.trim().toUpperCase(),
+      slogan: newSchoolSlogan.trim() || "Knowledge, Discipline & Excellence",
+      logoType: 'shield',
+      brandColor: newSchoolColor,
+      address: "Campus Headquarters, Sokoto",
+      phone: "+234 800 000 0000",
+      email: `admin@${newSchoolShort.toLowerCase().replace(/\s+/g, '')}.edu.ng`,
+      website: `www.${newSchoolShort.toLowerCase().replace(/\s+/g, '')}.edu.ng`,
+      sectionsEnabled: { nursery: true, primary: true, secondary: true, islamia: true },
+      branches: [
+        { id: 'br-' + Date.now(), name: "Main Campus", code: "MAIN", address: "Main Campus, Sokoto", manager: "Administrator", phone: "+234 800 111 2222" }
+      ],
+      classes: ["Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6"],
+      staff: [
+        { id: 'st-' + Date.now(), name: "System Administrator", email: `superadmin@${newSchoolShort.toLowerCase()}.edu.ng`, role: "Super Admin", branchId: 'br-' + Date.now(), assignedClasses: [] }
+      ],
+      subjects: [
+        { name: "Mathematics", level: "primary", isCompulsory: true },
+        { name: "English Language", level: "primary", isCompulsory: true },
+        { name: "Basic Science", level: "primary", isCompulsory: true },
+        { name: "Islamic Studies", level: "islamia", isCompulsory: true }
+      ],
+      caWeight: 40,
+      examWeight: 60,
+      passingScore: 40,
+      gradeScales: [
+        { grade: "A", minScore: 75, maxScore: 100, gpa: 4.0, remarks: "Excellent" },
+        { grade: "B", minScore: 65, maxScore: 74, gpa: 3.0, remarks: "Very Good" },
+        { grade: "C", minScore: 50, maxScore: 64, gpa: 2.0, remarks: "Credit" },
+        { grade: "D", minScore: 45, maxScore: 49, gpa: 1.5, remarks: "Pass" },
+        { grade: "F", minScore: 0, maxScore: 44, gpa: 0.0, remarks: "Fail" }
+      ]
+    };
+
+    setSchools([...schools, newConfig]);
+    setEditingSchoolId(newConfig.id);
+    setShowAddSchoolModal(false);
+    setNewSchoolName('');
+    setNewSchoolShort('');
+    setNewSchoolSlogan('');
+    showToast(`New school workspace created: ${newConfig.name}`);
+  };
+
+  // Export JSON configuration
+  const handleExportConfig = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(school, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `${school.shortCode.toLowerCase()}-config.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    showToast("School configuration exported as JSON.");
+  };
+
   return (
-    <div id="saas-setup-workspace" className="space-y-6">
-      {/* SaaS Promotional Hero Block */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 sm:p-8 rounded-3xl border border-slate-800 shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-teal-500/5 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none"></div>
-        
-        <div className="max-w-3xl relative z-10 space-y-4">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-            <Sparkles className="w-3.5 h-3.5" />
-            SAMS ERP SaaS Client Onboarding Console
+    <div id="school-setup-console" className="space-y-6 max-w-7xl mx-auto">
+      {/* Toast notification */}
+      {toastMessage && (
+        <div className="fixed bottom-5 right-5 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 border border-slate-700 text-xs font-semibold animate-fade-in">
+          <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Top Banner & Active School Header */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          
+          {/* Active School Identity */}
+          <div className="flex items-center gap-3.5">
+            <div className={`w-13 h-13 rounded-2xl flex items-center justify-center text-white shadow-sm shrink-0 ${currentTheme.bg}`}>
+              {renderLogoIcon(school.logoType, "w-7 h-7", school.customLogoUrl)}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base sm:text-lg font-black text-slate-900">{school.name}</h1>
+                <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${currentTheme.pill}`}>
+                  {school.shortCode}
+                </span>
+                {school.id === activeSchoolId && (
+                  <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-md text-[10px] font-bold">
+                    Active System
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">{school.slogan}</p>
+            </div>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-            Offer High-Fidelity School ERP to Other Educational Clients
-          </h2>
-          <p className="text-sm text-slate-300 leading-relaxed max-w-2xl">
-            This module provides full multi-tenant configuration. You can register separate school profiles, toggle customized divisions, structure academic subjects, and establish unique grading tiers. **Activate any instance below to live-preview the complete, custom-branded system!**
-          </p>
+
+          {/* Quick Action Buttons */}
+          <div className="flex flex-wrap items-center gap-2 sm:self-end lg:self-center">
+            {/* Quick School Switcher */}
+            <select
+              value={editingSchoolId}
+              onChange={(e) => setEditingSchoolId(e.target.value)}
+              className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            >
+              {schools.map(s => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.shortCode}) {s.id === activeSchoolId ? '★ Active' : ''}
+                </option>
+              ))}
+            </select>
+
+            {school.id !== activeSchoolId && (
+              <button
+                onClick={() => {
+                  onActivateSchool(school);
+                  showToast(`Activated ${school.name} as primary school.`);
+                }}
+                className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Activate School</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => onSeedDemoData(school)}
+              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+              title="Populate test classes, teachers, and subjects into database"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Seed Data</span>
+            </button>
+
+            <button
+              onClick={handleExportConfig}
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+              title="Download School Setup JSON"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export</span>
+            </button>
+
+            <button
+              onClick={() => setShowAddSchoolModal(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>New School</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Completeness Progress Bar */}
+        <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-slate-500 font-medium">Setup Readiness:</span>
+            <span className={`font-bold ${completeness >= 80 ? 'text-emerald-600' : completeness >= 50 ? 'text-amber-600' : 'text-slate-600'}`}>
+              {completeness}% Configured
+            </span>
+          </div>
+          <div className="w-full sm:w-64 bg-slate-100 h-2 rounded-full overflow-hidden">
+            <div 
+              className={`h-full transition-all duration-500 ${completeness >= 80 ? 'bg-emerald-500' : 'bg-indigo-600'}`}
+              style={{ width: `${completeness}%` }}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Main Container Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-        
-        {/* Navigation Sidebar */}
-        <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden p-4 space-y-3.5">
-          <div className="px-2 py-1">
-            <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">Configure Sections</h3>
-            <p className="text-xs font-bold text-slate-700 mt-1 truncate">{school?.name}</p>
+      {/* Main Navigation Tabs */}
+      <div className="bg-slate-100 p-1.5 rounded-2xl flex flex-wrap gap-1 border border-slate-200/80">
+        <button
+          onClick={() => setActiveTab('wizard')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'wizard' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+          }`}
+        >
+          <Compass className="w-4 h-4" />
+          <span>3-Step Quick Setup Wizard</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('profile')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'profile' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+          }`}
+        >
+          <School className="w-4 h-4" />
+          <span>School Profile &amp; Brand</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('branches_classes')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'branches_classes' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+          }`}
+        >
+          <Building2 className="w-4 h-4" />
+          <span>Campuses &amp; Classes ({school.branches.length}/{school.classes.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('staff')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'staff' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>Staff Accounts ({school.staff.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('academics_grading')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'academics_grading' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          <span>Subjects &amp; Grading</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('tenants')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ml-auto ${
+            activeTab === 'tenants' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+          }`}
+        >
+          <Globe className="w-4 h-4" />
+          <span>All School Profiles ({schools.length})</span>
+        </button>
+      </div>
+
+      {/* =========================================================================
+          TAB 1: 3-STEP QUICK SETUP WIZARD
+          ========================================================================= */}
+      {activeTab === 'wizard' && (
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-6">
+          {/* Step Indicator Header */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 border-b border-slate-100 pb-5">
+            <button
+              onClick={() => setWizardStep(1)}
+              className={`flex items-center gap-3 p-3 rounded-xl text-left transition-all ${
+                wizardStep === 1 ? 'bg-indigo-50 border border-indigo-200 text-indigo-900' : 'bg-slate-50 text-slate-600'
+              }`}
+            >
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${wizardStep === 1 ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                1
+              </div>
+              <div>
+                <p className="text-xs font-bold">Step 1: Identity</p>
+                <p className="text-[11px] text-slate-500">Name, Logo &amp; Theme</p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setWizardStep(2)}
+              className={`flex items-center gap-3 p-3 rounded-xl text-left transition-all ${
+                wizardStep === 2 ? 'bg-indigo-50 border border-indigo-200 text-indigo-900' : 'bg-slate-50 text-slate-600'
+              }`}
+            >
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${wizardStep === 2 ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                2
+              </div>
+              <div>
+                <p className="text-xs font-bold">Step 2: Campuses</p>
+                <p className="text-[11px] text-slate-500">Branches &amp; Grade Cohorts</p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setWizardStep(3)}
+              className={`flex items-center gap-3 p-3 rounded-xl text-left transition-all ${
+                wizardStep === 3 ? 'bg-indigo-50 border border-indigo-200 text-indigo-900' : 'bg-slate-50 text-slate-600'
+              }`}
+            >
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${wizardStep === 3 ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                3
+              </div>
+              <div>
+                <p className="text-xs font-bold">Step 3: Academics</p>
+                <p className="text-[11px] text-slate-500">Subjects &amp; Grade Scales</p>
+              </div>
+            </button>
           </div>
 
-          <nav className="space-y-1">
-            <button
-              onClick={() => setActiveConsoleTab('clients')}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeConsoleTab === 'clients' ? 'bg-slate-900 text-white font-extrabold' : 'hover:bg-slate-50 text-slate-600'
-              }`}
-            >
-              <Globe className="w-4 h-4 shrink-0" />
-              <span>SaaS Clients Directory</span>
-              <span className="ml-auto bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-[9px] font-mono">{schools.length}</span>
-            </button>
-
-            <button
-              onClick={() => setActiveConsoleTab('details')}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeConsoleTab === 'details' ? 'bg-slate-900 text-white font-extrabold' : 'hover:bg-slate-50 text-slate-600'
-              }`}
-            >
-              <School className="w-4 h-4 shrink-0" />
-              <span>School Identity &amp; Logo</span>
-            </button>
-
-            <button
-              onClick={() => setActiveConsoleTab('branches')}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeConsoleTab === 'branches' ? 'bg-slate-900 text-white font-extrabold' : 'hover:bg-slate-50 text-slate-600'
-              }`}
-            >
-              <Building2 className="w-4 h-4 shrink-0" />
-              <span>Branches &amp; Divisions</span>
-            </button>
-
-            <button
-              onClick={() => setActiveConsoleTab('classes')}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeConsoleTab === 'classes' ? 'bg-slate-900 text-white font-extrabold' : 'hover:bg-slate-50 text-slate-600'
-              }`}
-            >
-              <Layers className="w-4 h-4 shrink-0" />
-              <span>Class Setup</span>
-            </button>
-
-            <button
-              onClick={() => setActiveConsoleTab('staff')}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeConsoleTab === 'staff' ? 'bg-slate-900 text-white font-extrabold' : 'hover:bg-slate-50 text-slate-600'
-              }`}
-            >
-              <Users className="w-4 h-4 shrink-0" />
-              <span>Staff &amp; Credentials</span>
-            </button>
-
-            <button
-              onClick={() => setActiveConsoleTab('subjects')}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeConsoleTab === 'subjects' ? 'bg-slate-900 text-white font-extrabold' : 'hover:bg-slate-50 text-slate-600'
-              }`}
-            >
-              <BookOpen className="w-4 h-4 shrink-0" />
-              <span>Curriculum Subjects</span>
-            </button>
-
-            <button
-              onClick={() => setActiveConsoleTab('grading')}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeConsoleTab === 'grading' ? 'bg-slate-900 text-white font-extrabold' : 'hover:bg-slate-50 text-slate-600'
-              }`}
-            >
-              <Trophy className="w-4 h-4 shrink-0" />
-              <span>Exam Weights &amp; Grading</span>
-            </button>
-          </nav>
-
-          <hr className="border-slate-100" />
-
-          {/* Setup checklist / progress */}
-          <div className="p-3 bg-slate-50 rounded-xl space-y-2.5">
-            <h4 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Onboarding Audit Checklist</h4>
-            <div className="space-y-1.5 text-[10px] font-semibold text-slate-600">
-              <div className="flex items-center gap-1.5">
-                <Check className={`w-3.5 h-3.5 ${school.name ? 'text-emerald-500' : 'text-slate-300'}`} />
-                <span>School Brand identity</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Check className={`w-3.5 h-3.5 ${school.branches.length > 0 ? 'text-emerald-500' : 'text-slate-300'}`} />
-                <span>Campus Branches ({school.branches.length})</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Check className={`w-3.5 h-3.5 ${school.classes.length > 0 ? 'text-emerald-500' : 'text-slate-300'}`} />
-                <span>Class configuration ({school.classes.length})</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Check className={`w-3.5 h-3.5 ${school.staff.length > 0 ? 'text-emerald-500' : 'text-slate-300'}`} />
-                <span>Staff &amp; Teachers ({school.staff.length})</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Check className={`w-3.5 h-3.5 ${school.subjects.length > 0 ? 'text-emerald-500' : 'text-slate-300'}`} />
-                <span>Subjects mapped ({school.subjects.length})</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Check className={`w-3.5 h-3.5 ${school.gradeScales.length > 0 ? 'text-emerald-500' : 'text-slate-300'}`} />
-                <span>Grading scale defined</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Console Workspace Workspace Panel */}
-        <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-200/60 shadow-sm p-6 min-h-[500px]">
-          
-          {/* TAB 1: SAAS CLIENTS DIRECTORY */}
-          {activeConsoleTab === 'clients' && (
+          {/* Wizard Step 1: Identity & Brand */}
+          {wizardStep === 1 && (
             <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Registered SaaS School Clients</h3>
-                  <p className="text-xs text-slate-500 mt-1">Manage active tenants and click Activate to simulate branding and data mappings.</p>
-                </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Step 1: School Identity &amp; Branding</h3>
+                <p className="text-xs text-slate-500">Define the official institution name, motto, theme colors, and active educational levels.</p>
               </div>
 
-              {/* Grid of registered clients */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {schools.map(sch => {
-                  const isActive = sch.id === activeSchoolId;
-                  const theme = getColorClasses(sch.brandColor);
-                  return (
-                    <div 
-                      key={sch.id} 
-                      className={`p-5 rounded-2xl border transition-all flex flex-col justify-between ${
-                        isActive ? 'border-slate-900 bg-slate-50/50 shadow-md ring-2 ring-slate-900/5' : 'border-slate-200/70 hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-2.5">
-                            <div className={`p-2.5 rounded-xl text-white ${theme.bg}`}>
-                              {sch.logoType === 'shield' && <ShieldCheck className="w-5 h-5" />}
-                              {sch.logoType === 'star' && <Star className="w-5 h-5" />}
-                              {sch.logoType === 'book' && <BookOpen className="w-5 h-5" />}
-                              {sch.logoType === 'globe' && <Globe className="w-5 h-5" />}
-                              {sch.logoType === 'cap' && <Award className="w-5 h-5" />}
-                              {sch.logoType === 'lamp' && <Flame className="w-5 h-5" />}
-                              {sch.logoType === 'initials' && <span className="font-mono text-sm font-extrabold uppercase">{sch.shortCode}</span>}
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-1.5">
-                                <h4 className="font-bold text-slate-800 text-sm">{sch.name}</h4>
-                                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-slate-100 text-slate-500 font-bold">{sch.shortCode}</span>
-                              </div>
-                              <p className="text-[10px] text-slate-400 font-medium italic">{sch.slogan}</p>
-                            </div>
-                          </div>
-                          
-                          {isActive && (
-                            <span className="bg-slate-900 text-white px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider">
-                              ACTIVE APP DEMO
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Stats mini grid */}
-                        <div className="grid grid-cols-3 gap-2 py-2 border-y border-slate-100 text-center">
-                          <div>
-                            <span className="text-[9px] text-slate-400 block font-bold uppercase tracking-wide">Branches</span>
-                            <span className="text-xs font-extrabold text-slate-700">{sch.branches.length}</span>
-                          </div>
-                          <div>
-                            <span className="text-[9px] text-slate-400 block font-bold uppercase tracking-wide">Staff</span>
-                            <span className="text-xs font-extrabold text-slate-700">{sch.staff.length}</span>
-                          </div>
-                          <div>
-                            <span className="text-[9px] text-slate-400 block font-bold uppercase tracking-wide">Classes</span>
-                            <span className="text-xs font-extrabold text-slate-700">{sch.classes.length}</span>
-                          </div>
-                        </div>
-
-                        {/* Location Details */}
-                        <div className="space-y-1 text-[11px] text-slate-500 font-medium">
-                          <div className="flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            <span className="truncate">{sch.address}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            <span>{sch.phone}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 pt-3 border-t border-slate-50 flex items-center justify-between gap-2.5">
-                        <button
-                          onClick={() => {
-                            setEditingSchoolId(sch.id);
-                            setActiveConsoleTab('details');
-                          }}
-                          className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold py-1.5 px-3 rounded-lg text-[10px] transition-all cursor-pointer"
-                        >
-                          ⚙️ Configure Details
-                        </button>
-
-                        <div className="flex items-center gap-1.5">
-                          {isActive ? (
-                            <button
-                              onClick={() => {
-                                if(confirm(`Would you like to seed mock demo students, attendances, classes, and marks for ${sch.name}?`)) {
-                                  onSeedDemoData(sch);
-                                }
-                              }}
-                              className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold py-1.5 px-3 rounded-lg text-[10px] transition-all cursor-pointer flex items-center gap-1 uppercase tracking-wider"
-                            >
-                              <Sparkles className="w-3 h-3" />
-                              <span>Seed Demo Data</span>
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => onActivateSchool(sch)}
-                              className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-1.5 px-3.5 rounded-lg text-[10px] transition-all cursor-pointer uppercase tracking-wider shadow-sm flex items-center gap-1"
-                            >
-                              <CheckCircle className="w-3.5 h-3.5" />
-                              <span>Activate Demo</span>
-                            </button>
-                          )}
-
-                          {schools.length > 1 && !isActive && (
-                            <button
-                              onClick={() => {
-                                if (confirm(`Are you sure you want to delete client school "${sch.name}"?`)) {
-                                  const filtered = schools.filter(s => s.id !== sch.id);
-                                  setSchools(filtered);
-                                  if (editingSchoolId === sch.id) setEditingSchoolId(schools[0].id);
-                                }
-                              }}
-                              className="text-slate-400 hover:text-rose-600 p-1.5 rounded transition-all cursor-pointer"
-                              title="Delete School Client"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Onboard New School Client Form */}
-              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/60 space-y-4">
-                <div className="flex items-center gap-2">
-                  <div className="bg-slate-900 text-white p-2 rounded-xl">
-                    <Plus className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Onboard New Tenant Client School</h4>
-                    <p className="text-[11px] text-slate-400">Launch a brand new client instance configuration with customized branding.</p>
-                  </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Official School Name *</label>
+                  <input
+                    type="text"
+                    value={school.name}
+                    onChange={(e) => updateSchoolConfig({ ...school, name: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-900 focus:bg-white focus:border-indigo-500 outline-none"
+                    placeholder="e.g. SOKOTO ACADEMIC MODEL SCHOOL"
+                  />
                 </div>
 
-                <form onSubmit={handleAddNewSchool} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                  <div className="md:col-span-2">
-                    <label className="text-[9px] text-slate-400 uppercase tracking-wider font-extrabold block mb-1">School Name</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Sokoto Academic Boarding College"
-                      value={newSchoolName}
-                      onChange={(e) => setNewSchoolName(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
-                    />
-                  </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Short Code / Abbreviation *</label>
+                  <input
+                    type="text"
+                    value={school.shortCode}
+                    onChange={(e) => updateSchoolConfig({ ...school, shortCode: e.target.value.toUpperCase() })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-900 focus:bg-white focus:border-indigo-500 outline-none"
+                    placeholder="e.g. SAMS"
+                  />
+                </div>
 
-                  <div>
-                    <label className="text-[9px] text-slate-400 uppercase tracking-wider font-extrabold block mb-1">Short Abbr (Prefix)</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. SABC"
-                      value={newSchoolShort}
-                      onChange={(e) => setNewSchoolShort(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 uppercase outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
-                    />
-                  </div>
+                <div className="md:col-span-2">
+                  <label className="text-xs font-bold text-slate-700 block mb-1">School Motto / Slogan</label>
+                  <input
+                    type="text"
+                    value={school.slogan}
+                    onChange={(e) => updateSchoolConfig({ ...school, slogan: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-900 focus:bg-white focus:border-indigo-500 outline-none"
+                    placeholder="e.g. Knowledge, Discipline & Excellence"
+                  />
+                </div>
 
-                  <div>
-                    <label className="text-[9px] text-slate-400 uppercase tracking-wider font-extrabold block mb-1">Brand Palette Theme</label>
-                    <select
-                      value={newSchoolColor}
-                      onChange={(e) => setNewSchoolColor(e.target.value as any)}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 cursor-pointer outline-none focus:border-slate-900"
-                    >
-                      <option value="indigo">Royal Indigo</option>
-                      <option value="teal">Teal Trust</option>
-                      <option value="emerald">Emerald Ivy</option>
-                      <option value="rose">Crimson Academy</option>
-                      <option value="amber">Sienna College</option>
-                      <option value="purple">Amethyst Prep</option>
-                      <option value="sky">Cosmic Sky</option>
-                    </select>
-                  </div>
-
-                  <div className="md:col-span-3">
-                    <label className="text-[9px] text-slate-400 uppercase tracking-wider font-extrabold block mb-1">Slogan or Mission Moto</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Excellence in Character and Scientific Learning"
-                      value={newSchoolSlogan}
-                      onChange={(e) => setNewSchoolSlogan(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-slate-900"
-                    />
-                  </div>
-
-                  <div>
-                    <button
-                      type="submit"
-                      className="w-full bg-slate-900 hover:bg-slate-950 text-white font-extrabold py-2 px-4 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer h-[34px] flex items-center justify-center gap-1 shadow-sm"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Onboard School</span>
-                    </button>
-                  </div>
-                </form>
-              </div>
-
-              {/* Point 4: Onboarding Blueprint Backup & Migration Desk */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-6 border-t border-slate-200">
-                <div className="bg-slate-50 border border-slate-200/60 p-5 rounded-2xl space-y-4">
+                {/* Brand Color Picker */}
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-2">Primary Brand Theme</label>
                   <div className="flex items-center gap-2">
-                    <div className="bg-indigo-50 text-indigo-700 p-2 rounded-xl">
-                      <Download className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider font-sans">Tenant Blueprint Backup Desk</h4>
-                      <p className="text-[11px] text-slate-400 font-sans">Download complete SaaS setup database configurations for safe offline backup.</p>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <p className="text-[11px] text-slate-500 leading-relaxed font-sans">
-                      Saves your multi-tenant school portfolio, configured class structures, branches, assigned subjects, and active staff rosters into a single standard portable JSON file.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(schools, null, 2));
-                        const downloadAnchor = document.createElement('a');
-                        downloadAnchor.setAttribute("href", dataStr);
-                        downloadAnchor.setAttribute("download", `sams-saas-blueprint-${Date.now()}.json`);
-                        document.body.appendChild(downloadAnchor);
-                        downloadAnchor.click();
-                        downloadAnchor.remove();
-                      }}
-                      className="w-full bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-extrabold py-2 px-4 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs"
-                    >
-                      <Download className="w-4 h-4 text-slate-500" />
-                      <span>Export Tenant Blueprint JSON</span>
-                    </button>
+                    {(['indigo', 'teal', 'emerald', 'rose', 'amber', 'purple', 'sky'] as const).map(color => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => updateSchoolConfig({ ...school, brandColor: color })}
+                        className={`w-7 h-7 rounded-full border-2 transition-all cursor-pointer ${
+                          color === 'indigo' ? 'bg-indigo-600' :
+                          color === 'teal' ? 'bg-teal-600' :
+                          color === 'emerald' ? 'bg-emerald-600' :
+                          color === 'rose' ? 'bg-rose-600' :
+                          color === 'amber' ? 'bg-amber-600' :
+                          color === 'purple' ? 'bg-purple-600' : 'bg-sky-600'
+                        } ${school.brandColor === color ? 'ring-2 ring-offset-2 ring-slate-900 border-white' : 'border-transparent opacity-80 hover:opacity-100'}`}
+                      />
+                    ))}
                   </div>
                 </div>
 
-                <div className="bg-slate-50 border border-slate-200/60 p-5 rounded-2xl space-y-4">
+                {/* Logo Type Selector */}
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-2">School Badge Icon</label>
                   <div className="flex items-center gap-2">
-                    <div className="bg-indigo-50 text-indigo-700 p-2 rounded-xl">
-                      <Upload className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider font-sans">Restore or Import Tenant Blueprint</h4>
-                      <p className="text-[11px] text-slate-400 font-sans">Select an existing JSON configuration file to restore backup state.</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <input
-                      type="file"
-                      id="saas-blueprint-upload-input"
-                      accept=".json"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
-                          try {
-                            const parsed = JSON.parse(event.target?.result as string);
-                            if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id && parsed[0].name) {
-                              setSchools(parsed);
-                              // Auto activate the first school
-                              onActivateSchool(parsed[0]);
-                              alert("✨ SUCCESS: Multi-Tenant portfolio backup has been loaded and initialized successfully!");
-                            } else {
-                              alert("❌ VALIDATION ERROR: The selected file does not represent a valid SAMS SaaS client blueprint array.");
-                            }
-                          } catch (err) {
-                            alert("❌ PARSING ERROR: Unable to parse the uploaded file. Verify it is a clean formatted JSON blueprint.");
-                          }
-                        };
-                        reader.readAsText(file);
-                      }}
-                      className="hidden"
-                    />
-                    
-                    <p className="text-[11px] text-slate-500 leading-relaxed font-sans">
-                      Upload an official `.json` backup. This overrides the current local tenant database configuration.
-                    </p>
-                    
-                    <button
-                      type="button"
-                      onClick={() => {
-                        document.getElementById('saas-blueprint-upload-input')?.click();
-                      }}
-                      className="w-full bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-extrabold py-2 px-4 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs"
-                    >
-                      <Upload className="w-4 h-4 text-indigo-600" />
-                      <span>Upload Blueprint Backup</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Point 5: Dynamic Custom Branding Live Preview Desk */}
-              <div className="bg-slate-50 border border-slate-200/60 p-5 rounded-2xl space-y-4 mt-6">
-                <div className="flex items-center gap-2">
-                  <div className="bg-emerald-50 text-emerald-700 p-2 rounded-xl">
-                    <Award className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider font-sans">Client Brand Persona Live Preview Desk</h4>
-                    <p className="text-[11px] text-slate-400 font-sans">See in real-time how the school custom branding overrides layout parameters and elements.</p>
-                  </div>
-                </div>
-
-                {school && (
-                  <div className="border border-slate-200 rounded-xl bg-white p-4 space-y-4 shadow-xs">
-                    <div className="flex justify-between items-center pb-2 border-b border-slate-100 font-sans">
-                      <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400 font-mono">Sample Dynamic Workspace Header</span>
-                      <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[9px] font-bold">Dynamic Rendering Ok</span>
-                    </div>
-
-                    {/* Virtual App Header Preview */}
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 bg-slate-50 border border-slate-200 rounded-xl gap-4">
-                      <div className="flex items-center space-x-3 font-sans">
-                        <div className={`p-2.5 rounded-xl text-white flex items-center justify-center ${
-                          school.brandColor === 'indigo' ? 'bg-indigo-600' :
-                          school.brandColor === 'teal' ? 'bg-teal-600' :
-                          school.brandColor === 'emerald' ? 'bg-emerald-600' :
-                          school.brandColor === 'rose' ? 'bg-rose-600' :
-                          school.brandColor === 'amber' ? 'bg-amber-600' :
-                          school.brandColor === 'purple' ? 'bg-purple-600' :
-                          school.brandColor === 'sky' ? 'bg-sky-600' : 'bg-slate-600'
-                        }`}>
-                          {school.logoType === 'shield' && <ShieldCheck className="w-5 h-5" />}
-                          {school.logoType === 'star' && <Star className="w-5 h-5" />}
-                          {school.logoType === 'book' && <BookOpen className="w-5 h-5" />}
-                          {school.logoType === 'globe' && <Globe className="w-5 h-5" />}
-                          {school.logoType === 'cap' && <Award className="w-5 h-5" />}
-                          {school.logoType === 'lamp' && <Flame className="w-5 h-5" />}
-                          {school.logoType === 'initials' && <span className="font-mono text-xs font-black uppercase">{school.shortCode}</span>}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <h5 className="font-extrabold text-xs text-slate-900">{school.name}</h5>
-                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold font-mono tracking-wider ${
-                              school.brandColor === 'indigo' ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' :
-                              school.brandColor === 'teal' ? 'bg-teal-50 text-teal-700 border border-teal-100' :
-                              school.brandColor === 'emerald' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
-                              school.brandColor === 'rose' ? 'bg-rose-50 text-rose-700 border border-rose-100' :
-                              school.brandColor === 'amber' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
-                              school.brandColor === 'purple' ? 'bg-purple-50 text-purple-700 border border-purple-100' :
-                              school.brandColor === 'sky' ? 'bg-sky-50 text-sky-700 border border-sky-100' : 'bg-slate-50 text-slate-700'
-                            }`}>{school.shortCode} ERP</span>
-                          </div>
-                          <p className="text-[10px] text-slate-400 font-medium italic mt-0.5">{school.slogan}</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center space-x-2 font-sans">
-                        <span className={`px-2 py-1 rounded text-[10px] font-bold ${
-                          school.brandColor === 'indigo' ? 'bg-indigo-50 text-indigo-700' :
-                          school.brandColor === 'teal' ? 'bg-teal-50 text-teal-700' :
-                          school.brandColor === 'emerald' ? 'bg-emerald-50 text-emerald-700' :
-                          school.brandColor === 'rose' ? 'bg-rose-50 text-rose-700' :
-                          school.brandColor === 'amber' ? 'bg-amber-50 text-amber-700' :
-                          school.brandColor === 'purple' ? 'bg-purple-50 text-purple-700' :
-                          school.brandColor === 'sky' ? 'bg-sky-50 text-sky-700' : 'bg-slate-50 text-slate-700'
-                        }`}>Active Campus: MAIN</span>
-                        
-                        <button type="button" className={`px-3 py-1 rounded text-[10px] font-bold text-white shadow-xs ${
-                          school.brandColor === 'indigo' ? 'bg-indigo-600' :
-                          school.brandColor === 'teal' ? 'bg-teal-600' :
-                          school.brandColor === 'emerald' ? 'bg-emerald-600' :
-                          school.brandColor === 'rose' ? 'bg-rose-600' :
-                          school.brandColor === 'amber' ? 'bg-amber-600' :
-                          school.brandColor === 'purple' ? 'bg-purple-600' :
-                          school.brandColor === 'sky' ? 'bg-sky-600' : 'bg-slate-600'
-                        }`}>
-                          Save Marks
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Quick Specs Overview */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-150 text-xs font-medium text-slate-600 font-sans">
-                      <div>
-                        <span className="text-[9px] text-slate-400 block font-bold uppercase font-mono">Color Profile</span>
-                        <span className="font-extrabold capitalize text-slate-800">{school.brandColor}</span>
-                      </div>
-                      <div>
-                        <span className="text-[9px] text-slate-400 block font-bold uppercase font-mono">Active Pass Score</span>
-                        <span className="font-extrabold text-slate-800">{school.passingScore || 40}%</span>
-                      </div>
-                      <div>
-                        <span className="text-[9px] text-slate-400 block font-bold uppercase font-mono">Assessment Weight</span>
-                        <span className="font-extrabold text-slate-800">{school.caWeight || 40} CA : {school.examWeight || 60} Exam</span>
-                      </div>
-                      <div>
-                        <span className="text-[9px] text-slate-400 block font-bold uppercase font-mono">Grade Boundaries</span>
-                        <span className="font-extrabold text-slate-800">{school.gradeScales?.length || 0} Levels</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: SCHOOL DETAILS & LOGO */}
-          {activeConsoleTab === 'details' && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <School className="w-5 h-5 text-indigo-600" />
-                  School Identity, Brand &amp; Digital Logo Setup
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">Configure user-facing brand identities. Changes reflect live on ERP headers and client-facing report sheets.</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Brand Parameters Form */}
-                <div className="space-y-4">
-                  <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Organizational Details</h4>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="col-span-2">
-                      <label className="text-[10px] text-slate-400 font-extrabold block mb-1">Registered Institution Name</label>
-                      <input
-                        type="text"
-                        value={school.name}
-                        onChange={(e) => updateSchoolConfig({ ...school, name: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-800 outline-none focus:border-indigo-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] text-slate-400 font-extrabold block mb-1">Brand Color Accent</label>
-                      <select
-                        value={school.brandColor}
-                        onChange={(e) => updateSchoolConfig({ ...school, brandColor: e.target.value as any })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 cursor-pointer outline-none focus:border-indigo-500"
+                    {(['shield', 'book', 'star', 'cap', 'globe', 'lamp'] as const).map(icon => (
+                      <button
+                        key={icon}
+                        type="button"
+                        onClick={() => updateSchoolConfig({ ...school, logoType: icon })}
+                        className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
+                          school.logoType === icon ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                        }`}
                       >
-                        <option value="indigo">Indigo Blue</option>
-                        <option value="teal">Teal Green</option>
-                        <option value="emerald">Emerald Forest</option>
-                        <option value="rose">Crimson Rose</option>
-                        <option value="amber">Sienna Amber</option>
-                        <option value="purple">Amethyst Purple</option>
-                        <option value="sky">Cosmic Sky</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] text-slate-400 font-extrabold block mb-1">Logo Emblem Type</label>
-                      <select
-                        value={school.logoType}
-                        onChange={(e) => updateSchoolConfig({ ...school, logoType: e.target.value as any })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 cursor-pointer outline-none focus:border-indigo-500"
-                      >
-                        <option value="shield">🛡️ Crest Shield</option>
-                        <option value="star">⭐ Achievement Star</option>
-                        <option value="book">📖 Wisdom Book</option>
-                        <option value="globe">🌐 Global Academy</option>
-                        <option value="cap">🎓 Honors Cap</option>
-                        <option value="lamp">🔥 Flame of Learning</option>
-                        <option value="initials">🔠 Abbreviation Initials</option>
-                      </select>
-                    </div>
-
-                    <div className="col-span-2">
-                      <label className="text-[10px] text-slate-400 font-extrabold block mb-1">Institution Slogan / Moto</label>
-                      <input
-                        type="text"
-                        value={school.slogan}
-                        onChange={(e) => updateSchoolConfig({ ...school, slogan: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-medium text-slate-800 outline-none focus:border-indigo-500"
-                      />
-                    </div>
-                  </div>
-
-                  <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider pt-2">Contact &amp; Directory Metadata</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="col-span-2">
-                      <label className="text-[10px] text-slate-400 font-extrabold block mb-1">Institutional Headquarters Address</label>
-                      <input
-                        type="text"
-                        value={school.address}
-                        onChange={(e) => updateSchoolConfig({ ...school, address: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-medium text-slate-800 outline-none focus:border-indigo-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] text-slate-400 font-extrabold block mb-1">Primary Hotline</label>
-                      <input
-                        type="text"
-                        value={school.phone}
-                        onChange={(e) => updateSchoolConfig({ ...school, phone: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-mono font-bold text-slate-800 outline-none focus:border-indigo-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] text-slate-400 font-extrabold block mb-1">System Administration Email</label>
-                      <input
-                        type="email"
-                        value={school.email}
-                        onChange={(e) => updateSchoolConfig({ ...school, email: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-mono text-slate-800 outline-none focus:border-indigo-500"
-                      />
-                    </div>
-
-                    <div className="col-span-2">
-                      <label className="text-[10px] text-slate-400 font-extrabold block mb-1">Official Website</label>
-                      <input
-                        type="text"
-                        value={school.website}
-                        onChange={(e) => updateSchoolConfig({ ...school, website: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-mono text-slate-800 outline-none focus:border-indigo-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Live Real-time Branding Preview */}
-                <div className="bg-slate-50 rounded-2xl border border-slate-200/80 p-6 flex flex-col justify-between space-y-6">
-                  <div className="space-y-4">
-                    <h4 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-                      Live Custom-Branded Preview (Header Sample)
-                    </h4>
-                    
-                    {/* Simulated Header */}
-                    <div className="bg-white border rounded-xl p-4 shadow-sm space-y-4">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2.5 rounded-xl text-white shadow-md ${currentTheme.bg}`}>
-                          {school.logoType === 'shield' && <ShieldCheck className="w-6 h-6" />}
-                          {school.logoType === 'star' && <Star className="w-6 h-6" />}
-                          {school.logoType === 'book' && <BookOpen className="w-6 h-6" />}
-                          {school.logoType === 'globe' && <Globe className="w-6 h-6" />}
-                          {school.logoType === 'cap' && <Award className="w-6 h-6" />}
-                          {school.logoType === 'lamp' && <Flame className="w-6 h-6" />}
-                          {school.logoType === 'initials' && <span className="font-mono text-sm font-extrabold uppercase">{school.shortCode}</span>}
-                        </div>
-                        <div>
-                          <h1 className="text-sm font-bold text-slate-900 tracking-tight flex items-center">
-                            {school.name}
-                            <span className={`ml-2 px-1.5 py-0.5 rounded-full text-[8px] font-extrabold border uppercase tracking-wider ${currentTheme.pill}`}>
-                              {school.shortCode} ERP
-                            </span>
-                          </h1>
-                          <p className="text-[10px] text-slate-400 italic font-medium">{school.slogan}</p>
-                        </div>
-                      </div>
-
-                      {/* Mock statistics card with school brand color */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className={`p-3 rounded-lg border-l-4 ${currentTheme.border} bg-slate-50/50`}>
-                          <span className="text-[9px] text-slate-400 block font-bold uppercase tracking-wider">Institution ID</span>
-                          <span className="text-xs font-mono font-extrabold text-slate-800">{school.shortCode}-CLIENT-81B</span>
-                        </div>
-                        <div className={`p-3 rounded-lg border-l-4 ${currentTheme.border} bg-slate-50/50`}>
-                          <span className="text-[9px] text-slate-400 block font-bold uppercase tracking-wider">SaaS Active Node</span>
-                          <span className="text-xs font-mono font-extrabold text-slate-800">CO-HOSTED</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-xl flex items-start gap-2.5">
-                      <Info className="w-4 h-4 text-indigo-600 mt-0.5 shrink-0" />
-                      <div className="text-[11px] text-indigo-700 leading-relaxed font-semibold">
-                        Clicking the "Activate Demo" button on the Clients directory will immediately map these brand details to the top header and general interfaces of the school application!
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-200/50 p-4 rounded-xl text-center space-y-1 text-slate-500">
-                    <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Institutional Database Key</p>
-                    <p className="font-mono text-xs font-bold select-all truncate">{school.id}</p>
+                        {renderLogoIcon(icon, "w-4 h-4")}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
-            </div>
-          )}
 
-          {/* TAB 3: BRANCHES & SECTIONS */}
-          {activeConsoleTab === 'branches' && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <Building2 className="w-5 h-5 text-indigo-600" />
-                  Campus Branches &amp; Educational Division Config
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">Manage physical campuses/locations, branch directors, and activate specific learning divisions.</p>
-              </div>
-
-              {/* Divisions Toggles */}
-              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/60 space-y-4">
-                <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Sliders className="w-4 h-4 text-slate-400" />
-                  Divisions / Levels Setup
-                </h4>
-                
-                <p className="text-xs text-slate-500">Enable or disable entire levels. When a level is disabled, its students and setups are temporarily restricted from general dashboard entries.</p>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-                  {(['nursery', 'primary', 'secondary', 'islamia'] as const).map(div => (
-                    <label 
-                      key={div} 
-                      className={`p-3.5 rounded-xl border flex items-center justify-between cursor-pointer select-none transition-all ${
-                        school.sectionsEnabled[div] 
-                          ? `border-slate-800 bg-white shadow-sm ring-1 ring-slate-900/5 font-bold` 
-                          : 'border-slate-200/60 bg-slate-50 text-slate-400'
-                      }`}
-                    >
-                      <span className="capitalize text-xs uppercase tracking-wide font-extrabold">
-                        {div === 'islamia' ? 'Islamia / Arabic' : `${div} Level`}
-                      </span>
+              {/* Active Education Stages */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-2">
+                <label className="text-xs font-bold text-slate-800 block">Active Education Stages</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { key: 'nursery', label: 'Nursery / Pre-School' },
+                    { key: 'primary', label: 'Primary School' },
+                    { key: 'secondary', label: 'Secondary / High' },
+                    { key: 'islamia', label: 'Islamia & Tahfeez' }
+                  ].map(item => (
+                    <label key={item.key} className="flex items-center gap-2 bg-white p-2.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={school.sectionsEnabled[div]}
-                        onChange={(e) => {
-                          const val = e.target.checked;
-                          updateSchoolConfig({
-                            ...school,
-                            sectionsEnabled: {
-                              ...school.sectionsEnabled,
-                              [div]: val
-                            }
-                          });
-                        }}
-                        className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        checked={school.sectionsEnabled[item.key as keyof typeof school.sectionsEnabled]}
+                        onChange={(e) => updateSchoolConfig({
+                          ...school,
+                          sectionsEnabled: {
+                            ...school.sectionsEnabled,
+                            [item.key]: e.target.checked
+                          }
+                        })}
+                        className="rounded text-indigo-600 focus:ring-indigo-500"
                       />
+                      <span>{item.label}</span>
                     </label>
                   ))}
                 </div>
               </div>
 
-              {/* Branches Table List */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Active Locations Directory</h4>
-                
-                <div className="border rounded-2xl overflow-hidden shadow-xs divide-y divide-slate-100">
-                  {school.branches.length === 0 ? (
-                    <div className="p-6 text-center text-xs text-slate-400">No branches added yet. Please add at least one branch.</div>
-                  ) : (
-                    school.branches.map(br => (
-                      <div key={br.id} className="p-4 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="space-y-1 text-xs">
-                          <div className="flex items-center gap-1.5">
-                            <span className={`w-2.5 h-2.5 rounded-full ${currentTheme.bg}`}></span>
-                            <span className="font-extrabold text-slate-800 text-sm">{br.name}</span>
-                            <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase">{br.code}</span>
-                          </div>
-                          <div className="text-[11px] text-slate-400 flex items-center gap-1">
-                            <MapPin className="w-3.5 h-3.5 shrink-0" />
-                            <span>{br.address}</span>
-                          </div>
-                          <div className="text-[11px] text-slate-400 flex items-center gap-4">
-                            <span>👩‍💼 Manager: <strong className="text-slate-600">{br.manager}</strong></span>
-                            <span>📞 Hotline: <strong className="text-slate-600">{br.phone}</strong></span>
-                          </div>
-                        </div>
-
-                        {school.branches.length > 1 && (
-                          <button
-                            onClick={() => {
-                              const filtered = school.branches.filter(b => b.id !== br.id);
-                              updateSchoolConfig({ ...school, branches: filtered });
-                            }}
-                            className="text-slate-400 hover:text-rose-600 transition-colors p-1.5 cursor-pointer"
-                            title="Delete Branch"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {/* Branch Creator */}
-                <div className="bg-slate-50 p-4 border rounded-2xl space-y-3.5">
-                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">🏢 Add Branch Location</span>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-3.5 items-end">
-                    <div className="sm:col-span-2">
-                      <label className="text-[9px] text-slate-400 uppercase tracking-wider block mb-1">Branch Name</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Sokoto Main Campus"
-                        value={bName}
-                        onChange={(e) => setBName(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-indigo-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[9px] text-slate-400 uppercase tracking-wider block mb-1">Abbr Code</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. SMC"
-                        value={bCode}
-                        onChange={(e) => setBCode(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs uppercase font-mono font-bold outline-none focus:border-indigo-500"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="text-[9px] text-slate-400 uppercase tracking-wider block mb-1">Headquarter Admin / Manager</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Dr. Muhammad Junaid"
-                        value={bMgr}
-                        onChange={(e) => setBMgr(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-indigo-500"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-3">
-                      <label className="text-[9px] text-slate-400 uppercase tracking-wider block mb-1">Address Location</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Airport Road, Gidan Dare Sokoto"
-                        value={bAddr}
-                        onChange={(e) => setBAddr(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-indigo-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[9px] text-slate-400 uppercase tracking-wider block mb-1">Contact Phone</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. +234 803 555 4444"
-                        value={bPhone}
-                        onChange={(e) => setBPhone(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-indigo-500"
-                      />
-                    </div>
-
-                    <div>
-                      <button
-                        onClick={handleAddBranch}
-                        className="w-full bg-slate-900 hover:bg-slate-950 text-white font-extrabold py-2 px-3 rounded-xl text-[10px] uppercase tracking-wider transition-all cursor-pointer h-[32px] flex items-center justify-center gap-1 shadow-sm"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add Branch</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
+              <div className="flex justify-end pt-4">
+                <button
+                  onClick={() => setWizardStep(2)}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-sm"
+                >
+                  <span>Continue to Campuses &amp; Classes</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
               </div>
             </div>
           )}
 
-          {/* TAB 4: CLASS SETUP */}
-          {activeConsoleTab === 'classes' && (
+          {/* Wizard Step 2: Campuses & Classes */}
+          {wizardStep === 2 && (
             <div className="space-y-6">
               <div>
-                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <Layers className="w-5 h-5 text-indigo-600" />
-                  Institutional Class/Grade Room Setup
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">Register classroom registries. These populate class selections throughout the student admissions and grading modules.</p>
+                <h3 className="text-sm font-bold text-slate-900">Step 2: Campus Branches &amp; Class Grade Cohorts</h3>
+                <p className="text-xs text-slate-500">Configure physical school locations and grade cohorts.</p>
               </div>
 
-              {/* Class setup list */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                
-                <div className="md:col-span-2 space-y-4">
-                  <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Active Classroom Classes</h4>
-                  
-                  <div className="flex flex-wrap gap-2.5">
-                    {school.classes.length === 0 ? (
-                      <div className="text-xs text-slate-400 p-4 border border-dashed rounded-xl w-full text-center">No classrooms configured. Add classes below.</div>
-                    ) : (
-                      school.classes.map(cl => (
-                        <div key={cl} className="bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-xl flex items-center gap-2 text-xs font-bold text-slate-800 shadow-2xs">
-                          <span>🚪 {cl}</span>
-                          <button
-                            onClick={() => {
-                              const filtered = school.classes.filter(c => c !== cl);
-                              updateSchoolConfig({ ...school, classes: filtered });
-                            }}
-                            className="text-slate-400 hover:text-rose-600 transition-colors cursor-pointer text-[10px]"
-                            title="Remove Class"
-                          >
-                            ×
-                          </button>
+              {/* Branches summary */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Campus Branches ({school.branches.length})</h4>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {school.branches.map(br => (
+                    <div key={br.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-slate-900">{br.name}</span>
+                          <span className="bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded text-[10px] font-mono">{br.code}</span>
                         </div>
-                      ))
+                        <p className="text-[11px] text-slate-500 mt-1">{br.address}</p>
+                        <p className="text-[11px] text-slate-600 font-semibold mt-0.5">Manager: {br.manager} • {br.phone}</p>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteBranch(br.id)}
+                        className="text-slate-400 hover:text-rose-600 p-1 transition-all cursor-pointer"
+                        title="Remove branch"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Class cohorts summary */}
+              <div className="space-y-3 pt-4 border-t border-slate-100">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Class Grade Cohorts ({school.classes.length})</h4>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleAddClassPreset('nursery')}
+                      className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold px-2 py-1 rounded-lg"
+                    >
+                      + Nursery Pack
+                    </button>
+                    <button
+                      onClick={() => handleAddClassPreset('primary')}
+                      className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold px-2 py-1 rounded-lg"
+                    >
+                      + Primary Pack
+                    </button>
+                    <button
+                      onClick={() => handleAddClassPreset('secondary')}
+                      className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold px-2 py-1 rounded-lg"
+                    >
+                      + Secondary Pack
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  {school.classes.map(cls => (
+                    <span key={cls} className="bg-white border border-slate-200 text-slate-800 px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-2xs">
+                      <span>{cls}</span>
+                      <button
+                        onClick={() => handleDeleteClass(cls)}
+                        className="text-slate-400 hover:text-rose-600 cursor-pointer"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+
+                <form onSubmit={handleAddClass} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newClassName}
+                    onChange={(e) => setNewClassName(e.target.value)}
+                    placeholder="Add custom class (e.g. Grade 1 Gold)"
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:bg-white focus:border-indigo-500 outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer"
+                  >
+                    Add Class
+                  </button>
+                </form>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                <button
+                  onClick={() => setWizardStep(1)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-2"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Back</span>
+                </button>
+                <button
+                  onClick={() => setWizardStep(3)}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-sm"
+                >
+                  <span>Continue to Academics &amp; Grading</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Wizard Step 3: Academics & Grading */}
+          {wizardStep === 3 && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Step 3: Curriculum Subjects &amp; Grading System</h3>
+                <p className="text-xs text-slate-500">Configure CA vs Exam weight splits and grade scale benchmarks.</p>
+              </div>
+
+              {/* CA vs Exam Weight Slider */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-3">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                  <span>Continuous Assessment (CA): {school.caWeight}%</span>
+                  <span>Terminal Examination: {school.examWeight}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={school.caWeight}
+                  onChange={(e) => {
+                    const ca = Number(e.target.value);
+                    updateSchoolConfig({
+                      ...school,
+                      caWeight: ca,
+                      examWeight: 100 - ca
+                    });
+                  }}
+                  className="w-full accent-indigo-600 cursor-pointer"
+                />
+                <div className="flex items-center justify-between text-[11px] text-slate-500">
+                  <span>Passing Benchmark Score: <strong>{school.passingScore}%</strong></span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => updateSchoolConfig({ ...school, caWeight: 40, examWeight: 60 })}
+                      className="text-[10px] font-bold bg-white border border-slate-200 px-2 py-0.5 rounded text-indigo-600"
+                    >
+                      40/60 Standard
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateSchoolConfig({ ...school, caWeight: 30, examWeight: 70 })}
+                      className="text-[10px] font-bold bg-white border border-slate-200 px-2 py-0.5 rounded text-indigo-600"
+                    >
+                      30/70 Split
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateSchoolConfig({ ...school, caWeight: 50, examWeight: 50 })}
+                      className="text-[10px] font-bold bg-white border border-slate-200 px-2 py-0.5 rounded text-indigo-600"
+                    >
+                      50/50 Equal
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Grading Templates */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Grading Scale Template</h4>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => handleApplyGradePreset('standard')}
+                      className="text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg"
+                    >
+                      Standard (A-F)
+                    </button>
+                    <button
+                      onClick={() => handleApplyGradePreset('waec')}
+                      className="text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg"
+                    >
+                      WAEC (A1-F9)
+                    </button>
+                    <button
+                      onClick={() => handleApplyGradePreset('primary')}
+                      className="text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg"
+                    >
+                      Early Years (Distinction/Pass)
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {school.gradeScales.map(gs => (
+                    <div key={gs.grade} className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-center">
+                      <span className="text-sm font-black text-indigo-600 block">{gs.grade}</span>
+                      <span className="text-[11px] text-slate-600 font-semibold">{gs.minScore}% - {gs.maxScore}%</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">{gs.remarks}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                <button
+                  onClick={() => setWizardStep(2)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-2"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Back</span>
+                </button>
+                <button
+                  onClick={() => {
+                    onActivateSchool(school);
+                    showToast(`Setup completed! ${school.name} is now active.`);
+                    setActiveTab('profile');
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-sm"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Finish &amp; Save School Setup</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* =========================================================================
+          TAB 2: SCHOOL PROFILE & BRAND
+          ========================================================================= */}
+      {activeTab === 'profile' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-5">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Institution Identity &amp; Contact</h3>
+              <p className="text-xs text-slate-500">Official name, registration code, address, and online contact info.</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                <label className="text-xs font-bold text-slate-700 block mb-1">Official School Name *</label>
+                <input
+                  type="text"
+                  value={school.name}
+                  onChange={(e) => updateSchoolConfig({ ...school, name: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:bg-white focus:border-indigo-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">School Short Code *</label>
+                <input
+                  type="text"
+                  value={school.shortCode}
+                  onChange={(e) => updateSchoolConfig({ ...school, shortCode: e.target.value.toUpperCase() })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:bg-white focus:border-indigo-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Brand Theme Color</label>
+                <select
+                  value={school.brandColor}
+                  onChange={(e) => updateSchoolConfig({ ...school, brandColor: e.target.value as any })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:bg-white focus:border-indigo-500 outline-none cursor-pointer"
+                >
+                  <option value="indigo">Indigo Blue</option>
+                  <option value="teal">Teal Cyan</option>
+                  <option value="emerald">Emerald Green</option>
+                  <option value="rose">Rose Red</option>
+                  <option value="amber">Amber Gold</option>
+                  <option value="purple">Royal Purple</option>
+                  <option value="sky">Sky Blue</option>
+                </select>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="text-xs font-bold text-slate-700 block mb-1">Motto / Tagline</label>
+                <input
+                  type="text"
+                  value={school.slogan}
+                  onChange={(e) => updateSchoolConfig({ ...school, slogan: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:bg-white focus:border-indigo-500 outline-none"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="text-xs font-bold text-slate-700 block mb-1">Headquarters Address</label>
+                <input
+                  type="text"
+                  value={school.address}
+                  onChange={(e) => updateSchoolConfig({ ...school, address: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:bg-white focus:border-indigo-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Telephone Line</label>
+                <input
+                  type="text"
+                  value={school.phone}
+                  onChange={(e) => updateSchoolConfig({ ...school, phone: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:bg-white focus:border-indigo-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Official Email</label>
+                <input
+                  type="email"
+                  value={school.email}
+                  onChange={(e) => updateSchoolConfig({ ...school, email: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:bg-white focus:border-indigo-500 outline-none"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="text-xs font-bold text-slate-700 block mb-1">School Web Address</label>
+                <input
+                  type="text"
+                  value={school.website}
+                  onChange={(e) => updateSchoolConfig({ ...school, website: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:bg-white focus:border-indigo-500 outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Visual Preview Card */}
+          <div className="space-y-4">
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 space-y-4">
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Live Brand Preview</h4>
+              
+              {/* Sample Student Badge Mock */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold shadow-xs ${currentTheme.bg}`}>
+                    {renderLogoIcon(school.logoType, "w-5 h-5", school.customLogoUrl)}
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-bold text-slate-900 leading-tight">{school.name}</h5>
+                    <p className="text-[10px] text-slate-500">{school.slogan}</p>
+                  </div>
+                </div>
+
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200/60 text-[10px] text-slate-600 space-y-1">
+                  <p><strong>Campus:</strong> {school.branches[0]?.name || 'Main Campus'}</p>
+                  <p><strong>Phone:</strong> {school.phone}</p>
+                  <p><strong>Portal:</strong> {school.website}</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-700 block">Select Logo Badge Icon</label>
+                <div className="grid grid-cols-6 gap-2">
+                  {(['shield', 'book', 'star', 'cap', 'globe', 'lamp'] as const).map(icon => (
+                    <button
+                      key={icon}
+                      type="button"
+                      onClick={() => updateSchoolConfig({ ...school, logoType: icon })}
+                      className={`p-2 rounded-xl border flex items-center justify-center transition-all cursor-pointer ${
+                        school.logoType === icon ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {renderLogoIcon(icon, "w-4 h-4")}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          TAB 3: CAMPUSES & CLASSES
+          ========================================================================= */}
+      {activeTab === 'branches_classes' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Campuses / Branches Section */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Campus Branches ({school.branches.length})</h3>
+                <p className="text-xs text-slate-500">School physical locations and administrators.</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {school.branches.map(br => (
+                <div key={br.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-xs text-slate-900">{br.name}</span>
+                      <span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.2 rounded text-[10px] font-mono font-bold">{br.code}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1">{br.address}</p>
+                    <p className="text-[11px] text-slate-600 font-semibold mt-0.5">Manager: {br.manager} • {br.phone}</p>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteBranch(br.id)}
+                    className="text-slate-400 hover:text-rose-600 p-1 transition-all cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Inline Add Branch Form */}
+            <form onSubmit={handleAddBranch} className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2.5">
+              <h4 className="text-xs font-bold text-slate-800">Add New Campus Branch</h4>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  required
+                  placeholder="Branch Name (e.g. West Wing Campus)"
+                  value={newBranchName}
+                  onChange={(e) => setNewBranchName(e.target.value)}
+                  className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:border-indigo-500 outline-none"
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="Code (e.g. WW)"
+                  value={newBranchCode}
+                  onChange={(e) => setNewBranchCode(e.target.value)}
+                  className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:border-indigo-500 outline-none"
+                />
+                <input
+                  type="text"
+                  placeholder="Manager / Principal"
+                  value={newBranchManager}
+                  onChange={(e) => setNewBranchManager(e.target.value)}
+                  className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:border-indigo-500 outline-none"
+                />
+                <input
+                  type="text"
+                  placeholder="Phone Contact"
+                  value={newBranchPhone}
+                  onChange={(e) => setNewBranchPhone(e.target.value)}
+                  className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:border-indigo-500 outline-none"
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-2 rounded-lg transition-all cursor-pointer"
+              >
+                + Register Branch
+              </button>
+            </form>
+          </div>
+
+          {/* Classes / Grade Levels Section */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Class Grade Cohorts ({school.classes.length})</h3>
+                <p className="text-xs text-slate-500">Registered grade levels across school sections.</p>
+              </div>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => handleAddClassPreset('nursery')}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold px-2 py-1 rounded-md"
+                >
+                  + Nursery
+                </button>
+                <button
+                  onClick={() => handleAddClassPreset('primary')}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold px-2 py-1 rounded-md"
+                >
+                  + Primary
+                </button>
+                <button
+                  onClick={() => handleAddClassPreset('secondary')}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold px-2 py-1 rounded-md"
+                >
+                  + Secondary
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 max-h-60 overflow-y-auto p-3 bg-slate-50 rounded-xl border border-slate-200">
+              {school.classes.map(cls => (
+                <span key={cls} className="bg-white border border-slate-200 text-slate-800 px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-2xs">
+                  <span>{cls}</span>
+                  <button
+                    onClick={() => handleDeleteClass(cls)}
+                    className="text-slate-400 hover:text-rose-600 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+
+            {/* Inline Add Class Form */}
+            <form onSubmit={handleAddClass} className="flex gap-2">
+              <input
+                type="text"
+                value={newClassName}
+                onChange={(e) => setNewClassName(e.target.value)}
+                placeholder="Class name (e.g. Primary 1 Gold)"
+                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:bg-white focus:border-indigo-500 outline-none"
+              />
+              <button
+                type="submit"
+                className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer"
+              >
+                Add Class
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          TAB 4: STAFF ACCOUNTS & ROLES
+          ========================================================================= */}
+      {activeTab === 'staff' && (
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Staff Accounts &amp; Key Personnel ({school.staff.length})</h3>
+              <p className="text-xs text-slate-500">Manage user roles, branch locations, and teacher assignments.</p>
+            </div>
+            <div className="w-full sm:w-64">
+              <input
+                type="text"
+                placeholder="Search staff..."
+                value={staffSearch}
+                onChange={(e) => setStaffSearch(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold focus:bg-white focus:border-indigo-500 outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Staff Table */}
+          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  <th className="p-3">Staff Name</th>
+                  <th className="p-3">Email Address</th>
+                  <th className="p-3">Role</th>
+                  <th className="p-3">Campus Branch</th>
+                  <th className="p-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {school.staff
+                  .filter(st => !staffSearch || st.name.toLowerCase().includes(staffSearch.toLowerCase()) || st.email.toLowerCase().includes(staffSearch.toLowerCase()))
+                  .map(st => {
+                    const branch = school.branches.find(b => b.id === st.branchId);
+                    return (
+                      <tr key={st.id} className="hover:bg-slate-50/80">
+                        <td className="p-3 font-bold text-slate-900">{st.name}</td>
+                        <td className="p-3 text-slate-600 font-mono text-[11px]">{st.email}</td>
+                        <td className="p-3">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            st.role === 'Super Admin' ? 'bg-purple-100 text-purple-700' :
+                            st.role === 'Accountant' ? 'bg-emerald-100 text-emerald-700' :
+                            st.role === 'Branch Admin' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-700'
+                          }`}>
+                            {st.role}
+                          </span>
+                        </td>
+                        <td className="p-3 text-slate-600">{branch?.name || 'All Campuses'}</td>
+                        <td className="p-3 text-right">
+                          <button
+                            onClick={() => handleDeleteStaff(st.id)}
+                            className="text-slate-400 hover:text-rose-600 p-1 transition-all cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Inline Add Staff Form */}
+          <form onSubmit={handleAddStaff} className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+            <h4 className="text-xs font-bold text-slate-800">Add Staff Account</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+              <input
+                type="text"
+                required
+                placeholder="Full Name"
+                value={staffName}
+                onChange={(e) => setStaffName(e.target.value)}
+                className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:border-indigo-500 outline-none"
+              />
+              <input
+                type="email"
+                required
+                placeholder="Email Address"
+                value={staffEmail}
+                onChange={(e) => setStaffEmail(e.target.value)}
+                className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:border-indigo-500 outline-none"
+              />
+              <select
+                value={staffRole}
+                onChange={(e) => setStaffRole(e.target.value as any)}
+                className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:border-indigo-500 outline-none cursor-pointer"
+              >
+                <option value="Teacher">Teacher</option>
+                <option value="Super Admin">Super Admin</option>
+                <option value="Branch Admin">Branch Admin</option>
+                <option value="Accountant">Accountant</option>
+                <option value="Store Manager">Store Manager</option>
+              </select>
+              <select
+                value={staffBranch}
+                onChange={(e) => setStaffBranch(e.target.value)}
+                className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:border-indigo-500 outline-none cursor-pointer"
+              >
+                {school.branches.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="submit"
+              className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-lg transition-all cursor-pointer"
+            >
+              + Register Staff Member
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* =========================================================================
+          TAB 5: SUBJECTS & GRADING
+          ========================================================================= */}
+      {activeTab === 'academics_grading' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Subjects Directory */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Curriculum Subjects ({school.subjects.length})</h3>
+                <p className="text-xs text-slate-500">Mapped academic disciplines by school tier.</p>
+              </div>
+              <input
+                type="text"
+                placeholder="Filter subjects..."
+                value={subjectSearch}
+                onChange={(e) => setSubjectSearch(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 text-xs font-semibold focus:bg-white outline-none"
+              />
+            </div>
+
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {school.subjects
+                .filter(s => !subjectSearch || s.name.toLowerCase().includes(subjectSearch.toLowerCase()))
+                .map(s => (
+                  <div key={s.name} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200/70 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-800">{s.name}</span>
+                      <span className="bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded text-[10px] uppercase font-bold">
+                        {s.level}
+                      </span>
+                      {s.isCompulsory && (
+                        <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.2 rounded text-[10px] font-bold">
+                          Core
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleDeleteSubject(s.name)}
+                      className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+            </div>
+
+            {/* Inline Add Subject Form */}
+            <form onSubmit={handleAddSubject} className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
+              <h4 className="text-xs font-bold text-slate-800">Add Academic Subject</h4>
+              <div className="grid grid-cols-3 gap-2">
+                <input
+                  type="text"
+                  required
+                  placeholder="Subject name"
+                  value={subName}
+                  onChange={(e) => setSubName(e.target.value)}
+                  className="col-span-2 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:border-indigo-500 outline-none"
+                />
+                <select
+                  value={subLvl}
+                  onChange={(e) => setSubLvl(e.target.value as any)}
+                  className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-semibold cursor-pointer"
+                >
+                  <option value="nursery">Nursery</option>
+                  <option value="primary">Primary</option>
+                  <option value="secondary">Secondary</option>
+                  <option value="islamia">Islamia</option>
+                </select>
+              </div>
+              <button
+                type="submit"
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-1.5 rounded-lg transition-all cursor-pointer"
+              >
+                + Register Subject
+              </button>
+            </form>
+          </div>
+
+          {/* Assessment & Grading Scale */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-5">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Grading System &amp; CA Weights</h3>
+              <p className="text-xs text-slate-500">Assessment distribution and letter grade bands.</p>
+            </div>
+
+            {/* CA vs Exam Weight Slider */}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                <span>Continuous Assessment: {school.caWeight}%</span>
+                <span>Examination: {school.examWeight}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="5"
+                value={school.caWeight}
+                onChange={(e) => {
+                  const ca = Number(e.target.value);
+                  updateSchoolConfig({
+                    ...school,
+                    caWeight: ca,
+                    examWeight: 100 - ca
+                  });
+                }}
+                className="w-full accent-indigo-600 cursor-pointer"
+              />
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-slate-500">Passing Score: <strong>{school.passingScore}%</strong></span>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => updateSchoolConfig({ ...school, caWeight: 40, examWeight: 60 })}
+                    className="text-[10px] font-bold bg-white border border-slate-200 px-2 py-0.5 rounded text-indigo-600"
+                  >
+                    40/60
+                  </button>
+                  <button
+                    onClick={() => updateSchoolConfig({ ...school, caWeight: 30, examWeight: 70 })}
+                    className="text-[10px] font-bold bg-white border border-slate-200 px-2 py-0.5 rounded text-indigo-600"
+                  >
+                    30/70
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Grading Scale Table */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-slate-800">Grade Letter Boundaries</h4>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => handleApplyGradePreset('standard')}
+                    className="text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded"
+                  >
+                    Standard
+                  </button>
+                  <button
+                    onClick={() => handleApplyGradePreset('waec')}
+                    className="text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded"
+                  >
+                    WAEC
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {school.gradeScales.map(gs => (
+                  <div key={gs.grade} className="bg-slate-50 border border-slate-200 rounded-xl p-2 text-center">
+                    <span className="text-sm font-black text-indigo-600 block">{gs.grade}</span>
+                    <span className="text-[11px] font-semibold text-slate-700">{gs.minScore}% - {gs.maxScore}%</span>
+                    <span className="text-[10px] text-slate-400 block">{gs.remarks}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          TAB 6: ALL SCHOOL PROFILES (MULTI-TENANT DIRECTORY)
+          ========================================================================= */}
+      {activeTab === 'tenants' && (
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Registered School Profiles ({schools.length})</h3>
+              <p className="text-xs text-slate-500">Switch or manage institutional tenant configurations.</p>
+            </div>
+            <button
+              onClick={() => setShowAddSchoolModal(true)}
+              className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create School Profile</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {schools.map(s => {
+              const theme = getColorClasses(s.brandColor);
+              const isActive = s.id === activeSchoolId;
+              const isEditing = s.id === editingSchoolId;
+
+              return (
+                <div
+                  key={s.id}
+                  className={`rounded-2xl border p-5 space-y-4 transition-all ${
+                    isActive ? 'border-indigo-600 ring-2 ring-indigo-500/20 bg-indigo-50/10' : 'border-slate-200 bg-white hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold shadow-xs ${theme.bg}`}>
+                      {renderLogoIcon(s.logoType, "w-5 h-5", s.customLogoUrl)}
+                    </div>
+                    {isActive ? (
+                      <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                        ★ Active System
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          onActivateSchool(s);
+                          showToast(`Activated ${s.name}`);
+                        }}
+                        className="text-indigo-600 hover:text-indigo-800 text-xs font-bold cursor-pointer"
+                      >
+                        Activate
+                      </button>
                     )}
                   </div>
-                </div>
 
-                {/* Class Creator */}
-                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/60 space-y-3.5 self-start shadow-xs">
-                  <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Configure New Room</h4>
-                  
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-[10px] text-slate-400 block mb-1">Class/Grade Name</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. SSS 1 Science"
-                        value={newClassName}
-                        onChange={(e) => setNewClassName(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500"
-                      />
-                    </div>
-
-                    <button
-                      onClick={handleAddClass}
-                      className="w-full bg-slate-900 hover:bg-slate-950 text-white font-extrabold py-2 px-3 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1 shadow-sm"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Add Room Registry</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 5: STAFF SETUP */}
-          {activeConsoleTab === 'staff' && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <Users className="w-5 h-5 text-indigo-600" />
-                  Staff, Teachers &amp; Credentials setup
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">Configure user accounts representing roles (Super Admins, Branch Directors, Accountants, Teachers) co-hosted in the school.</p>
-              </div>
-
-              {/* Staff Table */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Registered Personnel Roster</h4>
-                
-                <div className="overflow-x-auto border border-slate-200/60 rounded-2xl shadow-xs">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-slate-100 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
-                        <th className="px-4 py-3">Full Name</th>
-                        <th className="px-4 py-3">Login Email</th>
-                        <th className="px-4 py-3">Role / Security Group</th>
-                        <th className="px-4 py-3">Assigned Campus</th>
-                        <th className="px-4 py-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {school.staff.length === 0 ? (
-                        <tr><td colSpan={5} className="p-6 text-center text-slate-400">No staff registered. Please add staff personnel below.</td></tr>
-                      ) : (
-                        school.staff.map(st => {
-                          const br = school.branches.find(b => b.id === st.branchId);
-                          return (
-                            <tr key={st.id} className="hover:bg-slate-50/50">
-                              <td className="px-4 py-3 font-bold text-slate-800">{st.name}</td>
-                              <td className="px-4 py-3 font-mono text-slate-500">{st.email}</td>
-                              <td className="px-4 py-3 font-semibold text-slate-600">
-                                <span className="bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full text-[9px] font-bold border">
-                                  {st.role}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-slate-600 font-medium">
-                                {br ? `${br.name} (${br.code})` : "Global Headquarters"}
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                {school.staff.length > 1 && (
-                                  <button
-                                    onClick={() => {
-                                      const filtered = school.staff.filter(s => s.id !== st.id);
-                                      updateSchoolConfig({ ...school, staff: filtered });
-                                    }}
-                                    className="text-slate-400 hover:text-rose-600 p-1.5 transition-colors cursor-pointer"
-                                    title="Revoke Staff Access"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Staff Creator form */}
-                <div className="bg-slate-50 p-4 border rounded-2xl space-y-3.5">
-                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">👤 Register Staff Personnel</span>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5 items-end">
-                    <div>
-                      <label className="text-[9px] text-slate-400 uppercase tracking-wider block mb-1">Full Name</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Mal. Ibrahim Gobir"
-                        value={stName}
-                        onChange={(e) => setStName(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-indigo-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[9px] text-slate-400 uppercase tracking-wider block mb-1">Login / Auth Email</label>
-                      <input
-                        type="email"
-                        placeholder="e.g. gobir@school.edu.ng"
-                        value={stEmail}
-                        onChange={(e) => setStEmail(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-indigo-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[9px] text-slate-400 uppercase tracking-wider block mb-1">Access Role Permission</label>
-                      <select
-                        value={stRole}
-                        onChange={(e) => setStRole(e.target.value as any)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-700 outline-none cursor-pointer focus:border-indigo-500"
-                      >
-                        <option value="Super Admin">Super Admin</option>
-                        <option value="Branch Admin">Branch Admin</option>
-                        <option value="Accountant">Accountant</option>
-                        <option value="Teacher">Teacher (Class Instructor)</option>
-                        <option value="Store Manager">Store &amp; Inventory Mgr</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-[9px] text-slate-400 uppercase tracking-wider block mb-1">Campus Assignment</label>
-                      <select
-                        value={stBranchId}
-                        onChange={(e) => setStBranchId(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-700 outline-none cursor-pointer focus:border-indigo-500"
-                      >
-                        {school.branches.map(b => (
-                          <option key={b.id} value={b.id}>{b.name} ({b.code})</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="sm:col-span-4 text-right">
-                      <button
-                        onClick={handleAddStaff}
-                        className="bg-slate-900 hover:bg-slate-950 text-white font-extrabold py-2 px-5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer h-[34px] flex items-center justify-center gap-1 shadow-sm"
-                      >
-                        <UserCheck className="w-4 h-4" />
-                        <span>Register &amp; Provision Staff</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 6: SUBJECTS SETUP */}
-          {activeConsoleTab === 'subjects' && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-indigo-600" />
-                  Academic Curriculum Subjects Configuration
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">Design the general course catalog of study subjects offered by the school, mapped by educational divisions.</p>
-              </div>
-
-              {/* Subject mappings */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                
-                <div className="md:col-span-2 space-y-4">
-                  <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Active Curriculum Subjects</h4>
-                  
-                  <div className="overflow-x-auto border border-slate-200/60 rounded-2xl shadow-xs">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="bg-slate-50 border-b border-slate-100 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
-                          <th className="px-4 py-2.5">Subject Name</th>
-                          <th className="px-4 py-2.5">Target Level Division</th>
-                          <th className="px-4 py-2.5">Academic Status</th>
-                          <th className="px-4 py-2.5 text-right">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 font-medium">
-                        {school.subjects.length === 0 ? (
-                          <tr><td colSpan={4} className="p-4 text-center text-slate-400">No subjects offered. Configure catalog below.</td></tr>
-                        ) : (
-                          school.subjects.map((sub, idx) => (
-                            <tr key={idx} className="hover:bg-slate-50/50">
-                              <td className="px-4 py-2.5 font-bold text-slate-800">{sub.name}</td>
-                              <td className="px-4 py-2.5 text-slate-600 capitalize">{sub.level} Level</td>
-                              <td className="px-4 py-2.5">
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${sub.isCompulsory ? 'bg-indigo-50 border border-indigo-100 text-indigo-700' : 'bg-slate-50 border text-slate-500'}`}>
-                                  {sub.isCompulsory ? 'Compulsory' : 'Elective'}
-                                </span>
-                              </td>
-                              <td className="px-4 py-2.5 text-right">
-                                <button
-                                  onClick={() => {
-                                    const copy = [...school.subjects];
-                                    copy.splice(idx, 1);
-                                    updateSchoolConfig({ ...school, subjects: copy });
-                                  }}
-                                  className="text-slate-400 hover:text-rose-600 transition-colors p-1"
-                                  title="Delete Subject"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Subject Creator form */}
-                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/60 space-y-4 self-start shadow-xs">
-                  <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Create Course Subject</h4>
-                  
-                  <div className="space-y-3.5 text-xs">
-                    <div>
-                      <label className="text-[10px] text-slate-400 block mb-1">Subject / Course Name</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. English Language"
-                        value={subName}
-                        onChange={(e) => setSubName(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] text-slate-400 block mb-1">Level Division Mapping</label>
-                      <select
-                        value={subLvl}
-                        onChange={(e) => setSubLvl(e.target.value as any)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none cursor-pointer focus:border-indigo-500"
-                      >
-                        <option value="nursery">Nursery Division</option>
-                        <option value="primary">Primary Division</option>
-                        <option value="secondary">Secondary Division</option>
-                        <option value="islamia">Islamia / Arabic Section</option>
-                      </select>
-                    </div>
-
-                    <div className="flex items-center justify-between p-2.5 bg-white border rounded-xl">
-                      <span className="font-semibold text-slate-600 text-xs">Compulsory Subject</span>
-                      <input
-                        type="checkbox"
-                        checked={subComp}
-                        onChange={(e) => setSubComp(e.target.checked)}
-                        className="rounded text-indigo-600 cursor-pointer"
-                      />
-                    </div>
-
-                    <button
-                      onClick={handleAddSubject}
-                      className="w-full bg-slate-900 hover:bg-slate-950 text-white font-extrabold py-2 px-3 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1 shadow-sm"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Register Subject</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 7: GRADING & WEIGHTS */}
-          {activeConsoleTab === 'grading' && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-indigo-600" />
-                  Academic Exam Scoring &amp; Custom Grading scale Setup
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">Configure weights for continuous assessment vs. exams, passing margins, and custom letter grading tiers.</p>
-              </div>
-
-              {/* Weights Setup */}
-              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/60 space-y-4">
-                <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Institutional Cumulative Weight Settings</h4>
-                
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                   <div>
-                    <label className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block mb-1">CA Weight % (SAMS/CA)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={school.caWeight}
-                      onChange={(e) => {
-                        const val = Math.min(100, Math.max(0, Number(e.target.value)));
-                        updateSchoolConfig({ ...school, caWeight: val, examWeight: 100 - val });
+                    <h4 className="text-sm font-bold text-slate-900 leading-snug">{s.name}</h4>
+                    <p className="text-xs text-slate-500 mt-0.5">{s.slogan}</p>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-600 space-y-1">
+                    <p><strong>Branches:</strong> {s.branches.length} campuses</p>
+                    <p><strong>Classes:</strong> {s.classes.length} grade levels</p>
+                    <p><strong>Staff:</strong> {s.staff.length} accounts</p>
+                  </div>
+
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={() => {
+                        setEditingSchoolId(s.id);
+                        setActiveTab('profile');
+                        showToast(`Editing ${s.name}`);
                       }}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block mb-1">Exam Weight % (SAMS/Exam)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={school.examWeight}
-                      onChange={(e) => {
-                        const val = Math.min(100, Math.max(0, Number(e.target.value)));
-                        updateSchoolConfig({ ...school, examWeight: val, caWeight: 100 - val });
-                      }}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block mb-1">Passing Grade Score (Margin)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={school.passingScore}
-                      onChange={(e) => updateSchoolConfig({ ...school, passingScore: Math.min(100, Math.max(0, Number(e.target.value))) })}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div className="bg-white p-3 border rounded-xl flex items-center justify-center gap-1 text-[10px] font-extrabold text-slate-400 text-center select-none">
-                    <span>CA: {school.caWeight}% + EXAM: {school.examWeight}% = 100% ✅</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Grade Scaler Table */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                
-                <div className="md:col-span-2 space-y-4">
-                  <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Configured Letter Grading Ranges</h4>
-                  
-                  <div className="overflow-x-auto border border-slate-200/60 rounded-2xl shadow-xs">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="bg-slate-50 border-b border-slate-100 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
-                          <th className="px-4 py-2.5 text-center">Grade</th>
-                          <th className="px-4 py-2.5">Score Range</th>
-                          <th className="px-4 py-2.5">GPA Point</th>
-                          <th className="px-4 py-2.5">Remarks / Remarks</th>
-                          <th className="px-4 py-2.5 text-right">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                        {school.gradeScales.map((scale, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50/50">
-                            <td className="px-4 py-2.5 text-center">
-                              <span className="bg-indigo-50 border border-indigo-100 text-indigo-700 font-extrabold px-2 py-0.5 rounded text-[10px]">
-                                {scale.grade}
-                              </span>
-                            </td>
-                            <td className="px-4 py-2.5 font-mono text-[11px] text-slate-600">
-                              {scale.minScore}% - {scale.maxScore}%
-                            </td>
-                            <td className="px-4 py-2.5 font-mono text-[11.5px] text-slate-600">{scale.gpa.toFixed(1)}</td>
-                            <td className="px-4 py-2.5 text-slate-600">{scale.remarks}</td>
-                            <td className="px-4 py-2.5 text-right">
-                              <button
-                                onClick={() => {
-                                  const filtered = school.gradeScales.filter(g => g.grade !== scale.grade);
-                                  updateSchoolConfig({ ...school, gradeScales: filtered });
-                                }}
-                                className="text-slate-400 hover:text-rose-600 transition-colors p-1 cursor-pointer"
-                                title="Remove Grade Scale"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Range Creator */}
-                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/60 space-y-4 self-start shadow-xs">
-                  <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Add Grade Bracket</h4>
-                  
-                  <div className="space-y-3 text-xs">
-                    <div>
-                      <label className="text-[10px] text-slate-400 block mb-1">Letter Code</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. A1 or EX"
-                        value={grLetter}
-                        onChange={(e) => setGrLetter(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold uppercase outline-none focus:border-indigo-500"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-[10px] text-slate-400 block mb-1">Min Score %</label>
-                        <input
-                          type="number"
-                          value={grMin}
-                          onChange={(e) => setGrMin(Number(e.target.value))}
-                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-mono font-bold outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-slate-400 block mb-1">Max Score %</label>
-                        <input
-                          type="number"
-                          value={grMax}
-                          onChange={(e) => setGrMax(Number(e.target.value))}
-                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-mono font-bold outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] text-slate-400 block mb-1">GPA Value Points</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={grGpa}
-                        onChange={(e) => setGrGpa(Number(e.target.value))}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-mono font-bold outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] text-slate-400 block mb-1">Grade Remarks</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Pass with Distinction"
-                        value={grRemark}
-                        onChange={(e) => setGrRemark(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-indigo-500"
-                      />
-                    </div>
-
-                    <button
-                      onClick={handleAddGradeScale}
-                      className="w-full bg-slate-900 hover:bg-slate-950 text-white font-extrabold py-2 px-3 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1 shadow-sm"
+                      className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold py-1.5 rounded-lg text-center cursor-pointer transition-all"
                     >
-                      <Plus className="w-4 h-4" />
-                      <span>Register Grade Scale</span>
+                      Edit Config
+                    </button>
+                    <button
+                      onClick={() => onSeedDemoData(s)}
+                      className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer transition-all"
+                      title="Seed Demo Database"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
-
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* =========================================================================
+          MODAL: ADD NEW SCHOOL PROFILE
+          ========================================================================= */}
+      {showAddSchoolModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4 animate-fade-in">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-bold text-slate-900">Create New School Profile</h3>
+              <button
+                onClick={() => setShowAddSchoolModal(false)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddNewSchool} className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">School Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. SOKOTO ACADEMIC MODEL SCHOOL"
+                  value={newSchoolName}
+                  onChange={(e) => setNewSchoolName(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:bg-white focus:border-indigo-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Short Code / Tag *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. SAMS"
+                  value={newSchoolShort}
+                  onChange={(e) => setNewSchoolShort(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:bg-white focus:border-indigo-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Motto / Slogan</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Knowledge, Discipline & Excellence"
+                  value={newSchoolSlogan}
+                  onChange={(e) => setNewSchoolSlogan(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:bg-white focus:border-indigo-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Brand Theme</label>
+                <select
+                  value={newSchoolColor}
+                  onChange={(e) => setNewSchoolColor(e.target.value as any)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer"
+                >
+                  <option value="indigo">Indigo Blue</option>
+                  <option value="teal">Teal Cyan</option>
+                  <option value="emerald">Emerald Green</option>
+                  <option value="rose">Rose Red</option>
+                  <option value="amber">Amber Gold</option>
+                  <option value="purple">Royal Purple</option>
+                  <option value="sky">Sky Blue</option>
+                </select>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddSchoolModal(false)}
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer"
+                >
+                  Create Profile
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

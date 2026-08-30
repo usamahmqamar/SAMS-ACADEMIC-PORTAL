@@ -147,6 +147,53 @@ export interface TermHistoricalMetric {
 }
 
 export const HISTORICAL_TERMS_DATA: Record<string, TermHistoricalMetric[]> = {
+  '2026/2027': [
+    {
+      term: 'First Term',
+      academicSession: '2026/2027',
+      totalRecords: 156,
+      onTimeSubmissionPct: 94.5,
+      syllabusCoveragePct: 92.0,
+      studentBookCoveragePct: 89.2,
+      evidenceCompletionPct: 86.0,
+      managementReviewAvg: 91.5,
+      overallPerformanceScore: 91.2,
+      teachersEvaluated: 18,
+      teachersOnSchedule: 17,
+      teachersBehindSchedule: 1,
+      flaggedStudentsCount: 10
+    },
+    {
+      term: 'Second Term',
+      academicSession: '2026/2027',
+      totalRecords: 142,
+      onTimeSubmissionPct: 95.2,
+      syllabusCoveragePct: 93.8,
+      studentBookCoveragePct: 91.0,
+      evidenceCompletionPct: 88.6,
+      managementReviewAvg: 92.4,
+      overallPerformanceScore: 92.3,
+      teachersEvaluated: 18,
+      teachersOnSchedule: 17,
+      teachersBehindSchedule: 1,
+      flaggedStudentsCount: 8
+    },
+    {
+      term: 'Third Term',
+      academicSession: '2026/2027',
+      totalRecords: 138,
+      onTimeSubmissionPct: 96.0,
+      syllabusCoveragePct: 95.5,
+      studentBookCoveragePct: 93.2,
+      evidenceCompletionPct: 91.4,
+      managementReviewAvg: 94.0,
+      overallPerformanceScore: 94.1,
+      teachersEvaluated: 18,
+      teachersOnSchedule: 18,
+      teachersBehindSchedule: 0,
+      flaggedStudentsCount: 5
+    }
+  ],
   '2025/2026': [
     {
       term: 'First Term',
@@ -308,7 +355,21 @@ export interface SessionHistoricalMetric {
 
 export const HISTORICAL_SESSIONS_DATA: SessionHistoricalMetric[] = [
   {
-    academicSession: '2025/2026 (Current)',
+    academicSession: '2026/2027 (Active)',
+    totalRecordsSubmitted: 436,
+    avgSubmissionCompliance: 95.2,
+    avgTeachingProgress: 93.8,
+    avgStudentWorkCoverage: 91.1,
+    avgEvidenceCompletion: 88.7,
+    avgManagementReview: 92.6,
+    compositePerformanceScore: 92.5,
+    activeTeachers: 18,
+    studentPassRatePct: 96.2,
+    curriculumCompletionRatePct: 94.5,
+    punctualityIndex: 95.8
+  },
+  {
+    academicSession: '2025/2026 (Completed)',
     totalRecordsSubmitted: 406,
     avgSubmissionCompliance: 93.2,
     avgTeachingProgress: 91.8,

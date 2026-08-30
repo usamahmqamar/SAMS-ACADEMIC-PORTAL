@@ -182,7 +182,15 @@ export default function SectionsClassesManagement() {
     }
   };
 
-  const handleDeleteSection = async (sec: Section) => {
+  // Delete Confirmation Modal State
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    type: 'class' | 'section';
+    id: string;
+    name: string;
+    details?: string;
+  } | null>(null);
+
+  const handleDeleteSection = (sec: Section) => {
     const assignedClasses = classes.filter(c => c.sectionId === sec.id);
     if (assignedClasses.length > 0) {
       setToast({
@@ -192,21 +200,12 @@ export default function SectionsClassesManagement() {
       return;
     }
 
-    if (!confirm(`Are you sure you want to permanently delete the section "${sec.name}"?`)) {
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/sections/${sec.id}`, { method: 'DELETE' });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to remove section.');
-      }
-      await fetchData();
-      setToast({ message: `Section "${sec.name}" removed successfully.`, type: 'info' });
-    } catch (err: any) {
-      setToast({ message: err.message || 'Error deleting section.', type: 'error' });
-    }
+    setDeleteConfirmation({
+      type: 'section',
+      id: sec.id,
+      name: sec.name,
+      details: `Permanently delete the section "${sec.name}" from ${sec.branch === 'All' ? 'all campuses' : sec.branch === 'RS' ? 'Runjin Sambo' : 'Gawun Nama'}. This action cannot be undone.`
+    });
   };
 
   // Class CRUD Handlers
@@ -289,20 +288,40 @@ export default function SectionsClassesManagement() {
     }
   };
 
-  const handleDeleteClass = async (cls: Class) => {
-    if (!confirm(`Are you sure you want to permanently delete the class "${cls.name}"?`)) {
-      return;
-    }
+  const handleDeleteClass = (cls: Class) => {
+    setDeleteConfirmation({
+      type: 'class',
+      id: cls.id,
+      name: cls.name,
+      details: `Permanently delete the class "${cls.name}" from ${cls.branch === 'RS' ? 'Runjin Sambo' : 'Gawun Nama'}. Associated students and records will remain, but their class assignment will be unlinked.`
+    });
+  };
+
+  const executeDelete = async () => {
+    if (!deleteConfirmation) return;
+    const { type, id, name } = deleteConfirmation;
+    setDeleteConfirmation(null);
 
     try {
-      const res = await fetch(`/api/classes/${cls.id}`, { method: 'DELETE' });
-      if (!res.ok) {
-        throw new Error('Failed to delete class.');
+      if (type === 'section') {
+        const res = await fetch(`/api/sections/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Failed to remove section.');
+        }
+        await fetchData();
+        setToast({ message: `Section "${name}" removed successfully.`, type: 'info' });
+      } else {
+        const res = await fetch(`/api/classes/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Failed to delete class.');
+        }
+        await fetchData();
+        setToast({ message: `Class "${name}" deleted successfully.`, type: 'info' });
       }
-      await fetchData();
-      setToast({ message: `Class "${cls.name}" deleted successfully.`, type: 'info' });
     } catch (err: any) {
-      setToast({ message: err.message || 'Error discarding class.', type: 'error' });
+      setToast({ message: err.message || `Error deleting ${type}.`, type: 'error' });
     }
   };
 
@@ -429,7 +448,7 @@ export default function SectionsClassesManagement() {
             <Lucide.MapPin className="w-4 h-4" />
           </div>
           <div>
-            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Gwarinpa (GN)</span>
+            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Gawun Nama (GN)</span>
             <span className="text-lg font-black text-slate-800">{gnCount} Rooms</span>
           </div>
         </div>
@@ -439,7 +458,7 @@ export default function SectionsClassesManagement() {
             <Lucide.Compass className="w-4 h-4" />
           </div>
           <div>
-            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Road Safety (RS)</span>
+            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Runjin Sambo (RS)</span>
             <span className="text-lg font-black text-slate-800">{rsCount} Rooms</span>
           </div>
         </div>
@@ -512,8 +531,8 @@ export default function SectionsClassesManagement() {
               className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] font-semibold text-slate-600 focus:border-indigo-500 outline-none transition-all"
             >
               <option value="All">All Branches</option>
-              <option value="GN">Gwarinpa Campus (GN)</option>
-              <option value="RS">Road Safety Campus (RS)</option>
+              <option value="GN">Gawun Nama Campus (GN)</option>
+              <option value="RS">Runjin Sambo Campus (RS)</option>
             </select>
           </div>
 
@@ -565,10 +584,10 @@ export default function SectionsClassesManagement() {
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <span className="text-[9px] bg-slate-100 border border-slate-200 text-slate-500 px-2 py-0.5 rounded font-black uppercase tracking-wide">
-                            {sec.branch === 'RS' ? 'Road Safety' : 'Gwarinpa'}
+                            {sec.branch === 'RS' ? 'Runjin Sambo' : 'Gawun Nama'}
                           </span>
                           <span className="text-[9px] bg-indigo-50 border border-indigo-150 text-indigo-700 px-2 py-0.5 rounded font-bold uppercase">
-                            {sessionsMap[sec.session] || '2025/2026 Academic Year'}
+                            {sessionsMap[sec.session] || '2026/2027 Academic Session'}
                           </span>
                         </div>
                         <h4 className="text-sm font-black text-slate-800 pt-1">{sec.name} Section</h4>
@@ -631,7 +650,7 @@ export default function SectionsClassesManagement() {
                             {parentSection?.name || getLevelLabel(cls.level)} Section
                           </span>
                           <span className="text-[9px] bg-slate-100 border border-slate-200 text-slate-500 px-2 py-0.5 rounded font-semibold uppercase">
-                            {cls.branch === 'RS' ? 'Road Safety' : 'Gwarinpa'}
+                            {cls.branch === 'RS' ? 'Runjin Sambo' : 'Gawun Nama'}
                           </span>
                         </div>
                         <h4 className="text-sm font-black text-slate-800 pt-1">{cls.name}</h4>
@@ -735,8 +754,8 @@ export default function SectionsClassesManagement() {
                       onChange={(e) => setSectionBranch(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:bg-white outline-none transition-all"
                     >
-                      <option value="GN">Gwarinpa Campus (GN)</option>
-                      <option value="RS">Road Safety Campus (RS)</option>
+                      <option value="GN">Gawun Nama Campus (GN)</option>
+                      <option value="RS">Runjin Sambo Campus (RS)</option>
                     </select>
                   </div>
 
@@ -753,7 +772,7 @@ export default function SectionsClassesManagement() {
                           <option key={s.id} value={s.id}>{s.name}</option>
                         ))
                       ) : (
-                        <option value="ses-2026">2025/2026 Academic Year</option>
+                        <option value="ses-2026-2027">2026/2027 Academic Session</option>
                       )}
                     </select>
                   </div>
@@ -872,8 +891,8 @@ export default function SectionsClassesManagement() {
                     onChange={(e) => setClassBranch(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700 focus:border-emerald-500 focus:bg-white outline-none transition-all"
                   >
-                    <option value="GN">Gwarinpa Campus (GN)</option>
-                    <option value="RS">Road Safety Campus (RS)</option>
+                    <option value="GN">Gawun Nama Campus (GN)</option>
+                    <option value="RS">Runjin Sambo Campus (RS)</option>
                   </select>
                 </div>
 
@@ -930,6 +949,53 @@ export default function SectionsClassesManagement() {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {deleteConfirmation && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 space-y-4"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl border border-rose-100">
+                  <Lucide.Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 font-sans">
+                    Delete {deleteConfirmation.type === 'section' ? 'Section' : 'Class'}
+                  </h3>
+                  <p className="text-xs font-semibold text-slate-600 font-mono mt-0.5">
+                    {deleteConfirmation.name}
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
+                {deleteConfirmation.details}
+              </p>
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmation(null)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={executeDelete}
+                  className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-md transition-all cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <Lucide.Trash2 className="w-3.5 h-3.5" />
+                  <span>Confirm Delete</span>
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

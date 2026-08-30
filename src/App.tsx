@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   School, 
+  CreditCard,
   Users, 
   GraduationCap, 
   Calendar, 
@@ -13,7 +14,8 @@ import {
   BookOpen, 
   Clock, 
   ArrowRight, 
-  UserPlus, 
+  UserPlus,
+  UserCheck, 
   Settings, 
   AlertCircle, 
   AlertTriangle,
@@ -78,6 +80,8 @@ import { InventoryCatalog } from './components/InventoryCatalog';
 import { AnalyticsReports } from './components/AnalyticsReports';
 import { QuickActionMenu } from './components/QuickActionMenu';
 import TerminalGradesControl from './components/TerminalGradesControl';
+import StudentBulkImportModal from './components/StudentBulkImportModal';
+import ResultsManagementModule from './components/ResultsManagementModule';
 import { DEFAULT_ACADEMIC_DB } from './data/defaultDatabase';
 import { EmployeeUserAccountsConsole } from './components/EmployeeUserAccountsConsole';
 import { EmployeeBranchHistory, EmploymentStatus, UserAccountStatus, EmployeeIdConfig } from './types/employeeIdentity';
@@ -367,6 +371,21 @@ interface ScheduleEntry {
   branch?: 'GN' | 'RS';
 }
 
+interface FamilyAccount {
+  id: string;
+  familyName: string;
+  primaryParentName: string;
+  primaryParentEmail: string;
+  primaryParentPhone: string;
+  memberCount?: number;
+  childrenNames?: string;
+  totalBilled?: number;
+  totalOutstanding?: number;
+  totalPaid?: number;
+  students?: Array<{ id: string; name: string; grade: string; branch: string; enrollmentNo?: string; classSection?: string }>;
+  createdAt?: string;
+}
+
 interface AdmissionApplication {
   id: string;
   name: string;
@@ -395,11 +414,23 @@ interface AdmissionApplication {
   htEvaluation?: 'Recommended' | 'Conditional' | 'Rejected';
   htReviewedBy?: string;
   htReviewedDate?: string;
+  interviewScorecard?: {
+    parentPunctuality: number;
+    parentEngagement: number;
+    studentResponsiveness: number;
+    academicReadiness: number;
+    totalScore: number;
+  };
+  familyAccountId?: string;
+  familyHeadName?: string;
+  isExistingFamily?: boolean;
 
   // Chairman approval details
   chairmanNotes?: string;
   allocatedSection?: string;
   chairmanApprovedDate?: string;
+  feeTemplateId?: string;
+  autoClassFee?: number;
 }
 
 // Client-side mapping functions
@@ -640,20 +671,38 @@ export default function App() {
     };
   }, [activeTab]);
 
+  const [resultsSubTab, setResultsSubTab] = useState<'entry' | 'cards' | 'analysis'>('entry');
   const [classesSubTab, setClassesSubTab] = useState<'classes' | 'subjects' | 'curriculum_checklists' | 'lesson_plans' | 'teaching_records'>('classes');
 
+  const [attendanceDeskTab, setAttendanceDeskTab] = useState<'student_daily' | 'staff_matrix'>('student_daily');
+
   const handleSubmenuSelect = (subId: string) => {
-    if (subId === 'academics_classes' || subId === 'academics_sections' || subId === 'academics_islamia') {
+    // 1. Staff & HR
+    if (subId === 'staff_directory') {
+      setHrSubTab('personnel');
+    } else if (subId === 'staff_payroll') {
+      setHrSubTab('payrollRegister');
+    }
+    // 2. Attendance Desk
+    else if (subId === 'attendance_student') {
+      setAttendanceDeskTab('student_daily');
+    } else if (subId === 'attendance_staff') {
+      setAttendanceDeskTab('staff_matrix');
+    }
+    // 3. Academics Hub
+    else if (subId === 'academics_curriculum' || subId === 'academics_classes' || subId === 'academics_sections' || subId === 'academics_islamia') {
       setClassesSubTab('classes');
     } else if (subId === 'academics_subjects') {
       setClassesSubTab('subjects');
-    } else if (subId === 'academics_curriculum' || subId === 'academics_scheme') {
+    } else if (subId === 'academics_scheme') {
       setClassesSubTab('curriculum_checklists');
     } else if (subId === 'academics_lessons') {
       setClassesSubTab('lesson_plans');
     } else if (subId === 'academics_teaching_records') {
       setClassesSubTab('teaching_records');
-    } else if (subId === 'students_directory') {
+    }
+    // 4. Students Directory & Dossiers
+    else if (subId === 'students_directory') {
       setStudentsSubTab('directory');
       setStudentSelectionPrompt(null);
     } else if (subId === 'students_coverage') {
@@ -690,6 +739,14 @@ export default function App() {
     } else if (subId === 'students_transfer') {
       setStudentsSubTab('transfer');
       setStudentSelectionPrompt(null);
+    }
+    // 5. Financial Management (Consolidated Hubs)
+    else if (subId === 'financial_structures') {
+      setFinancialActiveSection('fee_heads');
+    } else if (subId === 'financial_billing_hub') {
+      setFinancialActiveSection('student_billing');
+    } else if (subId === 'financial_expenses_reports') {
+      setFinancialActiveSection('expense_management');
     } else if (subId === 'financial_discounts' || subId === 'financial_sibling_relief') {
       setFinancialActiveSection('sibling_discounts');
     } else if (subId === 'financial_heads') {
@@ -710,6 +767,24 @@ export default function App() {
       setFinancialActiveSection('financial_reports');
     } else if (subId === 'financial_settings_main') {
       setFinancialActiveSection('general');
+    }
+    // 7. Results Management & Certification Hub
+    else if (subId === 'results_entry') {
+      setResultsSubTab('entry');
+    } else if (subId === 'results_cards') {
+      setResultsSubTab('cards');
+    } else if (subId === 'results_analysis') {
+      setResultsSubTab('analysis');
+    }
+    // 6. Security Hub
+    else if (subId === 'admin_users') {
+      setSecuritySubTab('users');
+    } else if (subId === 'admin_roles') {
+      setSecuritySubTab('permissions');
+    } else if (subId === 'admin_audit') {
+      setSecuritySubTab('audit');
+    } else if (subId === 'admin_backup') {
+      setSecuritySubTab('settings');
     }
   };
 
@@ -775,6 +850,14 @@ export default function App() {
       localStorage.setItem('sams_teachers', JSON.stringify(teachers));
     } catch (e) {}
   }, [teachers]);
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    targetName?: string;
+    badge?: string;
+    onConfirm: () => Promise<void> | void;
+  } | null>(null);
   const [classes, setClasses] = useState<ClassRecord[]>(() => (DEFAULT_ACADEMIC_DB.classes as any) || []);
   const [schedules, setSchedules] = useState<ScheduleEntry[]>(() => (DEFAULT_ACADEMIC_DB.schedules as any) || []);
   const [subjects, setSubjects] = useState<Subject[]>(() => (DEFAULT_ACADEMIC_DB.subjects as any) || []);
@@ -893,7 +976,7 @@ export default function App() {
   const [studentsSubTab, setStudentsSubTab] = useState<'directory' | 'promotion' | 'transfer'>('directory');
   const [studentSelectionPrompt, setStudentSelectionPrompt] = useState<string | null>(null);
   const [idCardTheme, setIdCardTheme] = useState<'indigo' | 'emerald' | 'amber' | 'midnight'>('indigo');
-  const [idCardValidity, setIdCardValidity] = useState<string>('2025/2026');
+  const [idCardValidity, setIdCardValidity] = useState<string>('2026/2027');
   const [idCardShowBarcode, setIdCardShowBarcode] = useState<boolean>(true);
   const [newDocTitle, setNewDocTitle] = useState<string>('');
   const [newDocCategory, setNewDocCategory] = useState<string>('Birth Certificate');
@@ -1169,6 +1252,9 @@ export default function App() {
   const [parentEngagement, setParentEngagement] = useState(8);
   const [studentResponsiveness, setStudentResponsiveness] = useState(8);
   const [academicReadiness, setAcademicReadiness] = useState(8);
+  const [familyAccounts, setFamilyAccounts] = useState<FamilyAccount[]>([]);
+  const [selectedHtFamilyId, setSelectedHtFamilyId] = useState('');
+  const [htFamilyMode, setHtFamilyMode] = useState<'existing' | 'new'>('new');
 
   // Chairman form
   const [chairmanNotes, setChairmanNotes] = useState('');
@@ -1223,31 +1309,30 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          return parsed.map((usr: any) => {
-            if (usr.id === 'usr-admin' || usr.role === 'Super Administrator' || usr.role === 'Super Admin' || usr.email === 'admin@sams.com') {
-              usr.name = 'Engr. Usamah M. Qamar';
-              usr.email = 'usamah.m.qamar@gmail.com';
-              usr.password = 'Q@marm@jeed786';
-              usr.role = 'Super Administrator';
-            }
-            if (usr.role === 'Super Admin') usr.role = 'Super Administrator';
-            if (usr.role === 'Branch Admin') usr.role = 'Branch Administrator';
-            if (!usr.primaryBranch) usr.primaryBranch = usr.branch || 'RS';
-            if (!usr.additionalBranches) usr.additionalBranches = usr.branch === 'All' ? ['RS', 'GN'] : [usr.primaryBranch];
-            return usr;
-          });
+          // Keep only Super Admin and user-created custom accounts, strip mock demo accounts
+          const cleaned = parsed.filter((usr: any) => 
+            usr.email?.toLowerCase() === 'usamah.m.qamar@gmail.com' ||
+            (!['proprietor@sams.com', 'maryam.s@sams.rs.com', 'principal@sams.com', 'finance@sams.gn.com', 'stores@sams.com', 'yusuf.idris@sams.gn.com', 'aisha.b@gmail.com', 'admin@sams.com'].includes(usr.email?.toLowerCase()) && !['usr-1', 'usr-2', 'usr-3', 'usr-4', 'usr-5', 'usr-6', 'usr-principal'].includes(usr.id))
+          );
+          if (cleaned.length > 0) {
+            return cleaned.map((usr: any) => {
+              if (usr.id === 'usr-admin' || usr.role === 'Super Administrator' || usr.role === 'Super Admin' || usr.email?.toLowerCase() === 'usamah.m.qamar@gmail.com') {
+                usr.name = 'Engr. Usamah M. Qamar';
+                usr.email = 'usamah.m.qamar@gmail.com';
+                usr.password = 'Q@marm@jeed786';
+                usr.role = 'Super Administrator';
+                usr.branch = 'All';
+                usr.primaryBranch = 'All';
+                usr.additionalBranches = ['RS', 'GN'];
+              }
+              return usr;
+            });
+          }
         }
       } catch (e) {}
     }
     return [
-      { id: 'usr-admin', name: 'Engr. Usamah M. Qamar', email: 'usamah.m.qamar@gmail.com', password: 'Q@marm@jeed786', role: 'Super Administrator', branch: 'All', status: 'Active', employeeId: 'HQ-EMP-0001', primaryBranch: 'All', additionalBranches: ['RS', 'GN'], phone: '+234 803 123 4567', accessCount: 257 },
-      { id: 'usr-1', name: 'Alh. Ibrahim Usman', email: 'proprietor@sams.com', role: 'Proprietor', branch: 'All', status: 'Active', employeeId: 'HQ-EMP-0002', primaryBranch: 'All', additionalBranches: ['RS', 'GN'], phone: '+234 803 111 2222', accessCount: 142 },
-      { id: 'usr-2', name: 'Mrs. Maryam Sani', email: 'maryam.s@sams.rs.com', role: 'Branch Administrator', branch: 'RS', status: 'Active', employeeId: 'RJS-EMP-0001', primaryBranch: 'RS', additionalBranches: ['RS'], phone: '+234 803 222 3333', accessCount: 88 },
-      { id: 'usr-principal', name: 'Mrs. Grace Aliyu', email: 'principal@sams.com', role: 'Principal', branch: 'GN', status: 'Active', employeeId: 'GWN-EMP-0001', primaryBranch: 'GN', additionalBranches: ['GN'], phone: '+234 803 999 8888', accessCount: 112 },
-      { id: 'usr-3', name: 'Malam Abubakar Bello', email: 'finance@sams.gn.com', role: 'Accountant', branch: 'GN', status: 'Active', employeeId: 'GWN-EMP-0002', primaryBranch: 'GN', additionalBranches: ['GN'], phone: '+234 803 333 4444', accessCount: 204 },
-      { id: 'usr-4', name: 'Malam Junaid Aliyu', email: 'stores@sams.com', role: 'Store Manager', branch: 'All', status: 'Active', employeeId: 'HQ-EMP-0003', primaryBranch: 'All', additionalBranches: ['RS', 'GN'], phone: '+234 803 444 5555', accessCount: 51 },
-      { id: 'usr-5', name: 'Dr. Yusuf Idris', email: 'yusuf.idris@sams.gn.com', role: 'Teacher', branch: 'GN', status: 'Active', employeeId: 'GWN-EMP-0003', primaryBranch: 'GN', additionalBranches: ['GN'], phone: '+234 803 555 6666', accessCount: 119 },
-      { id: 'usr-6', name: 'Engr. Aisha Bello', email: 'aisha.b@gmail.com', role: 'Parent', branch: 'RS', status: 'Active', employeeId: 'RJS-PAR-0001', primaryBranch: 'RS', additionalBranches: ['RS'], phone: '+234 803 666 7777', accessCount: 37 }
+      { id: 'usr-admin', name: 'Engr. Usamah M. Qamar', email: 'usamah.m.qamar@gmail.com', password: 'Q@marm@jeed786', role: 'Super Administrator', branch: 'All', status: 'Active', employeeId: 'HQ-EMP-0001', primaryBranch: 'All', additionalBranches: ['RS', 'GN'], phone: '+234 803 123 4567', accessCount: 257 }
     ];
   });
 
@@ -1978,7 +2063,16 @@ export default function App() {
     }
   };
 
-  const renderSaaSSchoolLogo = (logoType: SaasSchoolConfig['logoType'], shortCode: string) => {
+  const renderSaaSSchoolLogo = (logoType: SaasSchoolConfig['logoType'], shortCode: string, customLogoUrl?: string) => {
+    if (customLogoUrl || activeSaaSSchool?.customLogoUrl) {
+      return (
+        <img
+          src={customLogoUrl || activeSaaSSchool?.customLogoUrl}
+          alt={activeSaaSSchool?.name || "School Logo"}
+          className="max-h-full max-w-full object-contain rounded-lg"
+        />
+      );
+    }
     switch(logoType) {
       case 'shield': return <ShieldCheck className="w-6 h-6" />;
       case 'star': return <Star className="w-6 h-6" />;
@@ -2254,6 +2348,7 @@ export default function App() {
                 if (Array.isArray(data.eventCategories)) setEventCategories(data.eventCategories);
                 if (Array.isArray(data.events)) setEvents(data.events);
                 if (Array.isArray(data.feeTemplates)) setFeeTemplates(data.feeTemplates);
+                if (Array.isArray(data.familyAccounts)) setFamilyAccounts(data.familyAccounts);
 
                 if (Array.isArray(data.students) && data.students.length > 0) {
                   setReportStudent((prev: any) => prev || data.students[0]);
@@ -2293,7 +2388,8 @@ export default function App() {
               fetchJsonSafe('/api/holidays'),
               fetchJsonSafe('/api/event-categories'),
               fetchJsonSafe('/api/events'),
-              fetchJsonSafe('/api/fee_templates')
+              fetchJsonSafe('/api/fee_templates'),
+              fetchJsonSafe('/api/family_accounts')
             ]);
 
             let successCount = 0;
@@ -2314,6 +2410,7 @@ export default function App() {
             const r12 = getVal(results[12]); if (r12) { setEventCategories(r12); successCount++; }
             const r13 = getVal(results[13]); if (r13) { setEvents(r13); successCount++; }
             const r14 = getVal(results[14]); if (r14) { setFeeTemplates(r14); successCount++; }
+            const r15 = getVal(results[15]); if (r15 && Array.isArray(r15)) { setFamilyAccounts(r15); }
 
             if (successCount > 0) {
               setDbError(null);
@@ -2382,19 +2479,32 @@ export default function App() {
     }
   };
 
-  const handleDeleteClass = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this class? Associated students, teachers, and logs will remain but their Class assigned context will be unlinked.")) return;
-    try {
-      const res = await fetch(`/api/classes/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setClasses(prev => prev.filter(c => c.id !== id));
-        if (selectedClass?.id === id) {
-          setSelectedClass(null);
+  const handleDeleteClass = (clsOrId: string | ClassRecord) => {
+    const cls = typeof clsOrId === 'string' 
+      ? classes.find(c => c.id === clsOrId) || { id: clsOrId, name: 'Selected Class', level: 'primary' as const, branch: 'GN', subjects: [] }
+      : clsOrId;
+      
+    setDeleteModal({
+      isOpen: true,
+      title: 'Delete Academic Class',
+      badge: `${cls.level.toUpperCase()} WING`,
+      targetName: cls.name,
+      description: 'Are you sure you want to permanently delete this class from the Allocation Hub? Associated students, teachers, and logs will remain preserved in the institutional database, but their class assignment will be unlinked.',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/classes/${cls.id}`, { method: 'DELETE' });
+          if (res.ok) {
+            setClasses(prev => prev.filter(c => c.id !== cls.id));
+            if (selectedClass?.id === cls.id) {
+              setSelectedClass(null);
+            }
+            await fetchDatabase();
+          }
+        } catch (e) {
+          console.error(e);
         }
       }
-    } catch (e) {
-      console.error(e);
-    }
+    });
   };
 
   const handleUpdateClassSubjects = async (classId: string, updatedSubjects: string[]) => {
@@ -2484,17 +2594,29 @@ export default function App() {
     }
   };
 
-  const handleDeleteSubject = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this master syllabus subject? This will not remove the name from existing reports but will exclude it from future selections.")) return;
-    try {
-      const res = await fetch(`/api/subjects/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setSubjects(prev => prev.filter(s => s.id !== id));
-        await fetchDatabase();
+  const handleDeleteSubject = (subOrId: string | Subject) => {
+    const sub = typeof subOrId === 'string'
+      ? subjects.find(s => s.id === subOrId) || { id: subOrId, name: 'Selected Subject', level: 'primary' as const, requirement: 'compulsory' as const }
+      : subOrId;
+
+    setDeleteModal({
+      isOpen: true,
+      title: 'Delete Master Syllabus Subject',
+      badge: `${sub.level.toUpperCase()}`,
+      targetName: sub.name,
+      description: 'Are you sure you want to delete this master syllabus subject? Existing report records will be preserved, but it will be removed from future course selection dropdowns.',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/subjects/${sub.id}`, { method: 'DELETE' });
+          if (res.ok) {
+            setSubjects(prev => prev.filter(s => s.id !== sub.id));
+            await fetchDatabase();
+          }
+        } catch (err) {
+          console.error(err);
+        }
       }
-    } catch (err) {
-      console.error(err);
-    }
+    });
   };
 
   const handleAssignStudentToClass = async (studentId: string, className: string) => {
@@ -2615,12 +2737,163 @@ export default function App() {
     }
   };
 
+  // Helper to determine automated class fee for candidate preview
+  const getAutoClassFeeInfo = (application: AdmissionApplication | undefined) => {
+    if (!application) return { totalFee: 155000, templateName: "Primary School Fee Schedule", items: [{ name: "Tuition Fee", amount: 120000 }, { name: "Books & Study Materials", amount: 25000 }, { name: "ICT & Assessment Levy", amount: 10000 }] };
+    const grade = (application.grade || "").toLowerCase();
+    const level = (application.level || "").toLowerCase();
+    const branch = application.branch || "GN";
+
+    let sectionId = "";
+    if (level === 'nursery' || grade.includes('k1') || grade.includes('k2') || grade.includes('nursery') || grade.includes('reception') || grade.includes('preschool')) {
+      sectionId = branch === 'RS' ? 'sec-nursery-rs' : 'sec-nursery';
+    } else if (level === 'secondary' || grade.includes('jss') || grade.includes('ss') || grade.includes('grade 7') || grade.includes('grade 8') || grade.includes('grade 9')) {
+      sectionId = branch === 'RS' ? 'sec-junior-secondary-rs' : 'sec-junior-secondary';
+    } else if (level === 'islamia' || grade.includes('islamia') || grade.includes('tahfeez')) {
+      sectionId = branch === 'RS' ? 'sec-islamia-rs' : 'sec-islamia';
+    } else {
+      sectionId = branch === 'RS' ? 'sec-primary-rs' : 'sec-primary';
+    }
+
+    const matchingTemplate = feeTemplates.find((t: any) => 
+      t.branch === branch && (t.sectionId === sectionId || t.sectionId === sectionId.replace('-rs', ''))
+    ) || feeTemplates.find((t: any) => t.branch === branch) || feeTemplates[0];
+
+    if (matchingTemplate && matchingTemplate.totalFee) {
+      return {
+        totalFee: matchingTemplate.totalFee,
+        templateName: `${matchingTemplate.branch === 'RS' ? 'Runjin Sambo' : 'Gawun Nama'} Term Fee Schedule (${matchingTemplate.sectionId || sectionId})`,
+        items: [
+          { name: "Tuition Fee", amount: Math.round(matchingTemplate.totalFee * 0.75) },
+          { name: "Textbooks & Learning Material Kits", amount: Math.round(matchingTemplate.totalFee * 0.15) },
+          { name: "Institutional Development & ICT", amount: Math.round(matchingTemplate.totalFee * 0.10) }
+        ]
+      };
+    }
+
+    if (sectionId.includes('nursery')) {
+      return {
+        totalFee: 150000,
+        templateName: "Nursery / Kindergarten Fee Schedule",
+        items: [
+          { name: "Tuition Fee", amount: 115000 },
+          { name: "Textbooks & Montessori Activity Kits", amount: 25000 },
+          { name: "Activity & Development Levy", amount: 10000 }
+        ]
+      };
+    } else if (sectionId.includes('secondary')) {
+      return {
+        totalFee: 165000,
+        templateName: "Junior Secondary Fee Schedule",
+        items: [
+          { name: "Tuition Fee", amount: 130000 },
+          { name: "Textbooks & Science Lab Kits", amount: 25000 },
+          { name: "ICT & Assessment Levy", amount: 10000 }
+        ]
+      };
+    } else if (sectionId.includes('islamia')) {
+      return {
+        totalFee: 75000,
+        templateName: "Islamia / Tahfeez Fee Schedule",
+        items: [
+          { name: "Tuition Fee", amount: 60000 },
+          { name: "Quranic & Arabic Study Materials", amount: 15000 }
+        ]
+      };
+    } else {
+      return {
+        totalFee: 155000,
+        templateName: "Primary School Fee Schedule",
+        items: [
+          { name: "Tuition Fee", amount: 120000 },
+          { name: "Core Textbooks & Workbooks", amount: 25000 },
+          { name: "ICT & Assessment Levy", amount: 10000 }
+        ]
+      };
+    }
+  };
+
+  // Helper to compile candidate family dossier and enrolled siblings
+  const getCandidateFamilyDossier = (cand: AdmissionApplication | undefined) => {
+    if (!cand) return null;
+    const pEmail = (cand.parentEmail || '').trim().toLowerCase();
+    const pPhone = (cand.parentPhone || '').trim();
+    const pName = (cand.parentName || '').trim().toLowerCase();
+
+    let targetFamily = cand.familyAccountId 
+      ? familyAccounts.find(f => f.id === cand.familyAccountId) 
+      : undefined;
+
+    if (!targetFamily) {
+      targetFamily = familyAccounts.find(f => {
+        const fe = (f.primaryParentEmail || '').trim().toLowerCase();
+        const fp = (f.primaryParentPhone || '').trim();
+        const fn = (f.primaryParentName || '').trim().toLowerCase();
+        return (pEmail && fe && fe === pEmail) ||
+               (pPhone && fp && fp === pPhone) ||
+               (pName && fn && (fn === pName || fn.includes(pName) || pName.includes(fn)));
+      });
+    }
+
+    const enrolledSiblings = students.filter(s => {
+      if (s.name.toLowerCase() === cand.name.toLowerCase()) return false;
+      if (targetFamily && s.familyId === targetFamily.id) return true;
+      const se = (s.parentEmail || '').trim().toLowerCase();
+      const sp = (s.parentPhone || '').trim();
+      const sn = (s.parentName || '').trim().toLowerCase();
+      return (pEmail && se && se === pEmail) ||
+             (pPhone && sp && sp === pPhone) ||
+             (pName && sn && (sn === pName || sn.includes(pName) || pName.includes(sn)));
+    });
+
+    return {
+      family: targetFamily,
+      familyHeadName: cand.familyHeadName || targetFamily?.primaryParentName || cand.parentName || "Parent / Guardian",
+      familyName: targetFamily?.familyName || `${(cand.parentName || 'Parent').split(' ')[0]} Family`,
+      primaryPhone: targetFamily?.primaryParentPhone || cand.parentPhone,
+      primaryEmail: targetFamily?.primaryParentEmail || cand.parentEmail,
+      enrolledSiblings,
+      isExistingFamily: enrolledSiblings.length > 0 || !!targetFamily
+    };
+  };
+
+  // Auto-detect matching family when candidate is chosen by Head Teacher
+  useEffect(() => {
+    if (!selectedAdmissionId) return;
+    const cand = admissions.find(a => a.id === selectedAdmissionId);
+    if (!cand) return;
+
+    if (cand.familyAccountId) {
+      setSelectedHtFamilyId(cand.familyAccountId);
+      setHtFamilyMode('existing');
+      return;
+    }
+
+    const dossier = getCandidateFamilyDossier(cand);
+    if (dossier && dossier.family) {
+      setSelectedHtFamilyId(dossier.family.id);
+      setHtFamilyMode('existing');
+    } else if (dossier && dossier.enrolledSiblings.length > 0 && dossier.enrolledSiblings[0].familyId) {
+      setSelectedHtFamilyId(dossier.enrolledSiblings[0].familyId);
+      setHtFamilyMode('existing');
+    } else {
+      setHtFamilyMode('new');
+      setSelectedHtFamilyId('');
+    }
+  }, [selectedAdmissionId, admissions, familyAccounts, students]);
+
   const handleHTReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedAdmissionId) {
       showAdmissionsFeedback('error', "Please select a candidate file to evaluate!");
       return;
     }
+    const currentApp = admissions.find(a => a.id === selectedAdmissionId);
+    const chosenFamily = familyAccounts.find(f => f.id === selectedHtFamilyId);
+    const familyHead = htFamilyMode === 'existing' && chosenFamily 
+      ? chosenFamily.primaryParentName 
+      : (currentApp?.parentName || "Parent / Guardian");
+
     try {
       const res = await fetch('/api/admissions/ht-review', {
         method: 'POST',
@@ -2636,15 +2909,23 @@ export default function App() {
             studentResponsiveness,
             academicReadiness,
             totalScore: parentPunctuality + parentEngagement + studentResponsiveness + academicReadiness
-          }
+          },
+          familyAccountId: htFamilyMode === 'existing' ? selectedHtFamilyId : undefined,
+          familyHeadName: familyHead,
+          isExistingFamily: htFamilyMode === 'existing'
         })
       });
       if (res.ok) {
         const data = await res.json();
         setAdmissions(prev => prev.map(a => a.id === data.id ? data : a));
-        showAdmissionsFeedback('success', `Principal's evaluation score for ${data.name} submitted successfully! SAMS Scorecard: ${parentPunctuality + parentEngagement + studentResponsiveness + academicReadiness}/40. This file has been forwarded to the SAMS Board Chairman Boardroom. Click Stage 4 to proceed with enrollment authorization!`);
+        const familyMsg = htFamilyMode === 'existing' && chosenFamily 
+          ? ` Linked to Family Portfolio "${chosenFamily.familyName}" (${familyHead}).` 
+          : ` Grouped under Family Head (${familyHead}).`;
+        showAdmissionsFeedback('success', `Principal's evaluation score for ${data.name} submitted successfully! SAMS Scorecard: ${parentPunctuality + parentEngagement + studentResponsiveness + academicReadiness}/40.${familyMsg} Forwarded to Chairman Boardroom. Click Stage 4 to proceed with enrollment authorization!`);
         setSelectedAdmissionId('');
         setHtReviewNotes('');
+        setSelectedHtFamilyId('');
+        setHtFamilyMode('new');
         setParentPunctuality(8);
         setParentEngagement(8);
         setStudentResponsiveness(8);
@@ -2672,15 +2953,26 @@ export default function App() {
         body: JSON.stringify({
           id: selectedAdmissionId,
           chairmanNotes,
-          allocatedSection,
-          feeTemplateId: selectedFeeTemplateId
+          allocatedSection
         })
       });
       if (res.ok) {
         const result = await res.json();
         setAdmissions(prev => prev.map(a => a.id === result.application.id ? result.application : a));
         setStudents(prev => [...prev, result.student]);
-        showAdmissionsFeedback('success', `Congratulations! SAMS Board Chairman has signed the enrollment deed! Candidate is officially admitted. SAMS Permanent Roll Number: ${result.student.enrollmentNo}. Auto-billing template and classroom space allocated in Section ${allocatedSection}.`);
+
+        try {
+          const famRes = await fetch('/api/family_accounts');
+          if (famRes.ok) {
+            const famData = await famRes.json();
+            if (Array.isArray(famData)) setFamilyAccounts(famData);
+          }
+        } catch (_) {}
+
+        const feeFormatted = result.student?.feeStatements?.outstandingBalance 
+          ? `‚Ç¶${result.student.feeStatements.outstandingBalance.toLocaleString()}`
+          : '‚Ç¶150,000';
+        showAdmissionsFeedback('success', `Congratulations! SAMS Board Chairman has signed the enrollment deed! Candidate is officially admitted. SAMS Permanent Roll Number: ${result.student.enrollmentNo}. Class Section: ${allocatedSection}. Auto-allocated Class Fee: ${feeFormatted} automatically assigned and posted to student & family ledger.`);
         setSelectedAdmissionId('');
         setChairmanNotes('');
         setSelectedFeeTemplateId('');
@@ -2939,18 +3231,28 @@ export default function App() {
   };
 
   // Delete student
-  const handleDeleteStudent = async (id: string) => {
-    if (!confirm("Are you sure you want to dismiss this student record? This clears all historical continuous assessments.")) return;
-    try {
-      const response = await fetch(`/api/students/${id}`, { method: 'DELETE' });
-      if (response.ok) {
-        setStudents(prev => prev.filter(s => s.id !== id));
-        if (selectedStudent?.id === id) setSelectedStudent(null);
-        if (reportStudent?.id === id) setReportStudent(null);
+  const handleDeleteStudent = (id: string) => {
+    const student = students.find(s => s.id === id);
+    setDeleteModal({
+      isOpen: true,
+      title: 'Dismiss Student Record',
+      badge: student?.grade || 'STUDENT',
+      targetName: student?.name || 'Selected Student',
+      description: 'Are you sure you want to dismiss this student record from active rosters? Continuous assessments and logs will be unlinked from active views.',
+      onConfirm: async () => {
+        try {
+          const response = await fetch(`/api/students/${id}`, { method: 'DELETE' });
+          if (response.ok) {
+            setStudents(prev => prev.filter(s => s.id !== id));
+            if (selectedStudent?.id === id) setSelectedStudent(null);
+            if (reportStudent?.id === id) setReportStudent(null);
+            await fetchDatabase();
+          }
+        } catch (err) {
+          console.error(err);
+        }
       }
-    } catch (err) {
-      console.error(err);
-    }
+    });
   };
 
   // Add new teacher / employee with branch identity and user account linkage
@@ -3089,17 +3391,27 @@ export default function App() {
   };
 
   // Delete teacher
-  const handleDeleteTeacher = async (id: string) => {
-    if (!confirm("Dismiss this teacher profile from directory?")) return;
-    try {
-      const response = await fetch(`/api/teachers/${id}`, { method: 'DELETE' });
-      if (response.ok) {
-        setTeachers(prev => prev.filter(t => t.id !== id));
-        if (selectedTeacher?.id === id) setSelectedTeacher(null);
+  const handleDeleteTeacher = (id: string) => {
+    const teacher = teachers.find(t => t.id === id);
+    setDeleteModal({
+      isOpen: true,
+      title: 'Dismiss Staff Profile',
+      badge: teacher?.department || 'STAFF',
+      targetName: teacher?.name || 'Selected Teacher',
+      description: 'Are you sure you want to dismiss this staff profile from the institutional directory?',
+      onConfirm: async () => {
+        try {
+          const response = await fetch(`/api/teachers/${id}`, { method: 'DELETE' });
+          if (response.ok) {
+            setTeachers(prev => prev.filter(t => t.id !== id));
+            if (selectedTeacher?.id === id) setSelectedTeacher(null);
+            await fetchDatabase();
+          }
+        } catch (err) {
+          console.error(err);
+        }
       }
-    } catch (err) {
-      console.error(err);
-    }
+    });
   };
 
   // Save changes back to a teacher profile (leaves, payroll, lessonPlans, etc)
@@ -3674,6 +3986,9 @@ export default function App() {
         selectedBranch={selectedBranch}
         setSelectedBranch={setSelectedBranch}
         availableBranches={availableBranches}
+        activeSchoolConfig={activeSaaSSchool}
+        schoolLogoUrl={activeSaaSSchool?.customLogoUrl}
+        onOpenSchoolSettings={() => setActiveTab('school_setup')}
         userPermittedBranches={currentActiveUser?.authorizedBranches || (currentSimulatedRole === 'Super Administrator' || currentSimulatedRole === 'Super Admin' || currentSimulatedRole === 'Proprietor' ? ['All', 'GN', 'RS'] : [selectedBranch])}
         isSuperAdmin={currentSimulatedRole === 'Super Administrator' || currentSimulatedRole === 'Super Admin'}
         aiConfigured={aiConfigured}
@@ -4165,6 +4480,76 @@ export default function App() {
                   TAB: DAILY ATTENDANCE TAKE & AUDIT DESK
                   ------------------------------------------------------------- */}
               {activeTab === 'attendance_desk' && (() => {
+                if (attendanceDeskTab === 'staff_matrix') {
+                  return (
+                    <div id="erp-view-attendance-desk" className="space-y-6">
+                      {/* Title and Top Alerts */}
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full border border-indigo-200">
+                              Attendance Operations
+                            </span>
+                            <span className="text-slate-500 text-xs font-mono">‚Ä¢ Active Campus: {selectedBranch === 'GN' ? 'Gawun Nama (GN)' : 'Runjin Sambo (RS)'}</span>
+                          </div>
+                          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2 mt-1">
+                            <ClipboardCheck className="w-5 h-5 text-indigo-600" />
+                            Staff &amp; Faculty Monthly Attendance Matrix
+                          </h2>
+                          <p className="text-xs text-slate-500 font-medium">
+                            Comprehensive monthly clock-in calendar, daily status toggles (Present, Absent, Sick, Leave), and faculty attendance summaries.
+                          </p>
+                        </div>
+                        
+                        <button
+                          type="button"
+                          onClick={() => setAttendanceDeskTab('student_daily')}
+                          className="inline-flex items-center space-x-2 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold border border-indigo-200 transition-all cursor-pointer shadow-sm"
+                        >
+                          <UserCheck className="w-4 h-4 text-indigo-600" />
+                          <span>Switch to Student Daily Attendance</span>
+                        </button>
+                      </div>
+
+                      {/* In-Page Horizontal Tab Bar */}
+                      <div className="flex border-b border-slate-200 overflow-x-auto whitespace-nowrap scrollbar-none">
+                        <button
+                          type="button"
+                          onClick={() => setAttendanceDeskTab('student_daily')}
+                          className="px-6 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all flex items-center space-x-2 cursor-pointer shrink-0"
+                        >
+                          <UserCheck className="w-4 h-4 text-slate-400" />
+                          <span>üë®‚Äçüéì Student Daily Attendance Register</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAttendanceDeskTab('staff_matrix')}
+                          className="px-6 py-3 text-sm font-bold border-b-2 border-indigo-600 text-indigo-700 transition-all flex items-center space-x-2 cursor-pointer shrink-0"
+                        >
+                          <ClipboardCheck className="w-4 h-4 text-indigo-600" />
+                          <span>üë®‚Äçüè´ Staff Monthly Attendance Matrix</span>
+                          <span className="text-[10px] bg-indigo-100 text-indigo-800 font-mono px-2 py-0.5 rounded-full font-bold">
+                            {teachers.length} Faculty
+                          </span>
+                        </button>
+                      </div>
+
+                      {/* Embedded Staff Monthly Attendance Matrix */}
+                      <PayrollRegister
+                        teachers={teachers}
+                        onSaveTeacher={saveTeacherChanges}
+                        currentSimulatedRole={currentSimulatedRole}
+                        defaultViewTab="attendanceMatrix"
+                        loans={loans}
+                        setLoans={setLoans}
+                        advanceSalaries={advanceSalaries}
+                        setAdvanceSalaries={setAdvanceSalaries}
+                        bonuses={bonuses}
+                        setBonuses={setBonuses}
+                      />
+                    </div>
+                  );
+                }
                 const gradesOptions = studentGradesList.length > 0 ? studentGradesList : ["Nursery 1", "Nursery 2", "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6", "Secondary 1", "Secondary 2", "Secondary 3"];
                 const sectionsOptions = studentSectionsList.length > 0 ? studentSectionsList : ["A", "B", "C"];
                 
@@ -4206,14 +4591,52 @@ export default function App() {
                     {/* Title and Top Alerts */}
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                       <div>
-                        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                        <div className="flex items-center space-x-2">
+                          <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full border border-indigo-200">
+                            Attendance Operations
+                          </span>
+                          <span className="text-slate-500 text-xs font-mono">‚Ä¢ Active Campus: {attendanceBranch === 'GN' ? 'Gawun Nama (GN)' : 'Runjin Sambo (RS)'}</span>
+                        </div>
+                        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2 mt-1">
                           <ClipboardCheck className="w-5 h-5 text-indigo-600" />
-                          Daily Attendance Taking &amp; Audit Desk
+                          Student Daily Attendance Desk
                         </h2>
                         <p className="text-xs text-slate-500 font-medium">
                           Take or modify student attendance sessions. Note cutoff guidelines and Super Admin delays auditing rules.
                         </p>
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setAttendanceDeskTab('staff_matrix')}
+                        className="inline-flex items-center space-x-2 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold border border-indigo-200 transition-all cursor-pointer shadow-sm"
+                      >
+                        <ClipboardCheck className="w-4 h-4 text-indigo-600" />
+                        <span>Switch to Staff Monthly Attendance Matrix</span>
+                      </button>
+                    </div>
+
+                    {/* In-Page Horizontal Tab Bar */}
+                    <div className="flex border-b border-slate-200 overflow-x-auto whitespace-nowrap scrollbar-none">
+                      <button
+                        type="button"
+                        onClick={() => setAttendanceDeskTab('student_daily')}
+                        className="px-6 py-3 text-sm font-bold border-b-2 border-indigo-600 text-indigo-700 transition-all flex items-center space-x-2 cursor-pointer shrink-0"
+                      >
+                        <UserCheck className="w-4 h-4 text-indigo-600" />
+                        <span>üë®‚Äçüéì Student Daily Attendance Register</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAttendanceDeskTab('staff_matrix')}
+                        className="px-6 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all flex items-center space-x-2 cursor-pointer shrink-0"
+                      >
+                        <ClipboardCheck className="w-4 h-4 text-slate-400" />
+                        <span>üë®‚Äçüè´ Staff Monthly Attendance Matrix</span>
+                        <span className="text-[10px] bg-indigo-100 text-indigo-800 font-mono px-2 py-0.5 rounded-full font-bold">
+                          {teachers.length} Faculty
+                        </span>
+                      </button>
                     </div>
 
                     {/* Top Panel: Config Filters and cutoff status */}
@@ -8676,8012 +9099,348 @@ export default function App() {
                                       date: new Date().toISOString().split('T')[0],
                                       rating: newTeacherPerfRating,
                                       comment: newTeacherPerfComment,
-                                      reviewer: newTeacherPerfReviewer
-                                    });
-                                    const updated = { ...selectedTeacher, performance: reviews };
-                                    setSelectedTeacher(updated);
-                                    saveTeacherChanges(updated);
-                                    setNewTeacherPerfComment('');
-                                    alert("Appraisal report card saved into staff directory.");
-                                  }}
-                                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 px-4 rounded-lg text-xs cursor-pointer shadow-xs"
-                                >
-                                  Commit Performance Appraisal
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Appraisal historical stream listing */}
-                            <div className="bg-white border border-slate-200/60 p-5 rounded-2xl shadow-xs space-y-4">
-                              <h3 className="text-sm font-bold text-slate-800 flex items-center space-x-1.5">
-                                <Award className="w-4 h-4 text-amber-500" />
-                                <span>Audit Review Records Summary</span>
-                              </h3>
-
-                              {(!selectedTeacher.performance || selectedTeacher.performance.length === 0) ? (
-                                <div className="py-12 border border-dashed text-center text-slate-400 text-xs rounded-xl">No historical performance appraisals available. Conduct an audit using the left form.</div>
-                              ) : (
-                                <div className="space-y-3.5 max-h-96 overflow-y-auto pr-1">
-                                  {selectedTeacher.performance.map((pf) => (
-                                    <div key={pf.id} className="bg-slate-50 border border-slate-250/60 p-3.5 rounded-xl space-y-2 text-xs">
-                                      <div className="flex justify-between items-start">
-                                        <div>
-                                          <span className="font-bold text-indigo-705 block">Review by: {pf.reviewer}</span>
-                                          <span className="text-[10px] text-slate-400 font-mono block">Review Date: {pf.date}</span>
-                                        </div>
-                                        <div className="flex text-amber-500 font-bold">
-                                          {Array.from({ length: pf.rating }).map((_, idx) => (
-                                            <span key={idx}>‚òÖ</span>
-                                          ))}
-                                          {Array.from({ length: 5 - pf.rating }).map((_, idx) => (
-                                            <span key={idx} className="text-slate-200">‚òÖ</span>
-                                          ))}
-                                        </div>
-                                      </div>
-                                      <p className="text-slate-600 bg-white p-2.5 rounded-lg border leading-relaxed">
-                                        {pf.comment}
-                                      </p>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-
-                          </div>
-                        )}
-
-                        {/* 6. LESSON PLANS ORGANIZER */}
-                        {teacherFolderTab === 'lessons' && (
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            
-                            {/* Lesson plan adder form */}
-                            <div className="bg-white border border-slate-200/60 p-5 rounded-2xl shadow-xs space-y-4">
-                              <h3 className="text-sm font-bold text-slate-800 flex items-center space-x-1.5">
-                                <BookOpen className="w-4 h-4 text-indigo-600" />
-                                <span>Post New Lesson Courseplan</span>
-                              </h3>
-
-                              <form onSubmit={(e) => {
-                                e.preventDefault();
-                                if (!newLessonPlanSubject || !newLessonPlanTopic) {
-                                  alert("Provide Subject and Topic details.");
-                                  return;
-                                }
-
-                                const plans = [...(selectedTeacher.lessonPlans || [])];
-                                plans.push({
-                                  id: "lp-" + Math.floor(Math.random() * 100000),
-                                  subject: newLessonPlanSubject,
-                                  grade: newLessonPlanGrade,
-                                  topic: newLessonPlanTopic,
-                                  objective: newLessonPlanObjective,
-                                  summary: newLessonPlanSummary,
-                                  date: newLessonPlanDate,
-                                  status: 'Approved' // auto-approve for supervisor, or can toggle draft
-                                });
-
-                                const updated = { ...selectedTeacher, lessonPlans: plans };
-                                setSelectedTeacher(updated);
-                                saveTeacherChanges(updated);
-
-                                // reset
-                                setNewLessonPlanSubject('');
-                                setNewLessonPlanGrade('');
-                                setNewLessonPlanTopic('');
-                                setNewLessonPlanObjective('');
-                                setNewLessonPlanSummary('');
-                                alert("Lesson planner course details committed successfully!");
-                              }} className="space-y-3 text-xs">
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div>
-                                    <label className="text-[9px] text-slate-400 font-bold block mb-1">Subject Name</label>
-                                    <input 
-                                      type="text" 
-                                      placeholder="e.g. Science"
-                                      className="w-full bg-slate-50 border rounded p-1.5"
-                                      value={newLessonPlanSubject}
-                                      onChange={(e) => setNewLessonPlanSubject(e.target.value)}
-                                      required
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="text-[9px] text-slate-400 font-bold block mb-1">Target Class</label>
-                                    <input 
-                                      type="text" 
-                                      placeholder="e.g. Grade 10"
-                                      className="w-full bg-slate-50 border rounded p-1.5"
-                                      value={newLessonPlanGrade}
-                                      onChange={(e) => setNewLessonPlanGrade(e.target.value)}
-                                      required
-                                    />
-                                  </div>
-                                </div>
-
-                                <div>
-                                  <label className="text-[9px] text-slate-400 font-bold block mb-1">Topic Header</label>
-                                  <input 
-                                    type="text" 
-                                    placeholder="e.g. Photosynthesis processes"
-                                    className="w-full bg-slate-50 border rounded p-1.5"
-                                    value={newLessonPlanTopic}
-                                    onChange={(e) => setNewLessonPlanTopic(e.target.value)}
-                                    required
-                                  />
-                                </div>
-
-                                <div>
-                                  <label className="text-[9px] text-slate-400 font-bold block mb-1">Specific Objective</label>
-                                  <input 
-                                    type="text" 
-                                    placeholder="Measure oxygen yield gas bubbles"
-                                    className="w-full bg-slate-50 border rounded p-1.5"
-                                    value={newLessonPlanObjective}
-                                    onChange={(e) => setNewLessonPlanObjective(e.target.value)}
-                                  />
-                                </div>
-
-                                <div>
-                                  <label className="text-[9px] text-slate-400 font-bold block mb-1">Instructional Summary</label>
-                                  <textarea
-                                    className="w-full bg-slate-50 border rounded p-1.5 h-16 placeholder-slate-400"
-                                    placeholder="Include classroom activities, steps, and diagnostic worksheets list..."
-                                    value={newLessonPlanSummary}
-                                    onChange={(e) => setNewLessonPlanSummary(e.target.value)}
-                                  />
-                                </div>
-
-                                <div className="grid grid-cols-1 gap-2">
-                                  <div>
-                                    <label className="text-[9px] text-slate-400 font-bold block mb-1">Expected Delivery Date</label>
-                                    <input 
-                                      type="date" 
-                                      className="w-full bg-slate-50 border rounded p-1.5 font-mono"
-                                      value={newLessonPlanDate}
-                                      onChange={(e) => setNewLessonPlanDate(e.target.value)}
-                                    />
-                                  </div>
-                                </div>
-
-                                <button
-                                  type="submit"
-                                  className="w-full bg-indigo-650 hover:bg-indigo-750 bg-indigo-600 text-white font-bold py-2 rounded-xl text-center shadow-xs cursor-pointer block mt-1"
-                                >
-                                  Publish Faculty Lesson Plan
-                                </button>
-                              </form>
-                            </div>
-
-                            {/* Lesson plans roster */}
-                            <div className="md:col-span-2 bg-white border border-slate-200/60 p-5 rounded-2xl shadow-xs space-y-4">
-                              <h3 className="text-sm font-bold text-slate-800 flex items-center space-x-1.5">
-                                <BookOpen className="w-4 h-4 text-emerald-500" />
-                                <span>Lesson Planner Directory</span>
-                              </h3>
-
-                              {(!selectedTeacher.lessonPlans || selectedTeacher.lessonPlans.length === 0) ? (
-                                <div className="py-12 border border-dashed border-slate-200 text-center text-slate-400 text-xs rounded-xl">No course lessons posted in this teacher folder index yet. Add study schedules on the left form.</div>
-                              ) : (
-                                <div className="space-y-3 max-h-128 overflow-y-auto pr-1">
-                                  {selectedTeacher.lessonPlans.map((plan) => (
-                                    <div key={plan.id} className="bg-slate-50 border border-slate-205 rounded-xl p-3.5 space-y-2.5 text-xs relative">
-                                      <div className="flex justify-between items-start">
-                                        <div>
-                                          <div className="flex items-center space-x-2">
-                                            <span className="font-bold text-slate-800 text-sm">{plan.topic}</span>
-                                            <span className="bg-slate-200/50 text-slate-600 rounded px-1.5 py-0.5 text-[9px] font-bold font-mono uppercase tracking-wider">{plan.grade}</span>
-                                          </div>
-                                          <span className="block text-[10px] text-slate-400 font-mono mt-0.5">Subject: {plan.subject} ‚Ä¢ Target: {plan.date}</span>
-                                        </div>
-                                        
-                                        <div className="flex items-center space-x-1.5">
-                                          <button
-                                            onClick={() => {
-                                              const toggledStatus = plan.status === 'Approved' ? 'Draft' : 'Approved';
-                                              const updatedPlans = selectedTeacher.lessonPlans?.map(p => 
-                                                p.id === plan.id ? { ...p, status: toggledStatus as any } : p
-                                              );
-                                              const updated = { ...selectedTeacher, lessonPlans: updatedPlans };
-                                              setSelectedTeacher(updated);
-                                              saveTeacherChanges(updated);
-                                              alert(`Lesson status toggled to: ${toggledStatus}`);
-                                            }}
-                                            className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest cursor-pointer ${
-                                              plan.status === 'Approved' 
-                                                ? 'bg-emerald-50 text-emerald-705 border border-emerald-200' 
-                                                : 'bg-amber-50 text-amber-705 border border-amber-200'
-                                            }`}
-                                          >
-                                            {plan.status || 'Approved'}
-                                          </button>
-                                          <button
-                                            onClick={() => {
-                                              const updatedPlans = selectedTeacher.lessonPlans?.filter(p => p.id !== plan.id);
-                                              const updated = { ...selectedTeacher, lessonPlans: updatedPlans };
-                                              setSelectedTeacher(updated);
-                                              saveTeacherChanges(updated);
-                                              alert("Lesson plan removed.");
-                                            }}
-                                            className="text-slate-400 hover:text-rose-600 p-1 rounded transition-colors"
-                                            title="Delete course plan"
-                                          >
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                          </button>
-                                        </div>
-                                      </div>
-
-                                      {plan.objective && (
-                                        <div className="bg-white p-2 border rounded border-slate-100">
-                                          <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold block mb-0.5">Learning Outcomes</span>
-                                          <p className="text-[11px] text-slate-700 font-medium">{plan.objective}</p>
-                                        </div>
-                                      )}
-
-                                      {plan.summary && (
-                                        <p className="text-slate-600 bg-white p-2 border border-slate-100 rounded leading-relaxed text-[11px]">
-                                          {plan.summary}
-                                        </p>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-
-                          </div>
-                        )}
-
-                        {/* 7. TEACHER GRADING & INTERACTIVE TOOLS DESK */}
-                        {teacherFolderTab === 'tools' && (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            
-                            {/* Homework Publishing block */}
-                            <div className="bg-white border border-slate-200/60 p-5 rounded-2xl shadow-xs space-y-4 text-xs">
-                              <h3 className="text-sm font-bold text-slate-800 flex items-center space-x-1.5">
-                                <Plus className="w-4 h-4 text-indigo-600" />
-                                <span>Publish &amp; Broadcast Homework Workspace</span>
-                              </h3>
-                              <p className="text-xs text-slate-500">
-                                Homework published from this command launcher automatically attaches as unresolved 'Pending' homework cards into the active report profiles of every student currently registered inside your assigned classes!
-                              </p>
-
-                              <div className="space-y-3.5 bg-slate-50 p-4 border rounded-xl">
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <label className="text-[9px] text-slate-400 font-bold block mb-1">Assessment Subject</label>
-                                    <select
-                                      value={newPubHwSubject}
-                                      onChange={(e) => setNewPubHwSubject(e.target.value)}
-                                      className="w-full bg-white border rounded px-2.5 py-1.5 focus:border-indigo-500 outline-none font-semibold text-slate-750"
-                                    >
-                                      {selectedTeacher.subjects?.map(s => (
-                                        <option key={s} value={s}>{s}</option>
-                                      ))}
-                                      {!selectedTeacher.subjects?.includes("Mathematics") && <option value="Mathematics">Mathematics</option>}
-                                      {!selectedTeacher.subjects?.includes("Science") && <option value="Science">Science</option>}
-                                      {!selectedTeacher.subjects?.includes("English Language") && <option value="English Language">English Language</option>}
-                                    </select>
-                                  </div>
-                                  <div>
-                                    <label className="text-[9px] text-slate-400 font-bold block mb-1">Target Class Allocation</label>
-                                    <select
-                                      value={newPubHwGrade}
-                                      onChange={(e) => setNewPubHwGrade(e.target.value)}
-                                      className="w-full bg-white border rounded px-2.5 py-1.5 focus:border-indigo-500 outline-none font-semibold text-indigo-700"
-                                    >
-                                      {selectedTeacher.classesAssigned?.map(gr => (
-                                        <option key={gr} value={gr}>{gr}</option>
-                                      ))}
-                                      <option value="Grade 3">Grade 3</option>
-                                      <option value="Grade 5">Grade 5</option>
-                                      <option value="Grade 10">Grade 10</option>
-                                      <option value="Grade 11">Grade 11</option>
-                                    </select>
-                                  </div>
-                                </div>
-
-                                <div>
-                                  <label className="text-[9px] text-slate-400 font-bold block mb-1">Expected Hand-in Date (Deadline)</label>
-                                  <input
-                                    type="date"
-                                    value={newPubHwDueDate}
-                                    onChange={(e) => setNewPubHwDueDate(e.target.value)}
-                                    className="w-full bg-white border rounded px-3 py-1.5 font-mono text-slate-600"
-                                  />
-                                </div>
-
-                                <div>
-                                  <label className="text-[9px] text-slate-400 font-bold block mb-1">Homework instructions &amp; prompts</label>
-                                  <textarea
-                                    className="w-full bg-white border rounded px-3 py-2 h-20 placeholder-slate-400"
-                                    placeholder="Write descriptive long instructions, e.g. Complete long multiplication worksheets on page 34-36..."
-                                    value={newPubHwTask}
-                                    onChange={(e) => setNewPubHwTask(e.target.value)}
-                                  />
-                                </div>
-
-                                <button
-                                  onClick={() => {
-                                    if (!newPubHwTask.trim()) {
-                                      alert("Provide educational prompts for the task.");
-                                      return;
-                                    }
-
-                                    // Filter students mapping
-                                    const matchingStudents = branchStudents.filter(s => s.grade === newPubHwGrade);
-                                    if (matchingStudents.length === 0) {
-                                      alert(`Zero students are enrolled inside grade '${newPubHwGrade}'. Verify target class configuration.`);
-                                      return;
-                                    }
-
-                                    if (!confirm(`Broadcast assignment to all ${matchingStudents.length} students inside ${newPubHwGrade}? This alters real student records.`)) return;
-
-                                    // Trigger write update for each student
-                                    matchingStudents.forEach(st => {
-                                      const existingHw = st.homework || [];
-                                      const homeworkItem: HomeworkItem = {
-                                        id: "hw-" + Math.floor(Math.random() * 1000000),
-                                        subject: newPubHwSubject,
-                                        task: newPubHwTask,
-                                        dueDate: newPubHwDueDate,
-                                        status: 'Pending'
-                                      };
-                                      existingHw.unshift(homeworkItem); // prepend
-                                      const updatedStudent = { ...st, homework: existingHw };
-                                      saveStudentChanges(updatedStudent);
-                                    });
-
-                                    setNewPubHwTask('');
-                                    alert(`Homework broadcast success! Assigned task card onto ${matchingStudents.length} profiles in ${newPubHwGrade}.`);
-                                  }}
-                                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl text-center shadow cursor-pointer block"
-                                >
-                                  Broadcast Assignment Tasks
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Score Submission panel */}
-                            <div className="bg-white border border-slate-200/60 p-5 rounded-2xl shadow-xs space-y-4 text-xs">
-                              <h3 className="text-sm font-bold text-slate-800 flex items-center space-x-1.5">
-                                <GraduationCap className="w-4 h-4 text-emerald-500" />
-                                <span>Continuous Assessment Result submission</span>
-                              </h3>
-                              <p className="text-xs text-slate-500">
-                                Enter assessment results obtained during physical exams. Submitting directly commits double digit marks into the student's central digital gradebook of this academy!
-                              </p>
-
-                              <div className="space-y-4 bg-slate-50 p-4 border rounded-xl">
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <label className="text-[9px] text-slate-400 font-bold block mb-1">Specialized course subject</label>
-                                    <select
-                                      value={newGradingSubject}
-                                      onChange={(e) => setNewGradingSubject(e.target.value)}
-                                      className="w-full bg-white border rounded px-2 py-1.5 focus:border-indigo-500 outline-none font-semibold text-slate-700"
-                                    >
-                                      {selectedTeacher.subjects?.map(sub => (
-                                        <option key={sub} value={sub}>{sub}</option>
-                                      ))}
-                                      {!selectedTeacher.subjects?.includes("Mathematics") && <option value="Mathematics">Mathematics</option>}
-                                      {!selectedTeacher.subjects?.includes("Science") && <option value="Science">Science</option>}
-                                      {!selectedTeacher.subjects?.includes("Biology") && <option value="Biology">Biology</option>}
-                                    </select>
-                                  </div>
-                                  <div>
-                                    <label className="text-[9px] text-slate-400 font-bold block mb-1">Grades/Sections allocated</label>
-                                    <select
-                                      onChange={(e) => {
-                                        const grValue = e.target.value;
-                                        // Auto select first student in that grade
-                                        const matchSts = students.filter(s => s.grade === grValue);
-                                        if (matchSts.length > 0) {
-                                          setNewGradingStudentId(matchSts[0].id);
-                                        } else {
-                                          setNewGradingStudentId('');
-                                        }
-                                      }}
-                                      className="w-full bg-white border border-indigo-200 rounded px-2 py-1.5 outline-none font-semibold text-indigo-700"
-                                    >
-                                      <option value="">-- Choose Class --</option>
-                                      {selectedTeacher.classesAssigned?.map(cl => (
-                                        <option key={cl} value={cl}>{cl}</option>
-                                      ))}
-                                      <option value="Grade 3">Grade 3</option>
-                                      <option value="Grade 5">Grade 5</option>
-                                      <option value="Grade 10">Grade 10</option>
-                                      <option value="Grade 11">Grade 11</option>
-                                    </select>
-                                  </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                  <div className="md:col-span-2">
-                                    <label className="text-[9px] text-slate-400 font-bold block mb-1">Select Student profile</label>
-                                    <select
-                                      value={newGradingStudentId}
-                                      onChange={(e) => setNewGradingStudentId(e.target.value)}
-                                      className="w-full bg-white border rounded px-2 py-1.5 outline-none font-bold text-slate-800"
-                                    >
-                                      <option value="">-- Select student record --</option>
-                                      {branchStudents.map(st => (
-                                        <option key={st.id} value={st.id}>
-                                          {st.name} ({st.grade} - Section {st.classSection || 'A'})
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                  <div>
-                                    <label className="text-[9px] text-slate-400 font-bold block mb-1">Exam score</label>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      max="100"
-                                      className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 font-mono text-center text-xs font-bold text-slate-800"
-                                      placeholder="0-100"
-                                      value={newGradingScore}
-                                      onChange={(e) => setNewGradingScore(e.target.value)}
-                                    />
-                                  </div>
-                                </div>
-
-                                <button
-                                  onClick={() => {
-                                    if (!newGradingStudentId) {
-                                      alert("Choose an active student record first.");
-                                      return;
-                                    }
-                                    const scoreNum = parseFloat(newGradingScore);
-                                    if (isNaN(scoreNum) || scoreNum < 0 || scoreNum > 100) {
-                                      alert("Enter a continuous assessment score between 0 and 100.");
-                                      return;
-                                    }
-
-                                    const stdRecord = students.find(s => s.id === newGradingStudentId);
-                                    if (!stdRecord) {
-                                      alert("Target student not active in database.");
-                                      return;
-                                    }
-
-                                    // update grades object
-                                    const gradesCopy = { ...(stdRecord.grades || {}) };
-                                    gradesCopy[newGradingSubject] = scoreNum;
-
-                                    const updated = {
-                                      ...stdRecord,
-                                      grades: gradesCopy
-                                    };
-
-                                    saveStudentChanges(updated);
-                                    alert(`Submitted grade for ${stdRecord.name}: obtained ${scoreNum}% inside ${newGradingSubject}!`);
-                                  }}
-                                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl text-center shadow cursor-pointer block"
-                                >
-                                  Submit Grade Assessment
-                                </button>
-                              </div>
-                            </div>
-
-                          </div>
-                        )}
-
-                      </div>
-
-                    </div>
-                  ) : (
-                    <>
-                      {/* ==========================================
-                         STANDARD TEACHERS REGISTRY REGULAR GRID WITH DYNAMIC SECURITY TAB
-                         ========================================== */}
-                      {/* Action Banner */}
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                        <div>
-                          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                            üíº Human Resources &amp; Access Portal
-                          </h2>
-                          <p className="text-xs text-slate-500 font-sans font-medium">Manage institutional workloads, teaching assignments, system credentials, and active group permissions dynamically.</p>
-                        </div>
-                        {hrSubTab === 'personnel' && (
-                          <button 
-                            id="btn-trigger-add-tch"
-                            onClick={() => setShowAddTeacher(true)}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-colors shadow-md shadow-indigo-100 cursor-pointer"
-                          >
-                            <UserPlus className="w-4 h-4 shrink-0" />
-                            <span>Onboard Staff Personnel</span>
-                          </button>
-                        )}
-                      </div>
-
-                      {/* HR Portal Internal Navigation Subtabs */}
-                      <div className="flex flex-wrap bg-slate-100 p-1 rounded-xl w-fit border border-slate-200/40 gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setHrSubTab('personnel')}
-                          className={`flex items-center space-x-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                            hrSubTab === 'personnel'
-                              ? 'bg-white text-indigo-700 shadow-sm border border-slate-200/50'
-                              : 'text-slate-500 hover:text-slate-800'
-                          }`}
-                        >
-                          <Users className="w-3.5 h-3.5 shrink-0 text-indigo-500" />
-                          <span>Staff &amp; Faculty Registry</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setHrSubTab('employeeAccounts')}
-                          className={`flex items-center space-x-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                            hrSubTab === 'employeeAccounts'
-                              ? 'bg-white text-indigo-700 shadow-sm border border-slate-200/50'
-                              : 'text-slate-500 hover:text-slate-800'
-                          }`}
-                        >
-                          <Building2 className="w-3.5 h-3.5 shrink-0 text-indigo-500" />
-                          <span>Employee Accounts &amp; Branch IAM üè¢</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setHrSubTab('financialAdjustments')}
-                          className={`flex items-center space-x-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                            hrSubTab === 'financialAdjustments'
-                              ? 'bg-white text-emerald-800 shadow-sm border border-slate-200/50'
-                              : 'text-slate-500 hover:text-emerald-800 hover:bg-slate-50/50'
-                          }`}
-                        >
-                          <Coins className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
-                          <span>Loans, Advances &amp; Bonuses</span>
-                        </button>
-                         <button
-                          type="button"
-                          onClick={() => setHrSubTab('payrollRegister')}
-                          className={`flex items-center space-x-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                            hrSubTab === 'payrollRegister'
-                              ? 'bg-white text-amber-700 shadow-sm border border-slate-200/50'
-                              : 'text-slate-500 hover:text-slate-850 hover:bg-slate-50/50'
-                          } ${isTabRestricted('payroll', currentSimulatedRole) ? 'opacity-85' : ''}`}
-                        >
-                          <DollarSign className="w-3.5 h-3.5 shrink-0 text-amber-500" />
-                          <span>Monthly Payroll Register</span>
-                          {isTabRestricted('payroll', currentSimulatedRole) && (
-                            <span className="text-[10px] bg-amber-100 border border-amber-200 text-amber-800 px-1.5 py-0.5 rounded font-sans scale-90 flex items-center gap-0.5 select-none">üîí Restrict</span>
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setHrSubTab('security')}
-                          className={`flex items-center space-x-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                            hrSubTab === 'security'
-                              ? 'bg-white text-rose-700 shadow-sm border border-slate-200/50'
-                              : 'text-slate-500 hover:text-rose-800'
-                          }`}
-                        >
-                          <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-rose-600" />
-                          <span>Interactive Security Matrix</span>
-                        </button>
-                      </div>
-
-                      {hrSubTab === 'employeeAccounts' ? (
-                        <EmployeeUserAccountsConsole
-                          teachers={teachers}
-                          setTeachers={setTeachers}
-                          systemUsers={systemUsers}
-                          setSystemUsers={setSystemUsers}
-                          currentRole={currentSimulatedRole}
-                          currentUserName={systemUsers.find(u => u.role === currentSimulatedRole)?.name || 'Engr. Usamah M. Qamar (Super Administrator)'}
-                          activeBranch={selectedBranch}
-                          onNavigateToTeacher={(teacherId) => {
-                            const target = teachers.find(t => t.id === teacherId || t.employeeId === teacherId);
-                            if (target) {
-                              setSelectedTeacher(target);
-                              setHrSubTab('personnel');
-                            }
-                          }}
-                        />
-                      ) : hrSubTab === 'personnel' ? (
-                        <>
-                          {/* Search and Category Filters */}
-                          <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm space-y-4">
-                        <div className="flex flex-col md:flex-row md:items-center gap-4 justify-between">
-                          <div className="relative max-w-md w-full">
-                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 shrink-0" />
-                            <input 
-                              type="text"
-                              placeholder="Search HR database by name, ID, or specialties..."
-                              value={teacherSearchVal}
-                              onChange={(e) => setTeacherSearchVal(e.target.value)}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-xs focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                            />
-                          </div>
-
-                          {/* HR Categories Filter */}
-                          <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-xl">
-                            {[
-                              { id: 'all', label: 'All Personnel' },
-                              { id: 'teaching', label: 'üçé Teaching' },
-                              { id: 'non-teaching', label: 'üõ†Ô∏è Non-Teaching' },
-                              { id: 'management', label: 'üìà Management' }
-                            ].map(tab => (
-                              <button
-                                key={tab.id}
-                                onClick={() => setStaffRoleFilter(tab.id as any)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                                  staffRoleFilter === tab.id 
-                                    ? 'bg-white text-indigo-700 shadow-sm'
-                                    : 'text-slate-600 hover:text-slate-900'
-                                }`}
-                              >
-                                {tab.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Main HR Registry Grid */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {filteredTeachers.length === 0 ? (
-                           <div className="col-span-full py-12 text-center text-slate-400 text-xs bg-white rounded-2xl border border-dashed border-slate-200">
-                             No personnel profiles matching the filter were registered inside the directory.
-                           </div>
-                        ) : (
-                          filteredTeachers.map(teacher => {
-                            const actualRole = teacher.role || 'teaching';
-                            const maxW = teacher.maxUnits || 20;
-                            // calculate load units based on allocation or fallback
-                            const loadUnits = teacher.subjectAllocations && teacher.subjectAllocations.length > 0
-                              ? teacher.subjectAllocations.reduce((sum, alloc) => sum + (Number(alloc.units) || 0), 0)
-                              : (teacher.classesAssigned || []).length * 4;
-
-                            // workload diagnostic status
-                            let statusText = "Moderate";
-                            let statusColor = "bg-emerald-50 text-emerald-700 border-emerald-100";
-                            if (loadUnits > maxW) {
-                              statusText = "üö® Stress Risk (Overloaded)";
-                              statusColor = "bg-rose-50 text-rose-750 border-rose-100 font-extrabold animate-pulse";
-                            } else if (loadUnits < maxW - 4 && actualRole === 'teaching') {
-                              statusText = "üí° Under-utilized Cap";
-                              statusColor = "bg-amber-50 text-amber-700 border-amber-105 font-semibold";
-                            } else if (actualRole === 'teaching') {
-                              statusText = "‚úÖ Balanced Load";
-                              statusColor = "bg-emerald-50 text-emerald-700 border-emerald-105 font-semibold";
-                            } else {
-                              statusText = "Bypassed (Admin Focus)";
-                              statusColor = "bg-slate-100 text-slate-600 border-slate-200";
-                            }
-
-                            return (
-                              <div 
-                                key={teacher.id} 
-                                onClick={() => {
-                                  setSelectedTeacher(teacher);
-                                  setTeacherFolderTab('profile');
-                                }}
-                                className="cursor-pointer bg-white border border-slate-200/70 hover:border-indigo-500 rounded-3xl p-5 hover:shadow-lg transition-all space-y-4 relative overflow-hidden flex flex-col justify-between"
-                              >
-                                <div>
-                                  {/* Role header with badge */}
-                                  <div className="flex items-start justify-between">
-                                    <div className="space-y-0.5">
-                                      <h3 className="font-extrabold text-slate-950 text-base flex flex-wrap items-center gap-1.5">
-                                        <span>{teacher.name}</span>
-                                        {teacher.status && teacher.status !== 'Active' && (
-                                          <span className={`text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded-md font-bold border ${
-                                            teacher.status === 'Terminated'
-                                              ? 'bg-rose-100 text-rose-800 border-rose-300'
-                                              : teacher.status === 'Deactivated'
-                                              ? 'bg-orange-100 text-orange-850 border-orange-300 font-extrabold'
-                                              : 'bg-amber-100 text-amber-800 border-amber-300 font-bold'
-                                          }`}>
-                                            {teacher.status}
-                                          </span>
-                                        )}
-                                      </h3>
-                                      <div className="flex items-center space-x-2">
-                                        <span className="text-[10px] font-mono text-indigo-600 font-bold bg-indigo-50 px-1.5 py-0.5 rounded">
-                                          ID: {teacher.userId || `EMP-${teacher.id}`}
-                                        </span>
-                                        <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
-                                          actualRole === 'management' ? 'bg-purple-50 text-purple-750 border-purple-200' :
-                                          actualRole === 'non-teaching' ? 'bg-cyan-50 text-cyan-750 border-cyan-200' :
-                                          'bg-amber-50 text-amber-750 border-amber-200'
-                                        }`}>
-                                          {actualRole === 'management' ? 'Management' :
-                                           actualRole === 'non-teaching' ? 'Supp Staff' : 'Faculty Teacher'}
-                                        </span>
-                                      </div>
-                                    </div>
-                                    
-                                    <button 
-                                      onClick={(e) => {
-                                        e.stopPropagation(); // prevent opening selectedTeacher workspace
-                                        setExitModalTeacher({ ...teacher });
-                                        setShowStaffExitModal(true);
-                                      }}
-                                      className="text-slate-400 hover:text-rose-600 transition-colors p-1.5 rounded-lg hover:bg-rose-50"
-                                      title="Staff Status / Exit Manager"
-                                    >
-                                      <ShieldAlert className="w-4 h-4 text-rose-600" />
-                                    </button>
-                                  </div>
-
-                                  {/* Access control details */}
-                                  <div className="mt-3 bg-slate-50 rounded-xl p-2.5 text-[11px] grid grid-cols-2 gap-1 font-sans border border-slate-150">
-                                    <div>
-                                      <span className="text-slate-400 block text-[9px] uppercase font-bold">Access Control</span>
-                                      <span className="font-bold text-slate-700 flex items-center space-x-1">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
-                                        <span>{teacher.accessControl || 'Staff/Teacher'}</span>
-                                      </span>
-                                    </div>
-                                    <div>
-                                      <span className="text-slate-400 block text-[9px] uppercase font-bold">Performance Rate</span>
-                                      <span className="font-bold text-slate-800 font-mono">
-                                        üìà {teacher.performanceScore || 80}% Reliability
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  {/* Contact Details */}
-                                  <div className="text-[11px] space-y-1.5 pt-3">
-                                    <div className="flex items-center space-x-2 text-slate-600">
-                                      <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                      <span className="font-mono truncate">{teacher.email}</span>
-                                    </div>
-                                    <div className="flex items-center space-x-2 text-slate-600">
-                                      <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                      <span className="font-mono">{teacher.phone || 'No phone verified'}</span>
-                                    </div>
-                                  </div>
-
-                                  {/* Conditional Educational Spec Details */}
-                                  {actualRole === 'teaching' && (
-                                    <div className="space-y-3.5 pt-3 border-t border-slate-100 mt-3">
-                                      <div>
-                                        <p className="text-[9px] text-slate-400 uppercase tracking-widest font-extrabold">Active Core Subjects</p>
-                                        <div className="flex flex-wrap gap-1 mt-1">
-                                          {teacher.subjects && teacher.subjects.length > 0 ? (
-                                            teacher.subjects.map(s => (
-                                              <span key={s} className="bg-indigo-50 border border-indigo-100/50 text-indigo-700 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                                                {s}
-                                              </span>
-                                            ))
-                                          ) : (
-                                            <span className="text-slate-400 italic text-[10px]">No subject specialties</span>
-                                          )}
-                                        </div>
-                                      </div>
-
-                                      <div className="grid grid-cols-2 gap-2 text-[10px]">
-                                        <div>
-                                          <p className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold">Weekly Load</p>
-                                          <p className="font-bold text-slate-800 font-mono mt-0.5">
-                                            üìä {loadUnits} / {maxW} units
-                                          </p>
-                                        </div>
-                                        <div>
-                                          <p className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold">Division Scopes</p>
-                                          <p className="font-bold text-slate-700 capitalize truncate mt-0.5">
-                                            {teacher.level && teacher.level.length > 0 ? teacher.level.join(', ') : 'Unspecified'}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {actualRole !== 'teaching' && (
-                                    <div className="mt-4 pt-3 border-t border-slate-100 bg-slate-50/55 p-2 rounded-xl text-[10px] text-slate-500">
-                                      <span className="font-bold text-slate-700 block uppercase text-[8px] tracking-wider">HR Usability Specs:</span>
-                                      <p className="mt-0.5 leading-relaxed">Assigned to institutional support, scheduling system logs, and general workspace maintenance.</p>
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Workload diagnostic dashboard indicator */}
-                                <div className="border-t border-slate-100 pt-3 flex flex-col space-y-1.5 mt-3 text-[11px]">
-                                  <div className="flex justify-between items-center text-[10px]">
-                                    <span className="text-slate-400 font-medium">Workloads Diagnosis:</span>
-                                    <span className={`text-[9px] uppercase tracking-wider px-2 py-0.5 rounded border ${statusColor}`}>
-                                      {statusText}
-                                    </span>
-                                  </div>
-                                  {actualRole === 'teaching' && (
-                                    <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                                      <div 
-                                        className={`h-full rounded-full transition-all ${
-                                          loadUnits > maxW ? 'bg-rose-500' :
-                                          loadUnits >= maxW - 4 ? 'bg-emerald-500' : 'bg-amber-400'
-                                        }`}
-                                        style={{ width: `${Math.min(100, (loadUnits / maxW) * 100)}%` }}
-                                      ></div>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
-                    </>
-                  ) : hrSubTab === 'payrollRegister' ? (
-                    isTabRestricted('payroll', currentSimulatedRole) ? (
-                      <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-4 shadow-sm max-w-xl mx-auto my-12 animate-fade-in font-sans">
-                        <div className="w-16 h-16 bg-rose-50 border border-rose-150 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
-                          <Lock className="w-8 h-8 text-rose-600 animate-bounce" />
-                        </div>
-                        <div className="space-y-2">
-                          <h3 className="text-base font-extrabold text-slate-900 tracking-tight">Security Access Lockout</h3>
-                          <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                            Your currently simulated personnel division <span className="font-bold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">"{currentSimulatedRole}"</span> does not have authorization clearance to view the payroll matrix.
-                          </p>
-                          <p className="text-[11px] text-slate-400">
-                            You may assign authorized roles via the administrative security manager on the fly.
-                          </p>
-                        </div>
-                        <div className="pt-2">
-                          <button
-                            type="button"
-                            onClick={() => setHrSubTab('security')}
-                            className="inline-flex items-center space-x-1.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.99] shadow-md shadow-rose-100"
-                          >
-                            <ShieldCheck className="w-4 h-4" />
-                            <span>Modify Matrix Authorization Rules</span>
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <PayrollRegister
-                        teachers={teachers}
-                        onSaveTeacher={saveTeacherChanges}
-                        currentSimulatedRole={currentSimulatedRole}
-                        loans={loans}
-                        setLoans={setLoans}
-                        advanceSalaries={advanceSalaries}
-                        setAdvanceSalaries={setAdvanceSalaries}
-                        bonuses={bonuses}
-                        setBonuses={setBonuses}
-                      />
-                    )
-                  ) : hrSubTab === 'financialAdjustments' ? (
-                    <FinancialAdjustments
-                      teachers={teachers}
-                      loans={loans}
-                      setLoans={setLoans}
-                      advanceSalaries={advanceSalaries}
-                      setAdvanceSalaries={setAdvanceSalaries}
-                      bonuses={bonuses}
-                      setBonuses={setBonuses}
-                    />
-                  ) : (
-                    <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-3xl border border-slate-200/60 p-8 md:p-12 text-center max-w-2xl mx-auto my-8 animate-fade-in font-sans shadow-sm">
-                      <div className="w-20 h-20 bg-rose-50 border-2 border-rose-100 rounded-3xl flex items-center justify-center mx-auto shadow-md relative group mb-6">
-                        <div className="absolute inset-0 bg-rose-200/25 rounded-3xl animate-ping scale-95 opacity-75 animate-duration-1000"></div>
-                        <ShieldAlert className="w-10 h-10 text-rose-600 relative z-10" />
-                      </div>
-                      <div className="space-y-3">
-                        <span className="text-[10px] uppercase font-bold tracking-widest text-rose-600 bg-rose-50 border border-rose-200/60 px-3 py-1 rounded-full">
-                          System Consolidation &amp; Elevation
-                        </span>
-                        <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">Security Console Elevated</h3>
-                        <p className="text-slate-600 text-sm leading-relaxed max-w-md mx-auto">
-                          The **Interactive Access Matrix** and **Credentials Registry** have been elevated to a dedicated, first-class system-wide module. 
-                        </p>
-                        <p className="text-slate-500 text-xs leading-relaxed max-w-md mx-auto font-medium">
-                          You can now manage role-based access control (RBAC), edit simulated user profiles, inspect the active audit log streams, and trigger emergency lockdown systems globally from the primary SAMS console.
-                        </p>
-                      </div>
-
-                      <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveTab('security');
-                            setSecuritySubTab('permissions');
-                          }}
-                          className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 bg-slate-900 hover:bg-slate-950 text-white font-extrabold text-xs px-6 py-3 rounded-xl cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.99] shadow-md shadow-slate-900/10"
-                        >
-                          <ShieldCheck className="w-4 h-4 shrink-0" />
-                          <span>Configure Permissions Matrix</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveTab('security');
-                            setSecuritySubTab('users');
-                          }}
-                          className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs px-6 py-3 rounded-xl cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.99] shadow-md shadow-indigo-100"
-                        >
-                          <Users className="w-4 h-4 shrink-0" />
-                          <span>Manage User Accounts</span>
-                        </button>
-                      </div>
-
-                      <div className="mt-8 pt-6 border-t border-slate-200/50 grid grid-cols-3 gap-4 text-center">
-                        <div>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Active Credentials</p>
-                          <p className="text-lg font-black text-slate-800 mt-0.5">{systemUsers.length}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Access Roles</p>
-                          <p className="text-lg font-black text-slate-800 mt-0.5">6 Groups</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Lockdown Mode</p>
-                          <p className={`text-xs font-black uppercase mt-1 px-1.5 py-0.5 rounded-full inline-block ${securityLockdownMode ? 'bg-rose-50 text-rose-600 border border-rose-200/50' : 'bg-slate-100 text-slate-500'}`}>
-                            {securityLockdownMode ? 'ACTIVE' : 'OFF'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-                </div>
-              )}
-
-              {/* -------------------------------------------------------------
-                  TAB 3.5: CLASSES & CURRICULUM MANAGEMENT
-                  ------------------------------------------------------------- */}
-              {activeTab === 'classes' && (
-                <div id="erp-view-classes-hub" className="space-y-6 animate-fade-in">
-                  
-                  {/* Action Banner */}
-                  <div className="bg-gradient-to-r from-indigo-50 via-slate-50/50 to-indigo-100/30 text-slate-900 rounded-3xl p-6 shadow-sm border border-indigo-100/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center space-x-2">
-                        <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full border border-indigo-200">
-                          Academic Board
-                        </span>
-                        <span className="text-slate-500 text-xs font-mono">‚Ä¢ Active Campus: {selectedBranch === 'GN' ? 'Gawun Nama (GN)' : 'Runjin Sambo (RS)'}</span>
-                      </div>
-                      <h2 className="text-2xl font-bold tracking-tight font-sans text-slate-900">Class Control &amp; Allocation Hub</h2>
-                      <p className="text-slate-600 text-sm max-w-2xl font-sans">
-                        Create and categorize academic blocks as Nursery, Primary, or Junior Secondary. Set teacher registries, map subject domains, and stream student rosters directly into active grades.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Summary Overview Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center space-x-4">
-                      <div className="p-3 bg-indigo-50 rounded-xl text-indigo-600 border border-indigo-100/50">
-                        <span className="text-xl font-bold">üë∂</span>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500 font-medium font-sans">Nursery Wing Classes</p>
-                        <p className="text-xl font-bold text-slate-800 font-mono mt-0.5">
-                          {branchClasses.filter(c => c.level === 'nursery').length} Classes
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center space-x-4">
-                      <div className="p-3 bg-amber-50 rounded-xl text-amber-600 border border-amber-100/50">
-                        <span className="text-xl font-bold">üè´</span>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500 font-medium font-sans">Primary Wing Classes</p>
-                        <p className="text-xl font-bold text-slate-800 font-mono mt-0.5">
-                          {branchClasses.filter(c => c.level === 'primary').length} Classes
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center space-x-4">
-                      <div className="p-3 bg-rose-50 rounded-xl text-rose-600 border border-rose-100/55">
-                        <span className="text-xl font-bold">üéì</span>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500 font-medium font-sans">Junior Secondary Wing Classes</p>
-                        <p className="text-xl font-bold text-slate-800 font-mono mt-0.5">
-                          {branchClasses.filter(c => c.level === 'secondary').length} Classes
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Operational Subtabs for Class and Syllabus Management */}
-                  <div className="flex border-b border-slate-200 overflow-x-auto whitespace-nowrap scrollbar-none">
-                    <button
-                      onClick={() => setClassesSubTab('classes')}
-                      className={`px-6 py-3 text-sm font-semibold border-b-2 transition-all flex items-center space-x-2 cursor-pointer shrink-0 ${
-                        classesSubTab === 'classes'
-                          ? 'border-indigo-650 text-indigo-700 font-bold'
-                          : 'border-transparent text-slate-500 hover:text-slate-800'
-                      }`}
-                    >
-                      <span>üè¢ Class Allocations &amp; Registries</span>
-                    </button>
-                    <button
-                      onClick={() => setClassesSubTab('subjects')}
-                      className={`px-6 py-3 text-sm font-semibold border-b-2 transition-all flex items-center space-x-2 cursor-pointer shrink-0 ${
-                        classesSubTab === 'subjects'
-                          ? 'border-indigo-650 text-indigo-700 font-bold'
-                          : 'border-transparent text-slate-500 hover:text-slate-800'
-                      }`}
-                    >
-                      <span>üéì Master Course Syllabus Directory</span>
-                      <span className="text-[10px] bg-slate-100 text-slate-600 font-mono px-2 py-0.5 rounded-full">{subjects.length} Subjects</span>
-                    </button>
-                    <button
-                      onClick={() => setClassesSubTab('curriculum_checklists')}
-                      className={`px-6 py-3 text-sm font-semibold border-b-2 transition-all flex items-center space-x-2 cursor-pointer shrink-0 ${
-                        classesSubTab === 'curriculum_checklists'
-                          ? 'border-indigo-650 text-indigo-700 font-bold'
-                          : 'border-transparent text-slate-500 hover:text-slate-800'
-                      }`}
-                    >
-                      <span>üìÖ Multi-Week Curriculum Checklists</span>
-                    </button>
-                    <button
-                      onClick={() => setClassesSubTab('lesson_plans')}
-                      className={`px-6 py-3 text-sm font-semibold border-b-2 transition-all flex items-center space-x-2 cursor-pointer shrink-0 ${
-                        classesSubTab === 'lesson_plans'
-                          ? 'border-indigo-650 text-indigo-700 font-bold'
-                          : 'border-transparent text-slate-500 hover:text-slate-800'
-                      }`}
-                    >
-                      <span>üìù Lesson-Plan Canvas &amp; Review</span>
-                    </button>
-                    <button
-                      onClick={() => setClassesSubTab('teaching_records')}
-                      className={`px-6 py-3 text-sm font-semibold border-b-2 transition-all flex items-center space-x-2 cursor-pointer shrink-0 ${
-                        classesSubTab === 'teaching_records'
-                          ? 'border-indigo-650 text-indigo-700 font-bold'
-                          : 'border-transparent text-slate-500 hover:text-slate-800'
-                      }`}
-                    >
-                      <span>üìñ Teaching Records (What Was Taught)</span>
-                      <span className="text-[10px] bg-indigo-100 text-indigo-700 font-mono px-2 py-0.5 rounded-full font-bold">
-                        {teachingRecords.length}
-                      </span>
-                    </button>
-                  </div>
-
-                  {classesSubTab === 'classes' && (
-                    /* Split Workspace Layout */
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 font-sans">
-                    
-                    {/* LEFT CONTAINER: Creation and Navigation Directory */}
-                    <div className="lg:col-span-4 space-y-6">
-                      
-                      {/* Class Creation card panel */}
-                      <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
-                        <h3 className="text-sm font-semibold text-slate-800 flex items-center space-x-2 font-sans">
-                          <Plus className="w-4 h-4 text-indigo-600" />
-                          <span>Establish New Class Level</span>
-                        </h3>
-                        
-                        <form onSubmit={handleCreateClass} className="space-y-3">
-                          <div>
-                            <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1 font-sans">Class Designation Name</label>
-                            <input
-                              type="text"
-                              required
-                              value={newClassName}
-                              onChange={(e) => setNewClassName(e.target.value)}
-                              placeholder="e.g. Junior Secondary Grade 7"
-                              className="w-full bg-slate-50 text-slate-800 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 focus:bg-white placeholder:text-slate-400 font-sans"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1 font-sans">Academic Categorisation</label>
-                            <select
-                              value={newClassLevel}
-                              onChange={(e) => setNewClassLevel(e.target.value as any)}
-                              className="w-full bg-slate-50 text-slate-800 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 focus:bg-white font-sans cursor-pointer"
-                            >
-                              {(!activeSaaSSchool || activeSaaSSchool.sectionsEnabled?.nursery) && <option value="nursery">üë∂ Nursery Wing</option>}
-                              {(!activeSaaSSchool || activeSaaSSchool.sectionsEnabled?.primary) && <option value="primary">üè´ Primary Wing</option>}
-                              {(!activeSaaSSchool || activeSaaSSchool.sectionsEnabled?.secondary) && <option value="secondary">üéì Junior Secondary Wing</option>}
-                              {(!activeSaaSSchool || activeSaaSSchool.sectionsEnabled?.islamia) && <option value="islamia">üåô Islamia Wing</option>}
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1.5 font-sans">Assign Syllabus Subjects</label>
-                            {subjects.filter(s => s.level === newClassLevel).length > 0 ? (
-                              <div className="max-h-36 overflow-y-auto border border-slate-200 rounded-xl p-2.5 bg-slate-50 space-y-1.5 font-sans">
-                                {subjects
-                                  .filter(s => s.level === newClassLevel)
-                                  .map(sub => {
-                                    const isChecked = selectedNewClassSubjects.includes(sub.name);
-                                    return (
-                                      <label key={sub.id} className="flex items-center space-x-2 text-xs text-slate-705 cursor-pointer font-sans leading-none">
-                                        <input
-                                          type="checkbox"
-                                          checked={isChecked}
-                                          onChange={(e) => {
-                                            if (e.target.checked) {
-                                              setSelectedNewClassSubjects(prev => [...prev, sub.name]);
-                                            } else {
-                                              setSelectedNewClassSubjects(prev => prev.filter(name => name !== sub.name));
-                                            }
-                                          }}
-                                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer h-3.5 w-3.5"
-                                        />
-                                        <span>{sub.name}</span>
-                                      </label>
-                                    );
-                                  })}
-                              </div>
-                            ) : (
-                              <div className="p-3 bg-slate-50 border border-slate-150 border-dashed text-[11px] text-slate-500 rounded-xl space-y-1">
-                                <p className="italic">No syllabus subjects configured for {newClassLevel} wing yet.</p>
-                                <button
-                                  type="button"
-                                  onClick={() => setClassesSubTab('subjects')}
-                                  className="text-indigo-600 font-bold hover:underline font-sans cursor-pointer text-left"
-                                >
-                                  Go to Master Syllabus &rarr;
-                                </button>
-                              </div>
-                            )}
-                          </div>
-
-                          <button
-                            type="submit"
-                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold py-2.5 rounded-xl transition-colors shadow-sm font-sans"
-                          >
-                            Establish Class Level
-                          </button>
-                        </form>
-                      </div>
-
-                      {/* Dynamic Directory List grouped by Wing */}
-                      <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
-                        <h3 className="text-sm font-semibold text-slate-800 flex items-center space-x-2 font-sans">
-                          <Layers className="w-4 h-4 text-emerald-600" />
-                          <span>Campus Classes Directory</span>
-                        </h3>
-
-                        <div className="space-y-5">
-                          
-                          {/* 1. Nursery Accordion block */}
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between border-b border-slate-100 pb-1">
-                              <span className="text-[11px] font-bold text-indigo-750 uppercase tracking-wider">üë∂ Nursery Wing</span>
-                              <span className="text-[9px] bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded text-indigo-600 font-mono font-bold">
-                                {branchClasses.filter(c => c.level === 'nursery').length}
-                              </span>
-                            </div>
-                            <div className="space-y-1">
-                              {branchClasses.filter(c => c.level === 'nursery').length === 0 ? (
-                                <p className="text-[11px] text-slate-400 italic font-sans animate-fade-in text-center p-2 bg-slate-50/50 rounded-xl border border-slate-100/50">No nursery classes established.</p>
-                              ) : (
-                                branchClasses.filter(c => c.level === 'nursery').map(cls => (
-                                  <div 
-                                    key={cls.id}
-                                    onClick={() => setSelectedClass(cls)}
-                                    className={`group flex items-center justify-between px-3 py-2 rounded-xl text-xs cursor-pointer transition-all ${
-                                      selectedClass?.id === cls.id 
-                                        ? 'bg-indigo-600 text-white font-semibold shadow-sm font-sans' 
-                                        : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-100/60 font-sans'
-                                    }`}
-                                  >
-                                    <span className="truncate">{cls.name}</span>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteClass(cls.id);
-                                      }}
-                                      className="text-slate-400 hover:text-rose-600 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                                      title="Delete Class"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                          </div>
-
-                          {/* 2. Primary Accordion block */}
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between border-b border-slate-100 pb-1">
-                              <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">üè´ Primary Wing</span>
-                              <span className="text-[9px] bg-amber-50 border border-amber-100 px-2 py-0.5 rounded text-amber-600 font-mono font-bold">
-                                {branchClasses.filter(c => c.level === 'primary').length}
-                              </span>
-                            </div>
-                            <div className="space-y-1">
-                              {branchClasses.filter(c => c.level === 'primary').length === 0 ? (
-                                <p className="text-[11px] text-slate-400 italic font-sans animate-fade-in text-center p-2 bg-slate-50/50 rounded-xl border border-slate-100/50">No primary classes established.</p>
-                              ) : (
-                                branchClasses.filter(c => c.level === 'primary').map(cls => (
-                                  <div 
-                                    key={cls.id}
-                                    onClick={() => setSelectedClass(cls)}
-                                    className={`group flex items-center justify-between px-3 py-2 rounded-xl text-xs cursor-pointer transition-all ${
-                                      selectedClass?.id === cls.id 
-                                        ? 'bg-indigo-600 text-white font-semibold shadow-sm font-sans' 
-                                        : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-100/60 font-sans'
-                                    }`}
-                                  >
-                                    <span className="truncate">{cls.name}</span>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteClass(cls.id);
-                                      }}
-                                      className="text-slate-400 hover:text-rose-600 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                                      title="Delete Class"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                          </div>
-
-                          {/* 3. Junior Secondary Accordion block */}
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between border-b border-slate-100 pb-1">
-                              <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider">üéì Junior Secondary Wing</span>
-                              <span className="text-[9px] bg-rose-50 border border-rose-100 px-2 py-0.5 rounded text-rose-600 font-mono font-bold">
-                                {branchClasses.filter(c => c.level === 'secondary').length}
-                              </span>
-                            </div>
-                            <div className="space-y-1">
-                              {branchClasses.filter(c => c.level === 'secondary').length === 0 ? (
-                                <p className="text-[11px] text-slate-400 italic font-sans animate-fade-in text-center p-2 bg-slate-50/50 rounded-xl border border-slate-100/50">No secondary classes established.</p>
-                              ) : (
-                                branchClasses.filter(c => c.level === 'secondary').map(cls => (
-                                  <div 
-                                    key={cls.id}
-                                    onClick={() => setSelectedClass(cls)}
-                                    className={`group flex items-center justify-between px-3 py-2 rounded-xl text-xs cursor-pointer transition-all ${
-                                      selectedClass?.id === cls.id 
-                                        ? 'bg-indigo-600 text-white font-semibold shadow-sm font-sans' 
-                                        : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-100/60 font-sans'
-                                    }`}
-                                  >
-                                    <span className="truncate">{cls.name}</span>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteClass(cls.id);
-                                      }}
-                                      className="text-slate-400 hover:text-rose-600 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                                      title="Delete Class"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                          </div>
-
-                          {/* 4. Islamia Wing Accordion block */}
-                          <div className="space-y-2 pt-1 font-sans">
-                            <div className="flex items-center justify-between border-b border-slate-100 pb-1 font-sans">
-                              <span className="text-[11px] font-bold text-teal-700 uppercase tracking-wider flex items-center space-x-1">
-                                <span>üåô Islamia Wing</span>
-                              </span>
-                              <span className="text-[9px] bg-teal-50 border border-teal-100 px-2 py-0.5 rounded text-teal-650 font-mono font-bold">
-                                {branchClasses.filter(c => c.level === 'islamia').length}
-                              </span>
-                            </div>
-                            <div className="space-y-1">
-                              {branchClasses.filter(c => c.level === 'islamia').length === 0 ? (
-                                <p className="text-[11px] text-slate-400 italic">No Islamia classes established.</p>
-                              ) : (
-                                branchClasses.filter(c => c.level === 'islamia').map(cls => (
-                                  <div 
-                                    key={cls.id}
-                                    onClick={() => setSelectedClass(cls)}
-                                    className={`group flex items-center justify-between px-3 py-2 rounded-xl text-xs cursor-pointer transition-all ${
-                                      selectedClass?.id === cls.id 
-                                        ? 'bg-indigo-600 text-white font-semibold shadow-sm' 
-                                        : 'bg-slate-50 text-slate-705 hover:bg-slate-100 border border-slate-100/60'
-                                    }`}
-                                  >
-                                    <span className="truncate">{cls.name}</span>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteClass(cls.id);
-                                      }}
-                                      className="text-slate-400 hover:text-rose-600 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                                      title="Delete Class"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                          </div>
-
-                        </div>
-                      </div>
-
-                    </div>
-
-                    {/* RIGHT CONTAINER: Assignment Workspace & Detail Panels */}
-                    <div className="lg:col-span-8">
-                      {!selectedClass ? (
-                        <div className="bg-white rounded-3xl p-12 border border-slate-200/60 shadow-sm text-center flex flex-col items-center justify-center space-y-4 h-full min-h-[400px]">
-                          <div className="p-4 bg-indigo-55/60 text-slate-500 rounded-full border border-indigo-100">
-                            <Layers className="w-10 h-10 animate-pulse text-indigo-600" />
-                          </div>
-                          <div className="space-y-1">
-                            <h4 className="text-slate-800 font-bold text-lg font-sans">No Active Class Selected</h4>
-                            <p className="text-slate-500 text-sm max-w-sm mx-auto font-sans">
-                              Select a class level from the directory list or use the Establish tool to spawn new learning divisions.
-                            </p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-6">
-                          
-                          {/* Selected Class Core Card Details header */}
-                          <div className="bg-white rounded-3xl p-6 border border-slate-200/60 space-y-4 shadow-sm">
-                            {isEditingClass ? (
-                              <div className="space-y-4 animate-fade-in font-sans">
-                                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                                  <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider">‚úèÔ∏è Modify Class Parameters</span>
-                                  <span className="text-[10px] text-slate-400 font-mono">ID: {selectedClass.id}</span>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                  <div className="space-y-1">
-                                    <label className="text-[11px] font-bold text-slate-500 block">Class Name</label>
-                                    <input
-                                      type="text"
-                                      className="w-full bg-white text-slate-800 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none font-semibold"
-                                      value={editClassName}
-                                      onChange={(e) => setEditClassName(e.target.value)}
-                                      placeholder="e.g. Primary 1 Gold"
-                                    />
-                                  </div>
-                                  <div className="space-y-1 font-sans">
-                                    <label className="text-[11px] font-bold text-slate-500 block">School Division (Wing)</label>
-                                    <select
-                                      className="w-full bg-white text-slate-800 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none font-semibold cursor-pointer"
-                                      value={editClassLevel}
-                                      onChange={(e) => setEditClassLevel(e.target.value as any)}
-                                    >
-                                      {(!activeSaaSSchool || activeSaaSSchool.sectionsEnabled?.nursery) && <option value="nursery">üë∂ Nursery Wing</option>}
-                                      {(!activeSaaSSchool || activeSaaSSchool.sectionsEnabled?.primary) && <option value="primary">üè´ Primary Wing</option>}
-                                      {(!activeSaaSSchool || activeSaaSSchool.sectionsEnabled?.secondary) && <option value="secondary">üéì Junior Secondary Wing</option>}
-                                      {(!activeSaaSSchool || activeSaaSSchool.sectionsEnabled?.islamia) && <option value="islamia">üåô Islamia Wing</option>}
-                                    </select>
-                                  </div>
-                                  <div className="space-y-1">
-                                    <label className="text-[11px] font-bold text-slate-500 block">Campus Jurisdiction</label>
-                                    <select
-                                      className="w-full bg-white text-slate-800 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none font-semibold cursor-pointer"
-                                      value={editClassBranch}
-                                      onChange={(e) => setEditClassBranch(e.target.value as any)}
-                                    >
-                                      <option value="GN">Gawun Nama (GN)</option>
-                                      <option value="RS">Runjin Sambo (RS)</option>
-                                    </select>
-                                  </div>
-                                </div>
-                                <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
-                                  <button
-                                    onClick={() => setIsEditingClass(false)}
-                                    className="px-3 py-1.5 border border-slate-250 text-slate-500 rounded-xl text-xs font-semibold hover:bg-slate-50 transition-all font-sans"
-                                  >
-                                    Cancel
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      if (!editClassName.trim()) {
-                                        alert("Please specify a valid name for the class.");
-                                        return;
-                                      }
-                                      handleUpdateClassDetails(selectedClass.id, {
-                                        name: editClassName.trim(),
-                                        level: editClassLevel,
-                                        branch: editClassBranch
-                                      });
-                                    }}
-                                    className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all inline-flex items-center space-x-1.5 font-sans cursor-pointer"
-                                  >
-                                    <Save className="w-3.5 h-3.5" />
-                                    <span>Save Parameters</span>
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
-                                <div className="space-y-0.5">
-                                  <div className="flex items-center space-x-2.5">
-                                    <span className={`text-[9px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full border ${
-                                      selectedClass.level === 'nursery' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
-                                      selectedClass.level === 'primary' ? 'bg-amber-50 text-amber-700 border-amber-250' :
-                                      'bg-rose-50 text-rose-700 border-rose-250'
-                                    }`}>
-                                      {selectedClass.level === 'nursery' ? 'Nursery Wing' :
-                                       selectedClass.level === 'primary' ? 'Primary Wing' : 'Junior Secondary Wing'}
-                                    </span>
-                                    <span className="text-slate-400 text-xs font-mono">ID: {selectedClass.id}</span>
-                                  </div>
-                                  <div className="flex items-center space-x-2 mt-1">
-                                    <h3 className="text-xl font-bold text-slate-900 tracking-tight">{selectedClass.name}</h3>
-                                    <button
-                                      onClick={() => {
-                                        setEditClassName(selectedClass.name);
-                                        setEditClassLevel(selectedClass.level);
-                                        setEditClassBranch(selectedClass.branch as "GN" | "RS");
-                                        setIsEditingClass(true);
-                                      }}
-                                      className="text-[10px] text-indigo-600 hover:text-indigo-850 font-bold px-2 py-1 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors inline-flex items-center space-x-1 cursor-pointer"
-                                      title="Edit Class details"
-                                    >
-                                      <Pencil className="w-2.5 h-2.5" />
-                                      <span>Edit Details</span>
-                                    </button>
-                                  </div>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-slate-500 text-xs font-medium font-sans">Campus Jurisdiction</p>
-                                  <p className="text-sm font-semibold text-slate-800 font-sans">
-                                    {selectedClass.branch === 'RS' ? 'Runjin Sambo (RS)' : 'Gawun Nama (GN)'}
-                                  </p>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Enrolled Metrics */}
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-center">
-                              <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
-                                <p className="text-[10px] text-slate-500 font-semibold uppercase">Total Students</p>
-                                <p className="text-lg font-bold text-slate-850 font-mono mt-0.5">
-                                  {branchStudents.filter(s => s.grade === selectedClass.name).length}
-                                </p>
-                              </div>
-                              <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
-                                <p className="text-[10px] text-slate-500 font-semibold uppercase">Allocated Teachers</p>
-                                <p className="text-lg font-bold text-slate-850 font-mono mt-0.5">
-                                  {branchTeachers.filter(t => t.classesAssigned && t.classesAssigned.includes(selectedClass.name)).length}
-                                </p>
-                              </div>
-                              <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100 col-span-2 sm:col-span-1">
-                                <p className="text-[10px] text-slate-500 font-semibold uppercase">Taught Subjects</p>
-                                <p className="text-lg font-bold text-slate-850 font-mono mt-0.5">
-                                  {selectedClass.subjects ? selectedClass.subjects.length : 0}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* PART 1: TEACHER ALLOCATIONS */}
-                          <div className="bg-white rounded-3xl p-6 border border-slate-200/60 shadow-sm space-y-4 animate-fade-in">
-                            <h4 className="text-sm font-bold text-slate-800 flex items-center space-x-2 border-b border-slate-100 pb-2 font-sans">
-                              <GraduationCap className="w-4 h-4 text-indigo-600" />
-                              <span>Assigned Faculty Teachers</span>
-                            </h4>
-
-                            {/* List current assigned teachers */}
-                            <div className="space-y-2">
-                              {branchTeachers.filter(t => t.classesAssigned && t.classesAssigned.includes(selectedClass.name)).length === 0 ? (
-                                <p className="text-xs text-slate-400 italic p-3 bg-slate-50 border border-slate-100/60 rounded-xl text-center font-sans">
-                                  No teachers explicitly assigned to lead this class section.
-                                </p>
-                              ) : (
-                                branchTeachers.filter(t => t.classesAssigned && t.classesAssigned.includes(selectedClass.name)).map(tch => (
-                                  <div key={tch.id} className="flex items-center justify-between bg-slate-50 p-3 rounded-2xl border border-slate-100/60 animate-fade-in">
-                                    <div className="flex items-center space-x-3">
-                                      <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs font-mono">
-                                        {tch.name.charAt(0)}
-                                      </div>
-                                      <div>
-                                        <p className="text-xs font-semibold text-slate-800 font-sans">{tch.name}</p>
-                                        <p className="text-[10px] text-slate-505 font-sans">{tch.qualification || 'M.Ed Specialist'}</p>
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                      <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded font-mono font-medium">
-                                        Active Level
-                                      </span>
-                                      <button
-                                        onClick={() => handleRemoveTeacherFromClass(tch.id, selectedClass.name)}
-                                        className="text-[10px] text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100/70 font-semibold px-2.5 py-1.5 rounded-lg transition-colors font-sans"
-                                      >
-                                        Sever Allocation
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))
-                              )}
-                            </div>
-
-                            {/* Selector to allocate a new teacher */}
-                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-sans">
-                              <div className="space-y-0.5 font-sans">
-                                <p className="text-xs font-semibold text-slate-800 font-sans">Allocate Teacher Faculty</p>
-                                <p className="text-[10px] text-slate-505 font-sans">Stream a registered teacher into this class matrix.</p>
-                              </div>
-                              <div className="flex items-center space-x-2 w-full sm:w-auto font-sans">
-                                <select 
-                                  id={`allocate-teacher-sel-${selectedClass.id}`}
-                                  className="bg-white text-slate-800 border border-slate-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 font-sans cursor-pointer"
-                                  defaultValue=""
-                                >
-                                  <option value="" disabled>Select teacher...</option>
-                                  {branchTeachers
-                                    .filter(t => !t.classesAssigned || !t.classesAssigned.includes(selectedClass.name))
-                                    .map(t => (
-                                      <option key={t.id} value={t.id}>{t.name}</option>
-                                    ))
-                                  }
-                                </select>
-                                <button
-                                  onClick={() => {
-                                    const el = document.getElementById(`allocate-teacher-sel-${selectedClass.id}`) as HTMLSelectElement;
-                                    if (el && el.value) {
-                                      handleAssignTeacherToClass(el.value, selectedClass.name);
-                                      el.value = "";
-                                    } else {
-                                      alert("Please choose a teacher from the dropdown menu first.");
-                                    }
-                                  }}
-                                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors font-sans"
-                                >
-                                  Allocate
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* PART 2: SUBJECT DOMAINS */}
-                          <div className="bg-white rounded-3xl p-6 border border-slate-200/60 shadow-sm space-y-4 animate-fade-in">
-                            <h4 className="text-sm font-bold text-slate-800 flex items-center space-x-2 border-b border-slate-100 pb-2 font-sans">
-                              <BookOpen className="w-4 h-4 text-indigo-600" />
-                              <span>Key Course Syllabus Subjects</span>
-                            </h4>
-
-                            {/* Tags list */}
-                            <div className="flex flex-wrap gap-2 text-xs">
-                              {!selectedClass.subjects || selectedClass.subjects.length === 0 ? (
-                                <p className="text-xs text-slate-400 italic text-center w-full bg-slate-50 border border-slate-100/60 p-3 rounded-xl font-sans">
-                                  No active subjects domains recorded. Let's declare some course structures!
-                                </p>
-                              ) : (
-                                selectedClass.subjects.map((sub: string) => (
-                                  <div key={sub} className="flex items-center space-x-1.5 bg-slate-50 px-3 py-1 rounded-xl text-slate-700 border border-slate-100/60 hover:bg-slate-100 transition-colors animate-fade-in font-sans">
-                                    <span>{sub}</span>
-                                    <button
-                                      onClick={() => {
-                                        const nextSubjects = selectedClass.subjects.filter((s: string) => s !== sub);
-                                        handleUpdateClassSubjects(selectedClass.id, nextSubjects);
-                                      }}
-                                      className="text-slate-400 hover:text-rose-600 text-xs font-bold font-mono pl-1"
-                                      title="Remove Subject"
-                                    >
-                                      √ó
-                                    </button>
-                                  </div>
-                                ))
-                              )}
-                            </div>
-
-                            {/* Form to insert new subject */}
-                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-sans">
-                              <div className="space-y-0.5">
-                                <p className="text-xs font-semibold text-slate-800">Incorporate Course Domain</p>
-                                <p className="text-[10px] text-slate-500 font-sans">Pick standard subjects from the unified syllabus catalog.</p>
-                              </div>
-                              <div className="flex items-center space-x-2 w-full sm:w-auto font-sans">
-                                {subjects.filter(s => s.level === selectedClass.level).length > 0 ? (
-                                  <select
-                                    value={newSubjectInput}
-                                    onChange={(e) => setNewSubjectInput(e.target.value)}
-                                    className="bg-white text-slate-800 border border-slate-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 cursor-pointer font-sans"
-                                  >
-                                    <option value="">-- Choose Syllabus Subject --</option>
-                                    {subjects
-                                      .filter(s => s.level === selectedClass.level)
-                                      .filter(s => !selectedClass.subjects?.includes(s.name))
-                                      .map(s => (
-                                        <option key={s.id} value={s.name}>{s.name} ({s.requirement})</option>
-                                      ))}
-                                  </select>
-                                ) : (
-                                  <input
-                                    type="text"
-                                    placeholder="e.g. Physics, Art"
-                                    value={newSubjectInput}
-                                    onChange={(e) => setNewSubjectInput(e.target.value)}
-                                    className="bg-white text-slate-800 border border-slate-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 placeholder:text-slate-400 font-sans"
-                                  />
-                                )}
-                                <button
-                                  onClick={async () => {
-                                    const val = newSubjectInput.trim();
-                                    if (val) {
-                                      const currentSubjects = selectedClass.subjects || [];
-                                      if (currentSubjects.includes(val)) {
-                                        alert("Subject already in scope.");
-                                        return;
-                                      }
-
-                                      // Auto-register to Master if missing
-                                      const existsInMaster = subjects.some(s => s.name.toLowerCase() === val.toLowerCase() && s.level === selectedClass.level);
-                                      if (!existsInMaster) {
-                                        try {
-                                          await fetch('/api/subjects', {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({
-                                              name: val,
-                                              level: selectedClass.level,
-                                              requirement: 'compulsory'
-                                            })
-                                          });
-                                          await fetchDatabase();
-                                        } catch (e) {
-                                          console.error("Auto registration failed: ", e);
-                                        }
-                                      }
-
-                                      handleUpdateClassSubjects(selectedClass.id, [...currentSubjects, val]);
-                                      setNewSubjectInput('');
-                                    } else {
-                                      alert("Please select or enter a subject standard.");
-                                    }
-                                  }}
-                                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap font-sans cursor-pointer"
-                                >
-                                  + Subject
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* PART 3: STUDENT ROSTERS */}
-                          <div className="bg-white rounded-3xl p-6 border border-slate-200/60 shadow-sm space-y-4 animate-fade-in">
-                            <h4 className="text-sm font-bold text-slate-800 flex items-center space-x-2 border-b border-slate-100 pb-2 font-sans overflow-hidden">
-                              <Users className="w-4 h-4 text-indigo-600" />
-                              <span>Enrolled Student Roster ({branchStudents.filter(s => s.grade === selectedClass.name).length})</span>
-                            </h4>
-
-                            {/* Student table/list */}
-                            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-                              {branchStudents.filter(s => s.grade === selectedClass.name).length === 0 ? (
-                                <p className="text-xs text-slate-400 italic p-4 bg-slate-50 border border-slate-100/60 rounded-xl text-center font-sans">
-                                  No students registered in this class level yet. Move or select unallocated students below.
-                                </p>
-                              ) : (
-                                branchStudents.filter(s => s.grade === selectedClass.name).map(std => (
-                                  <div key={std.id} className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100/60 animate-fade-in font-sans">
-                                    <div className="flex items-center space-x-3 font-sans">
-                                      <div className="w-7 h-7 bg-indigo-50 text-indigo-600 font-bold rounded-lg flex items-center justify-center text-xs font-mono">
-                                        {std.name.charAt(0)}
-                                      </div>
-                                      <div>
-                                        <p className="text-xs font-semibold text-slate-800 font-sans">{std.name}</p>
-                                        <p className="text-[10px] text-slate-505 font-mono">Admission No: {std.enrollmentNo}</p>
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center space-x-3">
-                                      <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 font-mono font-medium">
-                                        Active
-                                      </span>
-                                      <button
-                                        onClick={() => handleAssignStudentToClass(std.id, 'Unallocated')}
-                                        className="text-[10px] text-slate-600 hover:text-rose-600 bg-white border border-slate-200 hover:border-rose-100 px-2.5 py-1 rounded-lg transition-colors font-semibold font-sans"
-                                        title="Assign student to Unallocated status"
-                                      >
-                                        De-allocate
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))
-                              )}
-                            </div>
-
-                            {/* Add student to selected class list */}
-                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-sans">
-                              <div className="space-y-0.5 font-sans">
-                                <p className="text-xs font-semibold text-slate-800 font-sans">Enrollment Streaming</p>
-                                <p className="text-[10px] text-slate-505 font-sans">Reassign or allocate student directly to this class block.</p>
-                              </div>
-                              <div className="flex items-center space-x-2 w-full sm:w-auto font-sans">
-                                <select 
-                                  id={`allocate-student-sel-${selectedClass.id}`}
-                                  className="bg-white text-slate-800 border border-slate-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 max-w-[180px] font-sans cursor-pointer"
-                                  defaultValue=""
-                                >
-                                  <option value="" disabled>Select student...</option>
-                                  {branchStudents
-                                    .filter(s => s.grade !== selectedClass.name)
-                                    .map(s => (
-                                      <option key={s.id} value={s.id}>{s.name} ({s.grade || 'Unallocated'})</option>
-                                    ))
-                                  }
-                                </select>
-                                <button
-                                  onClick={() => {
-                                    const el = document.getElementById(`allocate-student-sel-${selectedClass.id}`) as HTMLSelectElement;
-                                    if (el && el.value) {
-                                      handleAssignStudentToClass(el.value, selectedClass.name);
-                                      el.value = "";
-                                    } else {
-                                      alert("Please choose a student from the dropdown directory first.");
-                                    }
-                                  }}
-                                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap font-sans"
-                                >
-                                  Assign Student
-                                </button>
-                              </div>
-                            </div>
-
-                          </div>
-                          
-                        </div>
-                      )}
-                    </div>
-
-                  </div>
-                  )}
-
-                  {classesSubTab === 'subjects' && (
-                    <div className="space-y-6 animate-fade-in font-sans">
-                      <div className="bg-gradient-to-r from-teal-50 via-slate-50 to-indigo-50 text-slate-900 rounded-3xl p-6 border border-indigo-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div className="space-y-1">
-                          <div className="flex items-center space-x-2">
-                            <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full border border-indigo-200">
-                              Syllabus Standards
-                            </span>
-                            <span className="text-slate-505 text-xs font-mono">‚Ä¢ Session-Wide Subject Directory</span>
-                          </div>
-                          <h2 className="text-xl font-bold tracking-tight text-slate-900 font-sans">Master Course Syllabus Directory</h2>
-                          <p className="text-slate-600 text-xs leading-relaxed font-sans">
-                            Establish and regulate standardized course subjects across Nursery, Primary, and Junior Secondary wings. Unified identifiers automatically map into report card gradebooks, syllabus plans, and master timetables.
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Metric Bar */}
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
-                          <p className="text-xs text-slate-500 font-medium font-sans">Total Registered Subjects</p>
-                          <p className="text-2xl font-bold text-slate-805 mt-1 font-mono">{subjects.length}</p>
-                        </div>
-                        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
-                          <p className="text-xs text-slate-500 font-medium font-sans">üê£ Nursery Wing Subjects</p>
-                          <p className="text-2xl font-bold text-rose-600 mt-1 font-mono">{subjects.filter(s => s.level === 'nursery').length}</p>
-                        </div>
-                        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
-                          <p className="text-xs text-slate-500 font-medium font-sans">üè´ Primary Wing Subjects</p>
-                          <p className="text-2xl font-bold text-amber-600 mt-1 font-mono">{subjects.filter(s => s.level === 'primary').length}</p>
-                        </div>
-                        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
-                          <p className="text-xs text-slate-500 font-medium font-sans">üéì Junior Secondary Subjects</p>
-                          <p className="text-2xl font-bold text-indigo-650 mt-1 font-mono">{subjects.filter(s => s.level === 'secondary').length}</p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                        
-                        {/* LEFT: Create Master Subject Form */}
-                        <div className="lg:col-span-4 space-y-6">
-                          <div className="bg-white rounded-2xl p-5 border border-slate-105 shadow-sm space-y-4">
-                            <div className="flex items-center justify-between">
-                              <h3 className="text-xs font-semibold text-slate-805 flex items-center space-x-2 font-sans">
-                                <Plus className="w-4 h-4 text-indigo-600" />
-                                <span>Incorporate Standard Subject</span>
-                              </h3>
-                              <span className="text-[9px] bg-indigo-50 text-indigo-700 font-bold px-1.5 py-0.5 rounded uppercase font-mono">Master</span>
-                            </div>
-
-                            <form onSubmit={handleCreateSubject} className="space-y-3">
-                              <div>
-                                <div className="flex justify-between items-center mb-1">
-                                  <label className="block text-[9px] text-slate-400 uppercase font-bold font-sans">Subject Name</label>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setSubjectInputMode(m => m === 'preset' ? 'custom' : 'preset');
-                                      setNewSubjectName('');
-                                    }}
-                                    className="text-[9.5px] text-indigo-650 hover:underline font-bold font-sans cursor-pointer focus:outline-none"
-                                  >
-                                    {subjectInputMode === 'preset' ? '‚úçÔ∏è Type Custom' : 'üìã Pick Preset'}
-                                  </button>
-                                </div>
-
-                                {subjectInputMode === 'preset' ? (
-                                  <select
-                                    required
-                                    value={newSubjectName}
-                                    onChange={(e) => setNewSubjectName(e.target.value)}
-                                    className="w-full bg-slate-50 text-slate-800 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 focus:bg-white font-sans cursor-pointer font-medium"
-                                  >
-                                    <option value="">-- Select Predefined Syllabus --</option>
-                                    {(PREDEFINED_SYLLABUS[newSubjectLevel] || []).map(topic => (
-                                      <option key={topic} value={topic}>{topic}</option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <input
-                                    type="text"
-                                    required
-                                    value={newSubjectName}
-                                    onChange={(e) => setNewSubjectName(e.target.value)}
-                                    placeholder="e.g. Traditional Arabic Calligraphy"
-                                    className="w-full bg-slate-50 text-slate-800 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 focus:bg-white placeholder:text-slate-400 font-sans font-semibold"
-                                  />
-                                )}
-                              </div>
-
-                              <div>
-                                <label className="block text-[9px] text-slate-400 uppercase font-bold mb-1 font-sans">Academic Wing</label>
-                                <select
-                                  value={newSubjectLevel}
-                                  onChange={(e) => {
-                                    setNewSubjectLevel(e.target.value as any);
-                                    setNewSubjectName(''); // reset selected subject
-                                  }}
-                                  className="w-full bg-slate-50 text-slate-800 border border-slate-200 rounded-xl px-3 py-2 text-[11px] focus:outline-none focus:border-indigo-500 focus:bg-white font-sans cursor-pointer"
-                                >
-                                  <option value="nursery">üë∂ Nursery Wing (Play &amp; Sensory)</option>
-                                  <option value="primary">üè´ Primary Wing (Foundations)</option>
-                                  <option value="secondary">üéì Junior Secondary Wing</option>
-                                  <option value="islamia">üåô Islamia Wing</option>
-                                </select>
-                              </div>
-
-                              <div>
-                                <label className="block text-[9px] text-slate-400 uppercase font-bold mb-1 font-sans">Subject Requirement</label>
-                                <select
-                                  value={newSubjectRequirement}
-                                  onChange={(e) => setNewSubjectRequirement(e.target.value as any)}
-                                  className="w-full bg-slate-50 text-slate-800 border border-slate-200 rounded-xl px-3 py-2 text-[11px] focus:outline-none focus:border-indigo-500 focus:bg-white font-sans cursor-pointer font-semibold"
-                                >
-                                  <option value="compulsory">üî¥ Compulsory Subject</option>
-                                  <option value="optional">üü¢ Optional / Elective</option>
-                                </select>
-                              </div>
-
-                              <button
-                                type="submit"
-                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold py-2 rounded-xl transition-colors shadow-sm cursor-pointer font-sans"
-                              >
-                                Add Subject to Registry
-                              </button>
-                            </form>
-                          </div>
-
-                          {/* Bulk Loading Predefined Syllabus Presets card */}
-                          <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200 border-dashed space-y-3 font-sans">
-                            <div className="space-y-1">
-                              <h4 className="text-xs font-bold text-slate-800 flex items-center space-x-2">
-                                <span>üöÄ Rapid Presets Booster</span>
-                              </h4>
-                              <p className="text-[11px] text-slate-500 leading-normal">
-                                Directly load school syllabus catalogs from standardized academic curriculums to instantly populate uniform course blocks.
-                              </p>
-                            </div>
-                            <div className="grid grid-cols-1 gap-2 pt-1">
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  const presets = [
-                                    { name: "Phonics & Rhymes", level: "nursery", requirement: "compulsory" },
-                                    { name: "Early Numeracy", level: "nursery", requirement: "compulsory" },
-                                    { name: "Sensory Arts", level: "nursery", requirement: "compulsory" },
-                                    { name: "Physical Play", level: "nursery", requirement: "optional" }
-                                  ];
-                                  let count = 0;
-                                  for (const p of presets) {
-                                    const existing = subjects.some(s => s.name.toLowerCase() === p.name.toLowerCase() && s.level === p.level);
-                                    if (!existing) {
-                                      await fetch('/api/subjects', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify(p)
-                                      });
-                                      count++;
-                                    }
-                                  }
-                                  await fetchDatabase();
-                                  alert(`Populated ${count} standard Nursery presets successfully.`);
-                                }}
-                                className="bg-white hover:bg-slate-100 border border-slate-205 text-left px-3 py-2 text-xs rounded-xl flex items-center justify-between font-sans transition-colors cursor-pointer"
-                              >
-                                <span>üê£ Import Nursery Presets</span>
-                                <span className="text-[10px] text-slate-400 font-mono">Phonics, Sensory...</span>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  const presets = [
-                                    { name: "Basic Technology", level: "primary", requirement: "optional" },
-                                    { name: "Agricultural Science", level: "primary", requirement: "optional" },
-                                    { name: "Home Economics", level: "primary", requirement: "optional" },
-                                    { name: "Physical & Health Education", level: "primary", requirement: "compulsory" }
-                                  ];
-                                  let count = 0;
-                                  for (const p of presets) {
-                                    const existing = subjects.some(s => s.name.toLowerCase() === p.name.toLowerCase() && s.level === p.level);
-                                    if (!existing) {
-                                      await fetch('/api/subjects', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify(p)
-                                      });
-                                      count++;
-                                    }
-                                  }
-                                  await fetchDatabase();
-                                  alert(`Populated ${count} standard Primary presets successfully.`);
-                                }}
-                                className="bg-white hover:bg-slate-100 border border-slate-205 text-left px-3 py-2 text-xs rounded-xl flex items-center justify-between font-sans transition-colors cursor-pointer"
-                              >
-                                <span>üè´ Import Primary Presets</span>
-                                <span className="text-[10px] text-slate-400 font-mono">Basic Tech, PHE...</span>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  const presets = [
-                                    { name: "Further Mathematics", level: "secondary", requirement: "optional" },
-                                    { name: "Economics", level: "secondary", requirement: "compulsory" },
-                                    { name: "Financial Accounting", level: "secondary", requirement: "optional" },
-                                    { name: "Geography", level: "secondary", requirement: "optional" }
-                                  ];
-                                  let count = 0;
-                                  for (const p of presets) {
-                                    const existing = subjects.some(s => s.name.toLowerCase() === p.name.toLowerCase() && s.level === p.level);
-                                    if (!existing) {
-                                      await fetch('/api/subjects', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify(p)
-                                      });
-                                      count++;
-                                    }
-                                  }
-                                  await fetchDatabase();
-                                  alert(`Populated ${count} standard Junior Secondary presets successfully.`);
-                                }}
-                                className="bg-white hover:bg-slate-100 border border-slate-205 text-left px-3 py-2 text-xs rounded-xl flex items-center justify-between font-sans transition-colors cursor-pointer"
-                              >
-                                <span>üéì Import Secondary Presets</span>
-                                <span className="text-[10px] text-slate-400 font-mono">Further Math, Econ...</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  const presets = [
-                                    { name: "Qur'an Recitation (Tajweed)", level: "islamia", requirement: "compulsory" },
-                                    { name: "Qur'an Memorization (Tahfiz)", level: "islamia", requirement: "compulsory" },
-                                    { name: "Hadith Study", level: "islamia", requirement: "compulsory" },
-                                    { name: "Fiqh (Islamic Jurisprudence)", level: "islamia", requirement: "compulsory" },
-                                    { name: "Seerah (Prophetic Biography)", level: "islamia", requirement: "optional" },
-                                    { name: "Tauhid (Islamic Creed)", level: "islamia", requirement: "compulsory" },
-                                    { name: "Arabic Language", level: "islamia", requirement: "optional" },
-                                    { name: "Akhlaq & Adab (Islamic Etiquette)", level: "islamia", requirement: "optional" }
-                                  ];
-                                  let count = 0;
-                                  for (const p of presets) {
-                                    const existing = subjects.some(s => s.name.toLowerCase() === p.name.toLowerCase() && s.level === p.level);
-                                    if (!existing) {
-                                      await fetch('/api/subjects', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify(p)
-                                      });
-                                      count++;
-                                    }
-                                  }
-                                  await fetchDatabase();
-                                  alert(`Populated ${count} standard Islamia wing presets successfully.`);
-                                }}
-                                className="bg-white hover:bg-slate-100 border border-slate-205 text-left px-3 py-2 text-xs rounded-xl flex items-center justify-between font-sans transition-colors cursor-pointer"
-                              >
-                                <span>üåô Import Islamia Presets</span>
-                                <span className="text-[10px] text-slate-400 font-mono">Qur'an, Hadith...</span>
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* RIGHT: Master Subjects Directory DataTable Grid */}
-                        <div className="lg:col-span-8 bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
-                          
-                          {/* Search & Filters */}
-                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-150 font-sans">
-                            <div>
-                              <h3 className="text-sm font-semibold text-slate-800">Master Record Catalog</h3>
-                              <p className="text-[11px] text-slate-400">Manage definitions and view associations across class wings.</p>
-                            </div>
-                            
-                            <div className="flex items-center space-x-2">
-                              <span className="text-xs text-slate-500 font-medium whitespace-nowrap">Filter Wing:</span>
-                              <select
-                                value={selectedSubLevel}
-                                onChange={(e) => setSelectedSubLevel(e.target.value as any)}
-                                className="bg-slate-50 text-slate-705 border border-slate-200 text-xs rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-505 cursor-pointer font-sans font-medium"
-                              >
-                                <option value="nursery">üë∂ Nursery (Preschool - K2)</option>
-                                <option value="primary">üè´ Primary Wing (Grade 1 - 5)</option>
-                                <option value="secondary">üéì Junior Secondary Wing</option>
-                                <option value="islamia">üåô Islamia Wing</option>
-                              </select>
-                            </div>
-                          </div>
-
-                          {/* Directory List Table */}
-                          <div className="overflow-x-auto min-h-60 font-sans">
-                            <table className="w-full text-left border-collapse text-xs">
-                              <thead>
-                                <tr className="bg-slate-50/65 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-100">
-                                  <th className="py-2.5 px-3">Subject ID</th>
-                                  <th className="py-2.5 px-3">Subject Standard Name</th>
-                                  <th className="py-2.5 px-3">Subject Requirement</th>
-                                  <th className="py-2.5 px-3 text-center">Status / Actions</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-100 text-slate-700">
-                                {subjects.filter(s => s.level === selectedSubLevel).length === 0 ? (
-                                  <tr>
-                                    <td colSpan={4} className="py-8 text-center text-slate-400 italic font-medium">
-                                      No standardized subjects configured for this wing. Select or add subjects on the left panel to populate the active syllabus.
-                                    </td>
-                                  </tr>
-                                ) : (
-                                  subjects.filter(s => s.level === selectedSubLevel).map((sub) => {
-                                    return (
-                                      <tr key={sub.id} className="hover:bg-slate-50/50 transition-colors">
-                                        <td className="py-3 px-3 font-mono text-[11px] font-bold text-indigo-650">{sub.id}</td>
-                                        <td className="py-3 px-3">
-                                          <input
-                                            type="text"
-                                            defaultValue={sub.name}
-                                            onBlur={(e) => {
-                                              const val = e.target.value.trim();
-                                              if (val && val !== sub.name) {
-                                                handleUpdateSubject({ ...sub, name: val });
-                                              }
-                                            }}
-                                            className="bg-transparent border-b border-transparent hover:border-slate-205 focus:border-indigo-500 focus:bg-white focus:ring-1 focus:ring-indigo-150 rounded px-1.5 py-0.5 text-xs text-slate-800 font-semibold w-full outline-none font-sans"
-                                          />
-                                        </td>
-                                        <td className="py-3 px-3">
-                                          <select
-                                            value={sub.requirement}
-                                            onChange={(e) => {
-                                              handleUpdateSubject({ ...sub, requirement: e.target.value as any });
-                                            }}
-                                            className="bg-transparent border border-transparent hover:border-slate-205 focus:border-indigo-500 rounded px-1 py-0.5 text-xs text-slate-700 outline-none cursor-pointer font-sans font-semibold"
-                                          >
-                                            <option value="compulsory">üî¥ Compulsory</option>
-                                            <option value="optional">üü¢ Optional</option>
-                                          </select>
-                                        </td>
-                                        <td className="py-3 px-3 text-center">
-                                          <div className="flex items-center justify-center space-x-2">
-                                            <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-100 font-sans">
-                                              Active Uniform
-                                            </span>
-                                            <button
-                                              onClick={() => handleDeleteSubject(sub.id)}
-                                              className="text-slate-400 hover:text-rose-600 p-1 rounded-lg hover:bg-rose-50 transition-all cursor-pointer"
-                                              title="Delete Standard Subject From Masters Record"
-                                            >
-                                              <Trash2 className="w-3.5 h-3.5" />
-                                            </button>
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    )
-                                  })
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
-
-                          {/* Integration Note */}
-                          <div className="p-3 bg-amber-50/60 border border-amber-100 rounded-xl flex items-start space-x-2.5 text-[11px] text-amber-800 leading-relaxed font-sans">
-                            <span>üí°</span>
-                            <div>
-                              <strong>Uniformity Enforcement Guide:</strong> Standardized master subjects are locked against duplicates. When attaching subjects to classes, allocating teachers, publishing timetables, or registering continuous assessment test marks, select standard entries to prevent casing mismatch (e.g. <em>"Maths"</em> versus <em>"Mathematics"</em>) and ensure clear, professional reporting cards.
-                            </div>
-                          </div>
-
-                        </div>
-
-                      </div>
-
-                    </div>
-                  )}
-
-                  {classesSubTab === 'curriculum_checklists' && (
-                    <CurriculumChecklistTab
-                      curriculumChecklists={curriculumChecklists}
-                      setCurriculumChecklists={setCurriculumChecklists}
-                      classes={classes}
-                      subjects={subjects}
-                      selectedBranch={selectedBranch}
-                    />
-                  )}
-
-                  {classesSubTab === 'lesson_plans' && (
-                    <LessonPlansTab
-                      lessonPlanDrafts={lessonPlanDrafts}
-                      setLessonPlanDrafts={setLessonPlanDrafts}
-                      classes={classes}
-                      subjects={subjects}
-                      selectedBranch={selectedBranch}
-                      currentSimulatedRole={currentSimulatedRole}
-                    />
-                  )}
-
-                  {classesSubTab === 'teaching_records' && (
-                    <TeachingRecordsTab
-                      teachingRecords={teachingRecords}
-                      setTeachingRecords={setTeachingRecords}
-                      classes={classes}
-                      subjects={subjects}
-                      teachers={teachers}
-                      selectedBranch={selectedBranch}
-                      currentSimulatedRole={currentSimulatedRole}
-                      academicSessions={academicSessions}
-                      terms={terms}
-                      curriculumChecklists={curriculumChecklists}
-                      students={students}
-                      lessonPlanDrafts={lessonPlanDrafts}
-                      onNavigateToTab={(tab, subTab) => {
-                        setActiveTab(tab as any);
-                        if (subTab && tab === 'curriculumChecklist') {
-                          setClassesSubTab(subTab as any);
-                        }
-                      }}
-                    />
-                  )}
-
-                </div>
-              )}
-
-              {/* -------------------------------------------------------------
-                  TAB 4: GRADEBOOK & AI REPORT CARDS GENERATOR
-                  ------------------------------------------------------------- */}
-              {activeTab === 'grades' && (
-                <div id="erp-teacher-exam-desk" className="space-y-6 animate-fade-in text-xs font-sans">
-                  {/* Page Header banner */}
-                  <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-3xl p-6 shadow-xl border border-slate-800 space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Pencil className="w-5 h-5 text-indigo-400" />
-                      <span className="text-[10px] uppercase font-mono tracking-widest font-bold text-indigo-300 bg-indigo-900/30 px-2.5 py-0.5 rounded-full border border-indigo-505/25">
-                        Academic Department ‚Ä¢ Exam Desk
-                      </span>
-                    </div>
-                    <h2 className="text-xl font-black tracking-tight mt-1">Numerical Scores &amp; Exam Entry</h2>
-                    <p className="text-[11px] text-slate-400 leading-normal max-w-2xl">
-                      Enter students' continuous assessment test ratings and terminal marks. Once complete, submit files for Consolidation and Moderation board approval. After submission, entries are locked.
-                    </p>
-                  </div>
-
-                  {/* Class & Subject Selector block */}
-                  <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Class Selection Dropdown */}
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">1. Select Target Class / Group Division</label>
-                      <select
-                        value={scoreEntryClass}
-                        onChange={(e) => {
-                          setScoreEntryClass(e.target.value);
-                          setScoreEntrySubject(''); // Reset subject selection on class change
-                        }}
-                        className="w-full text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-bold transition-all text-xs cursor-pointer"
-                      >
-                        <option value="">-- Choose Class Group --</option>
-                        {classes.filter(c => !c.branch || c.branch === selectedBranch).map(c => (
-                          <option key={c.id} value={c.name}>{c.name} ({c.level.toUpperCase()})</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Subject Selection Dropdown */}
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">2. Select Course Subject Module</label>
-                      <select
-                        value={scoreEntrySubject}
-                        onChange={(e) => setScoreEntrySubject(e.target.value)}
-                        disabled={!scoreEntryClass}
-                        className="w-full text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-bold transition-all text-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        <option value="">-- Choose Course Subject --</option>
-                        {(() => {
-                          const currentCls = classes.find(c => c.name === scoreEntryClass);
-                          return currentCls?.subjects?.map(sName => (
-                            <option key={sName} value={sName}>{sName}</option>
-                          )) || null;
-                        })()}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Secure Terminal Administrative Controller */}
-                  <TerminalGradesControl
-                    currentSimulatedRole={currentSimulatedRole}
-                    classes={classes}
-                    students={students}
-                    selectedBranch={selectedBranch}
-                    scoreEntryClass={scoreEntryClass}
-                    setScoreEntryClass={setScoreEntryClass}
-                    saveStudentChanges={saveStudentChanges}
-                    handleUpdateClassDetails={handleUpdateClassDetails}
-                    calculateGPA={calculateGPA}
-                    getSecularGrades={getSecularGrades}
-                  />
-
-                  {/* Score Entering Section */}
-                  {scoreEntryClass && scoreEntrySubject ? (() => {
-                    const currentCls = classes.find(c => c.name === scoreEntryClass);
-                    if (!currentCls) return null;
-                    
-                    const classStudents = students.filter(s => 
-                      (currentCls.level === 'islamia' ? s.islamiaClassId === currentCls.id : s.grade === scoreEntryClass) &&
-                      (s.branch === selectedBranch || !s.branch)
-                    );
-
-                    const firstStudent = classStudents[0];
-                    const isSubmitted = firstStudent ? (
-                      currentCls.level === 'nursery' ? 
-                      firstStudent.milestonesStatus?.[scoreEntrySubject] === 'Submitted' || firstStudent.milestonesStatus?.[scoreEntrySubject] === 'Approved' :
-                      firstStudent.gradesStatus?.[scoreEntrySubject] === 'Submitted' || firstStudent.gradesStatus?.[scoreEntrySubject] === 'Approved'
-                    ) : false;
-
-                    const isApproved = firstStudent ? (
-                      currentCls.level === 'nursery' ?
-                      firstStudent.milestonesStatus?.[scoreEntrySubject] === 'Approved' :
-                      firstStudent.gradesStatus?.[scoreEntrySubject] === 'Approved'
-                    ) : false;
-
-                    const isMatrixLocked = currentCls.isScoreMatrixLocked || false;
-                    const isLockedForTeacher = (isSubmitted || isApproved || isMatrixLocked) && currentSimulatedRole === 'Teacher';
-
-                    return (
-                      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
-                        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-150 pb-4">
-                          <div>
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="font-bold text-slate-900 text-sm">{scoreEntryClass} ‚Ä¢ {scoreEntrySubject}</span>
-                              {isApproved ? (
-                                <span className="bg-emerald-100 text-emerald-800 border border-emerald-250 text-[9px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full">
-                                  ‚úÖ Approved &amp; Released
-                                </span>
-                              ) : isSubmitted ? (
-                                <span className="bg-amber-100 text-amber-800 border border-amber-250 text-[10px] tracking-wide font-extrabold px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                                  üîí Submitted (Under Board Moderation)
-                                </span>
-                              ) : (
-                                <span className="bg-slate-100 text-slate-700 border border-slate-205 text-[9px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full">
-                                  ‚úèÔ∏è Draft (Editable)
-                                </span>
-                              )}
-                              {isMatrixLocked && (
-                                <span className="bg-rose-100 text-rose-850 border border-rose-250 text-[9px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse select-none">
-                                  üîí Secure Matrix Lock Active
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[10px] text-slate-400 mt-1">
-                              Displaying {classStudents.length} enrolled student rosters. {isLockedForTeacher && (isMatrixLocked ? "Scores are securely locked by an Administrator. No adjustments permitted." : "Scores locked for teacher revision under policy directives.")}
-                            </p>
-                          </div>
-                        </div>
-
-                        {classStudents.length === 0 ? (
-                          <div className="p-12 text-center text-slate-400 font-medium">
-                            No students are currently registered in this class.
-                          </div>
-                        ) : (
-                          <div className="overflow-x-auto rounded-xl border border-slate-100">
-                            <table className="w-full text-left border-collapse table-fixed min-w-[700px]">
-                              <thead>
-                                <tr className="bg-slate-50 border-b border-slate-150 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-                                  <th className="p-3 w-1/3 text-left font-bold">Student Name</th>
-                                  <th className="p-3 text-center font-bold">Admission No / ID</th>
-                                  <th className="p-3 text-center font-bold">Islamia Placement</th>
-                                  <th className="p-3 text-center w-[250px] font-bold">Continuous Score / Rating</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-100 text-slate-700">
-                                {classStudents.map(s => {
-                                  const score = s.grades?.[scoreEntrySubject] ?? 0;
-                                  const status = s.milestones?.[scoreEntrySubject] ?? 'Introduced';
-                                  return (
-                                    <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
-                                      <td className="p-3">
-                                        <p className="font-bold text-slate-900 text-xs leading-none">{s.name}</p>
-                                        <p className="text-[9.5px] text-slate-400 mt-1 font-medium">{s.grade} ‚Ä¢ Division {s.classSection || 'A'}</p>
-                                      </td>
-                                      <td className="p-3 text-center font-mono font-bold text-slate-500">
-                                        {s.enrollmentNo || `ADM-2026-N${s.id.split('-').pop()}`}
-                                      </td>
-                                      <td className="p-3 text-center">
-                                        {s.islamiaClassId ? (
-                                          <span className="bg-indigo-50 text-indigo-700 border border-indigo-150 px-2 py-0.5 rounded text-[10px] font-bold">
-                                            Enrolled
-                                          </span>
-                                        ) : (
-                                          <span className="text-slate-400 text-[10px]">None</span>
-                                        )}
-                                      </td>
-                                      <td className="p-3 text-center">
-                                        {currentCls.level === 'nursery' ? (
-                                          <div className="flex items-center justify-center gap-1">
-                                            {(['Introduced', 'Developing', 'Mastered'] as const).map(milVal => (
-                                              <button
-                                                key={milVal}
-                                                type="button"
-                                                disabled={isLockedForTeacher}
-                                                onClick={() => {
-                                                  const updated = {
-                                                    ...s,
-                                                    milestones: {
-                                                      ...(s.milestones || {}),
-                                                      [scoreEntrySubject]: milVal
-                                                    }
-                                                  };
-                                                  saveStudentChanges(updated);
-                                                }}
-                                                className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border transition-all cursor-pointer ${
-                                                  status === milVal
-                                                    ? 'bg-indigo-600 border-indigo-600 text-white shadow'
-                                                    : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed'
-                                                }`}
-                                              >
-                                                {milVal}
-                                              </button>
-                                            ))}
-                                          </div>
-                                        ) : (
-                                          <div className="flex items-center justify-center space-x-2">
-                                            <input
-                                              type="number"
-                                              min="0"
-                                              max="100"
-                                              value={score}
-                                              disabled={isLockedForTeacher}
-                                              onChange={(e) => {
-                                                const val = Math.min(100, Math.max(0, Number(e.target.value) || 0));
-                                                const updated = {
-                                                  ...s,
-                                                  grades: {
-                                                    ...(s.grades || {}),
-                                                    [scoreEntrySubject]: val
-                                                  }
-                                                };
-                                                saveStudentChanges(updated);
-                                              }}
-                                              className="w-20 bg-slate-50 border border-slate-205/85 font-mono font-bold text-center rounded-xl px-2 py-1 outline-none text-slate-900 focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
-                                            />
-                                            <span className="text-slate-400 font-bold font-mono text-[10.5px]">/ 100</span>
-                                          </div>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-
-                        {/* Action Row */}
-                        {classStudents.length > 0 && (
-                          <div className="flex flex-col sm:flex-row justify-between items-center bg-slate-50 border-slate-150 border rounded-2xl p-4 gap-4">
-                            <div className="text-left">
-                              <p className="font-extrabold text-slate-800 leading-none">Complete Scoreboard Action</p>
-                              <p className="text-[10px] text-slate-400 mt-1">Submit is final. Any edits after submission require academic oversight unlock bypass.</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                disabled={isLockedForTeacher}
-                                onClick={async () => {
-                                  const confirmSub = window.confirm(`Are you absolutely sure you want to submit the ${scoreEntrySubject} grades for ${scoreEntryClass} to the Board for consolidation? This will lock your entries.`);
-                                  if (!confirmSub) return;
-                                  
-                                  const updatedList = classStudents.map(s => {
-                                    if (currentCls.level === 'nursery') {
-                                      return {
-                                        ...s,
-                                        milestonesStatus: {
-                                          ...(s.milestonesStatus || {}),
-                                          [scoreEntrySubject]: 'Submitted' as const
-                                        }
-                                      };
-                                    } else {
-                                      return {
-                                        ...s,
-                                        gradesStatus: {
-                                          ...(s.gradesStatus || {}),
-                                          [scoreEntrySubject]: 'Submitted' as const
-                                        }
-                                      };
-                                    }
-                                  });
-                                  
-                                  for (const std of updatedList) {
-                                    await saveStudentChanges(std);
-                                  }
-                                  alert(`üì§ Subject ${scoreEntrySubject} scores submitted for consolidation successfully!`);
-                                }}
-                                className="bg-indigo-600 hover:bg-slate-900 text-white font-bold tracking-wide uppercase px-5 py-2.5 rounded-xl shadow cursor-pointer transition-all flex items-center space-x-2 disabled:bg-slate-300 disabled:text-slate-550 disabled:cursor-not-allowed"
-                              >
-                                <Lock className="w-3.5 h-3.5" />
-                                <span>Submit Scores for Consolidation</span>
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })() : (
-                    <div className="bg-white border rounded-3xl p-12 text-center text-slate-400 font-bold">
-                      Please select a Class and Course Subject above to load the interactive exam scores page.
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* -------------------------------------------------------------
-                  TAB 4B: CENTRAL CONSOLIDATION & BOARD ROOM (FOR SUPREME ADMINS)
-                  ------------------------------------------------------------- */}
-              {activeTab === 'consolidation' && (
-                <div id="erp-view-academic-hub" className="space-y-6 animate-fade-in">
-                  
-                  {/* Unified Academic Hub Header Nav */}
-                  <div className="bg-slate-900 text-white rounded-3xl p-6 shadow-xl space-y-6 border border-slate-800">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <div>
-                        <span className="bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 text-[10px] uppercase font-mono font-bold tracking-widest px-3 py-1 rounded-full">
-                          Academic Board Room &amp; Consolidation Center
-                        </span>
-                        <h2 className="text-2xl font-black tracking-tight text-white mt-2">Central Board &amp; Moderation Room</h2>
-                        <p className="text-xs text-slate-400 mt-1">Audit continuous assessment scores submitted by teachers, moderate final grades, compile official report comments, release parent report cards, and manage syllabus.</p>
-                      </div>
-                    </div>
-
-                    {/* Horizontal Sub Navigation Row */}
-                    <div className="flex border-b border-white/10 overflow-x-auto gap-1 pb-px scrollbar-none">
-                      <button
-                        onClick={() => setAcademicSubTab('analytics')}
-                        className={`flex items-center space-x-2 px-4 py-3 text-xs font-bold border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-                          academicSubTab === 'analytics'
-                            ? 'border-indigo-400 text-indigo-350 bg-white/5 rounded-t-xl'
-                            : 'border-transparent text-slate-455 hover:text-slate-205'
-                        }`}
-                      >
-                        <TrendingUp className="w-4 h-4 shrink-0 text-indigo-400" />
-                        <span>Performance Analytics &amp; Reports</span>
-                      </button>
-                      <button
-                        onClick={() => setAcademicSubTab('report_cards')}
-                        className={`flex items-center space-x-2 px-4 py-3 text-xs font-bold border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-                          academicSubTab === 'report_cards'
-                            ? 'border-indigo-400 text-indigo-355 bg-white/5 rounded-t-xl'
-                            : 'border-transparent text-slate-455 hover:text-slate-205'
-                        }`}
-                      >
-                        <FileText className="w-4 h-4 shrink-0 text-amber-400" />
-                        <span>Assessments &amp; Progress Cards</span>
-                      </button>
-                      <button
-                        onClick={() => setAcademicSubTab('curriculum')}
-                        className={`flex items-center space-x-2 px-4 py-3 text-xs font-bold border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-                          academicSubTab === 'curriculum'
-                            ? 'border-indigo-400 text-indigo-355 bg-white/5 rounded-t-xl'
-                            : 'border-transparent text-slate-455 hover:text-slate-205'
-                        }`}
-                      >
-                        <BookOpen className="w-4 h-4 shrink-0 text-emerald-400" />
-                        <span>Curriculum Planning &amp; Workloads</span>
-                      </button>
-                      <button
-                        onClick={() => setAcademicSubTab('exams')}
-                        className={`flex items-center space-x-2 px-4 py-3 text-xs font-bold border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-                          academicSubTab === 'exams'
-                            ? 'border-indigo-400 text-indigo-355 bg-white/5 rounded-t-xl'
-                            : 'border-transparent text-slate-455 hover:text-slate-205'
-                        }`}
-                      >
-                        <Calendar className="w-4 h-4 shrink-0 text-rose-450" />
-                        <span>Examination Scheduler</span>
-                      </button>
-                      <button
-                        onClick={() => setAcademicSubTab('scales')}
-                        className={`flex items-center space-x-2 px-4 py-3 text-xs font-bold border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-                          academicSubTab === 'scales'
-                            ? 'border-indigo-400 text-indigo-355 bg-white/5 rounded-t-xl'
-                            : 'border-transparent text-slate-455 hover:text-slate-205'
-                        }`}
-                      >
-                        <Sliders className="w-4 h-4 shrink-0 text-teal-400" />
-                        <span>Grading Systems Config</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* -------------------------------------------------------------
-                      SUB TAB 1: ACADEMIC PERFORMANCE ANALYTICS & REPORTS
-                      ------------------------------------------------------------- */}
-                  {academicSubTab === 'analytics' && (
-                    <div className="space-y-6 animate-fade-in text-xs font-sans">
-                      
-                      {/* Brand-new Board Consolidation Ledger */}
-                      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
-                        <div className="flex flex-col sm:flex-row justify-between sm:items-center border-b pb-4 gap-2">
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <ShieldCheck className="w-5 h-5 text-rose-600 shrink-0" />
-                              <h3 className="font-extrabold text-slate-900 text-sm">Class-Wise Scholastic Consolidation &amp; Board Ledger</h3>
-                            </div>
-                            <p className="text-[11px] text-slate-500 font-medium">Audit class performance, inspect computed student outcomes awaiting approval, apply board grace policies, and release final evaluation cards.</p>
-                          </div>
-                        </div>
-
-                        {/* Interactive moderation controls if a class is selected */}
-                        {activeModerateCourse && (() => {
-                          const cls = classes.find(c => c.id === activeModerateCourse.classId);
-                          if (!cls) return null;
-                          const classStudents = students.filter(s => 
-                            (cls.level === 'islamia' ? s.islamiaClassId === cls.id : s.grade === cls.name) &&
-                            (s.branch === selectedBranch || !s.branch)
-                          );
-
-                          const calculateClassAvgVal = () => {
-                            if (classStudents.length === 0) return 0;
-                            if (cls.level === 'nursery') return 0;
-                            const studentAverages = classStudents.map(s => calculateGPA(getSecularGrades(s.grades || {})).avg);
-                            const totalSum = studentAverages.reduce((sum, val) => sum + val, 0);
-                            return Math.round(totalSum / Math.max(1, studentAverages.length));
-                          };
-
-                          const classAvg = calculateClassAvgVal();
-                          const classAvgLetter = cls.level === 'nursery' ? 'Nursery' : calculateGPA({ temp: classAvg }).letter;
-                          const totalApprovedVal = classStudents.filter(s => s.resultsApproved === true).length;
-
-                          // Helper to identify subject status in class
-                          const getSubjectStatusInClass = (subjName: string) => {
-                            let submittedCount = 0;
-                            let draftCount = 0;
-                            let approvedCount = 0;
-
-                            classStudents.forEach(s => {
-                              const stat = s.gradesStatus?.[subjName] || s.milestonesStatus?.[subjName] || 'Draft';
-                              if (stat === 'Approved') approvedCount++;
-                              else if (stat === 'Submitted') submittedCount++;
-                              else draftCount++;
-                            });
-
-                            if (classStudents.length === 0) return 'Empty';
-                            if (approvedCount === classStudents.length) return 'Approved';
-                            if (submittedCount > 0) return 'Awaiting Approval';
-                            return 'Draft';
-                          };
-
-                          return (
-                            <div className="bg-slate-50 border border-indigo-150 rounded-2xl p-4 space-y-4 animate-fade-in">
-                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-indigo-100 pb-3 gap-2">
-                                <div>
-                                  <span className="bg-indigo-50 border border-indigo-100 text-indigo-800 text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded">
-                                    Active Board Certification Desk
-                                  </span>
-                                  <h4 className="text-sm font-black text-slate-800 mt-1 flex items-center gap-1.5">
-                                    <span>Auditing Class: {cls.name}</span>
-                                    <span className="px-2 py-0.5 rounded-full text-[9px] bg-slate-200 text-slate-700 uppercase font-mono">{cls.level}</span>
-                                  </h4>
-                                </div>
-                                <div className="flex flex-wrap gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      const confirmApprove = window.confirm(`Approve and Bulk Release all report cards for ${cls.name}? This publishes computed results instantly to parent users.`);
-                                      if (!confirmApprove) return;
-
-                                      const updatedList = classStudents.map(s => {
-                                        // Bulk set approval flags
-                                        const updatedMilestonesStatus: Record<string, 'Approved'> = {};
-                                        const updatedGradesStatus: Record<string, 'Approved'> = {};
-                                        cls.subjects?.forEach(sub => {
-                                          updatedMilestonesStatus[sub] = 'Approved' as const;
-                                          updatedGradesStatus[sub] = 'Approved' as const;
-                                        });
-
-                                        return {
-                                          ...s,
-                                          resultsApproved: true,
-                                          milestonesStatus: {
-                                            ...(s.milestonesStatus || {}),
-                                            ...updatedMilestonesStatus
-                                          },
-                                          gradesStatus: {
-                                            ...(s.gradesStatus || {}),
-                                            ...updatedGradesStatus
-                                          }
-                                        };
-                                      });
-
-                                      for (const std of updatedList) {
-                                        await saveStudentChanges(std);
-                                      }
-                                      alert(`‚úÖ Entire student list of ${cls.name} has been certified and released!`);
-                                    }}
-                                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 shadow cursor-pointer transition-all"
-                                  >
-                                    <Check className="w-3 h-3" />
-                                    Bulk Approve &amp; Release
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      const confirmReturn = window.confirm(`Return all results of ${cls.name} to teacher draft phase? Teachers can write or enter comments and grades once again.`);
-                                      if (!confirmReturn) return;
-
-                                      const updatedList = classStudents.map(s => {
-                                        const draftMilestonesStatus: Record<string, 'Draft'> = {};
-                                        const draftGradesStatus: Record<string, 'Draft'> = {};
-                                        cls.subjects?.forEach(sub => {
-                                          draftMilestonesStatus[sub] = 'Draft' as const;
-                                          draftGradesStatus[sub] = 'Draft' as const;
-                                        });
-
-                                        return {
-                                          ...s,
-                                          resultsApproved: false,
-                                          milestonesStatus: {
-                                            ...(s.milestonesStatus || {}),
-                                            ...draftMilestonesStatus
-                                          },
-                                          gradesStatus: {
-                                            ...(s.gradesStatus || {}),
-                                            ...draftGradesStatus
-                                          }
-                                        };
-                                      });
-
-                                      for (const std of updatedList) {
-                                        await saveStudentChanges(std);
-                                      }
-                                      alert(`‚ùå Class records reverted to Draft status successfully.`);
-                                    }}
-                                    className="bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 shadow cursor-pointer transition-all"
-                                  >
-                                    <RotateCcw className="w-3 h-3" />
-                                    Reject &amp; Return to Draft
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const passingPct = Number(window.prompt("Enter Passing Percentage Threshold (e.g. 40 or 50):", "40"));
-                                      if (isNaN(passingPct) || passingPct <= 0) return;
-
-                                      const updatedList = classStudents.map(s => {
-                                        if (cls.level === 'nursery') return s;
-                                        const modifiedGrades = { ...s.grades };
-                                        let marksAdded = 0;
-                                        
-                                        cls.subjects?.forEach(sub => {
-                                          const score = modifiedGrades[sub] ?? 0;
-                                          if (score < passingPct && score >= (passingPct - 3)) {
-                                            const diff = passingPct - score;
-                                            modifiedGrades[sub] = passingPct;
-                                            marksAdded += diff;
-                                          }
-                                        });
-
-                                        if (marksAdded > 0) {
-                                          return {
-                                            ...s,
-                                            grades: modifiedGrades,
-                                            reportComment: `${s.reportComment || ''} [SAMS Board Audit: Awarded ${marksAdded} grace marks for subject standard compliance.]`.trim()
-                                          };
-                                        }
-                                        return s;
-                                      });
-
-                                      updatedList.forEach(std => saveStudentChanges(std));
-                                      alert(`‚ú® Applied SAMS Board grace marks to borderline students in ${cls.name} relative to a minimum standard score of ${passingPct}%.`);
-                                    }}
-                                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 shadow cursor-pointer transition-all"
-                                    title="Add +1 to +3 marks to students just below the passing score to help them pass"
-                                  >
-                                    <Sparkles className="w-3 h-3 text-indigo-200" />
-                                    Apply Board Grace Marks
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setActiveModerateCourse(null);
-                                      setModerationExpandedStudentId(null);
-                                    }}
-                                    className="bg-white border text-slate-600 hover:bg-slate-100 font-bold text-[10px] px-3 py-1.5 rounded-lg"
-                                  >
-                                    Exit Audit
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* Class Subjects status summary ribbon */}
-                              <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-2">
-                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Course Subjects Workflow Tracker</span>
-                                <div className="flex flex-wrap gap-2">
-                                  {cls.subjects?.map(sub => {
-                                    const status = getSubjectStatusInClass(sub);
-                                    let badgeColor = "bg-slate-100 text-slate-600 border border-slate-200";
-                                    if (status === "Approved") badgeColor = "bg-emerald-50 text-emerald-800 border-emerald-200 border";
-                                    else if (status === "Awaiting Approval") badgeColor = "bg-amber-50 text-amber-800 border-amber-300 border animate-pulse";
-                                    
-                                    return (
-                                      <div key={sub} className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1.5 ${badgeColor}`}>
-                                        <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                                        <span>{sub}:</span>
-                                        <span className="opacity-80 font-mono text-[9px] uppercase">{status}</span>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-
-                              {/* Mini Summary Strip */}
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                <div className="bg-white p-3 rounded-xl border border-indigo-100 flex items-center justify-between">
-                                  <span className="text-slate-400 font-bold text-[10px] uppercase">Roster Size</span>
-                                  <span className="font-extrabold text-slate-800 text-xs">{classStudents.length} Students</span>
-                                </div>
-                                <div className="bg-white p-3 rounded-xl border border-indigo-100 flex items-center justify-between">
-                                  <span className="text-slate-400 font-bold text-[10px] uppercase">Class Average</span>
-                                  <span className="font-extrabold text-indigo-700 text-xs font-mono">
-                                    {cls.level === 'nursery' ? 'N/A' : `${classAvg}% (${classAvgLetter})`}
-                                  </span>
-                                </div>
-                                <div className="bg-white p-3 rounded-xl border border-indigo-100 flex items-center justify-between">
-                                  <span className="text-slate-400 font-bold text-[10px] uppercase">Released Ratio</span>
-                                  <span className="font-extrabold text-emerald-700 text-xs">
-                                    {totalApprovedVal} / {classStudents.length} Certified
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Student records container */}
-                              <div className="bg-white border rounded-xl overflow-hidden divide-y divide-slate-100">
-                                <div className="bg-slate-50/50 p-2.5 flex items-center justify-between text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                                  <span>Student Continuous Evaluation Summary</span>
-                                  <span>Click row to Expand Sub-marks or Edit Remarks</span>
-                                </div>
-
-                                {classStudents.length === 0 ? (
-                                  <div className="p-8 text-center text-slate-400 font-medium">No students registered.</div>
-                                ) : (
-                                  classStudents.map(s => {
-                                    const isReleased = s.resultsApproved === true;
-                                    const studentSecularAvg = cls.level === 'nursery' ? 0 : calculateGPA(getSecularGrades(s.grades || {})).avg;
-                                    const studentSecularLetter = cls.level === 'nursery' ? 'Nursery' : calculateGPA(getSecularGrades(s.grades || {})).letter;
-                                    const isExpanded = moderationExpandedStudentId === s.id;
-
-                                    // Check if student has computed scores submitted by teachers that are awaiting board approval
-                                    const hasAwaitingApproval = Object.entries(s.gradesStatus || {}).some(([subj, stat]) => stat === 'Submitted') || 
-                                                                 Object.entries(s.milestonesStatus || {}).some(([subj, stat]) => stat === 'Submitted');
-
-                                    return (
-                                      <div key={s.id} className="transition-all">
-                                        {/* Row main header wrapper */}
-                                        <div 
-                                          onClick={() => setModerationExpandedStudentId(isExpanded ? null : s.id)}
-                                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 cursor-pointer hover:bg-slate-50/60 font-medium text-slate-700 gap-3"
-                                        >
-                                          <div className="flex items-center space-x-2.5">
-                                            <div className="w-7 h-7 rounded-full bg-slate-100 font-bold text-xs text-slate-700 flex items-center justify-center border">
-                                              {s.name.substring(0, 2).toUpperCase()}
-                                            </div>
-                                            <div>
-                                              <p className="font-extrabold text-slate-900 text-xs flex items-center gap-1.5">
-                                                <span>{s.name}</span>
-                                                {hasAwaitingApproval && !isReleased && (
-                                                  <span className="px-1.5 py-0.5 rounded text-[8px] uppercase font-mono font-bold bg-amber-100 text-amber-800 border border-amber-200 animate-pulse">
-                                                    ‚è≥ Computed &amp; Awaiting Approval
-                                                  </span>
-                                                )}
-                                              </p>
-                                              <p className="text-[9.5px] text-slate-400">Section {s.classSection || 'Master'} ‚Ä¢ Admission {s.enrollmentNo || `ADM-${s.id.split('-').pop()}`}</p>
-                                            </div>
-                                          </div>
-
-                                          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-                                            <div className="text-left sm:text-center">
-                                              <span className="text-[9px] text-slate-400 uppercase font-bold block">Assessment Avg</span>
-                                              <span className="font-mono font-bold text-slate-800 text-xs">
-                                                {cls.level === 'nursery' ? (
-                                                  <span className="text-xs text-indigo-700 bg-indigo-50 font-bold px-2 py-0.5 rounded">
-                                                    {Object.values(s.milestones || {}).filter(m => m === 'Mastered').length} Mastered
-                                                  </span>
-                                                ) : (
-                                                  <span>{studentSecularAvg}% ({studentSecularLetter})</span>
-                                                )}
-                                              </span>
-                                            </div>
-
-                                            <div>
-                                              <span className="text-[9px] text-slate-400 uppercase font-bold block">Parent View State</span>
-                                              {isReleased ? (
-                                                <span className="bg-emerald-50 text-emerald-800 border border-emerald-100 font-bold text-[9px] uppercase px-2 py-0.5 rounded-full inline-block">
-                                                  ‚úÖ Released
-                                                </span>
-                                              ) : (
-                                                <span className="bg-amber-55 text-amber-850 border border-amber-250 font-bold text-[9px] uppercase px-2 py-0.5 rounded-full inline-block">
-                                                  ‚è≥ Under Moderation
-                                                </span>
-                                              )}
-                                            </div>
-
-                                            <div className="max-w-[150px] truncate hidden md:block">
-                                              <span className="text-[9px] text-slate-400 uppercase font-bold block">Teacher comments</span>
-                                              <span className="text-[10px] italic text-slate-500 truncate block mt-0.5">
-                                                {s.reportComment || 'Pending assessment remarks.'}
-                                              </span>
-                                            </div>
-
-                                            <div onClick={(e) => e.stopPropagation()} className="flex items-center space-x-1.5">
-                                              <button
-                                                type="button"
-                                                onClick={async () => {
-                                                  const updated = {
-                                                    ...s,
-                                                    resultsApproved: !isReleased
-                                                  };
-                                                  await saveStudentChanges(updated);
-                                                }}
-                                                className={`text-[9.5px] font-bold px-2.5 py-1 rounded border transition-all cursor-pointer ${
-                                                  isReleased 
-                                                    ? 'bg-rose-55 border-rose-200 text-rose-700 hover:bg-rose-100' 
-                                                    : 'bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700'
-                                                }`}
-                                              >
-                                                {isReleased ? 'Hold Card' : 'Approve & Release'}
-                                              </button>
-                                              <span className="text-slate-300 font-bold text-xs shrink-0 select-none">{isExpanded ? '‚ñ≤' : '‚ñº'}</span>
-                                            </div>
-                                          </div>
-                                        </div>
-
-                                        {/* Expanded subject edits and custom report-card commentary editing */}
-                                        {isExpanded && (
-                                          <div className="bg-indigo-50/15 border-t p-4 space-y-4 animate-fade-in grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                            {/* Sub-Marks Ledger */}
-                                            <div className="space-y-2">
-                                              <div className="flex items-center justify-between">
-                                                <h5 className="font-extrabold text-[10px] text-slate-500 uppercase tracking-wider">Board Marksheet Override Desk</h5>
-                                                <span className="text-[9px] text-slate-400 font-semibold font-mono bg-indigo-50 text-indigo-700 px-1.5 rounded">Continuous Assessment</span>
-                                              </div>
-
-                                              <div className="bg-white border rounded-xl overflow-hidden divide-y text-xs">
-                                                {cls.level === 'nursery' ? (
-                                                  cls.subjects?.map(sub => {
-                                                    const statVal = s.milestones?.[sub] ?? 'Introduced';
-                                                    return (
-                                                      <div key={sub} className="flex items-center justify-between p-2">
-                                                        <span className="font-bold text-slate-650">{sub}</span>
-                                                        <select
-                                                          value={statVal}
-                                                          onChange={async (e) => {
-                                                            const updated = {
-                                                              ...s,
-                                                              milestones: {
-                                                                ...(s.milestones || {}),
-                                                                [sub]: e.target.value
-                                                              }
-                                                            };
-                                                            await saveStudentChanges(updated);
-                                                          }}
-                                                          className="bg-slate-50 border text-[10px] font-bold rounded px-1.5 py-0.5 outline-none cursor-pointer"
-                                                        >
-                                                          <option value="Introduced">Introduced</option>
-                                                          <option value="Developing">Developing</option>
-                                                          <option value="Mastered">Mastered</option>
-                                                        </select>
-                                                      </div>
-                                                    );
-                                                  })
-                                                ) : (
-                                                  cls.subjects?.map(sub => {
-                                                    const currentScoreVal = s.grades?.[sub] ?? 0;
-                                                    const subjectStatus = s.gradesStatus?.[sub] || 'Draft';
-                                                    
-                                                    let statusBadge = "text-slate-400";
-                                                    if (subjectStatus === 'Approved') statusBadge = "text-emerald-600 bg-emerald-50 px-1 rounded";
-                                                    else if (subjectStatus === 'Submitted') statusBadge = "text-amber-600 bg-amber-50 px-1 rounded animate-pulse font-bold";
-
-                                                    return (
-                                                      <div key={sub} className="grid grid-cols-12 items-center p-2">
-                                                        <div className="col-span-5 font-bold text-slate-700 flex flex-col">
-                                                          <span>{sub}</span>
-                                                          <span className="text-[8px] tracking-wide font-mono uppercase mt-0.5 font-normal">{subjectStatus}</span>
-                                                        </div>
-                                                        <span className="col-span-4 text-[9.5px] text-slate-400 text-center font-mono">
-                                                          {subjectStatus === 'Submitted' ? '‚ö†Ô∏è Awaiting Approval' : 'Marks Entry'}
-                                                        </span>
-                                                        <div className="col-span-3 flex items-center justify-end space-x-1 font-bold">
-                                                          <input
-                                                            type="number"
-                                                            min="0"
-                                                            max="100"
-                                                            value={currentScoreVal}
-                                                            onChange={async (e) => {
-                                                              const scoreNumValue = Math.min(100, Math.max(0, Number(e.target.value) || 0));
-                                                              const updated = {
-                                                                ...s,
-                                                                grades: {
-                                                                  ...(s.grades || {}),
-                                                                  [sub]: scoreNumValue
-                                                                }
-                                                              };
-                                                              await saveStudentChanges(updated);
-                                                            }}
-                                                            className="w-12 bg-slate-50 border text-center font-mono font-bold rounded p-0.5 text-xs text-slate-800"
-                                                          />
-                                                          <span className="text-slate-400 font-mono text-[9px]">/100</span>
-                                                        </div>
-                                                      </div>
-                                                    );
-                                                  })
-                                                )}
-                                              </div>
-                                            </div>
-
-                                            {/* Report Card Comments Board Workspace */}
-                                            <div className="space-y-2">
-                                              <div className="flex items-center justify-between">
-                                                <h5 className="font-extrabold text-[10px] text-slate-500 uppercase tracking-wider">Board Remarks &amp; AI Generator</h5>
-                                                <span className="text-[9px] text-slate-400 shrink-0">Printed on final card</span>
-                                              </div>
-
-                                              <div className="bg-white border rounded-xl p-3 space-y-2">
-                                                <textarea
-                                                  value={s.reportComment || ''}
-                                                  onChange={async (e) => {
-                                                    const updated = {
-                                                      ...s,
-                                                      reportComment: e.target.value
-                                                    };
-                                                    await saveStudentChanges(updated);
-                                                  }}
-                                                  placeholder="The board evaluation commentary on the student's continuous scholastic cycle..."
-                                                  className="w-full bg-slate-50/50 border rounded-lg p-2.5 text-[11px] text-slate-850 outline-none focus:ring-1 focus:ring-indigo-500 min-h-[80px]"
-                                                />
-                                                <div className="flex justify-between items-center text-[10px]">
-                                                  <button
-                                                    type="button"
-                                                    onClick={async () => {
-                                                      const scoreDesc = cls.level === 'nursery'
-                                                        ? `milestone ratings: ${Object.entries(s.milestones || {}).map(([m,v]) => `${m} is ${v}`).join(', ')}`
-                                                        : `grades: ${Object.entries(s.grades || {}).map(([subj, sc]) => `${subj} ${sc}/100`).join(', ')}`;
-                                                      
-                                                      const predictedAvg = cls.level === 'nursery' ? 85 : studentSecularAvg;
-                                                      let generatedText = '';
-                                                      if (predictedAvg >= 90) {
-                                                        generatedText = `${s.name} demonstrates exemplary concentration, attaining superior scores across secular syllabus streams. The board commends this consistent brilliance and predicts outstanding collegiate capabilities ahead.`;
-                                                      } else if (predictedAvg >= 80) {
-                                                        generatedText = `${s.name} has compiled a highly respectable record with admirable conceptual retention. Additional academic supervision, particularly in standard testing setups, will safely propel this talent into the top percentiles.`;
-                                                      } else if (predictedAvg >= 70) {
-                                                        generatedText = `${s.name} has maintained a stable, passing baseline throughout this term cycle. While cooperation with course supervisors is solid, some core topics require regular consolidation ahead of examinations.`;
-                                                      } else {
-                                                        generatedText = `${s.name} exhibits promising intellectual curiosity, though close supervision of homework routines is strongly advised. Additional revision hours will help raise their overall continuous evaluations to the required standard.`;
-                                                      }
-
-                                                      const updated = {
-                                                        ...s,
-                                                        reportComment: generatedText
-                                                      };
-                                                      await saveStudentChanges(updated);
-                                                      alert("‚ú® AI board evaluation successfully updated for " + s.name);
-                                                    }}
-                                                    className="bg-indigo-55 hover:bg-indigo-100 border border-indigo-100 text-indigo-700 font-bold px-2 py-1 rounded flex items-center space-x-1 cursor-pointer transition-colors"
-                                                  >
-                                                    <Sparkles className="w-3 h-3 text-indigo-600 shrink-0" />
-                                                    <span>Board AI Generator</span>
-                                                  </button>
-
-                                                  <button
-                                                    type="button"
-                                                    onClick={() => alert("Changes automatically saved. Ready for printing.")}
-                                                    className="bg-indigo-600 hover:bg-slate-900 text-white font-bold px-3 py-1 rounded cursor-pointer transition-all"
-                                                  >
-                                                    Save Record
-                                                  </button>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })()}
-
-                        {/* Flat Grid of All Course Classes - Redesigned Class Wise */}
-                        {!activeModerateCourse && (
-                          <div className="overflow-x-auto rounded-xl border border-slate-200">
-                            <table className="w-full text-left border-collapse table-fixed min-w-[750px]">
-                              <thead>
-                                <tr className="bg-slate-50 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-200">
-                                  <th className="p-3 w-44">Class Division</th>
-                                  <th className="p-3 text-center">Class Level Type</th>
-                                  <th className="p-3 text-center w-28">Registered</th>
-                                  <th className="p-3 text-center">Continuous Average</th>
-                                  <th className="p-3 text-center">Board Authority State</th>
-                                  <th className="p-3 text-center w-52">Administrative Actions</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-100 font-medium text-slate-700 text-xs">
-                                {classes.filter(c => !c.branch || c.branch === selectedBranch).map(c => {
-                                  const classStudents = students.filter(s => 
-                                    (c.level === 'islamia' ? s.islamiaClassId === c.id : s.grade === c.name) &&
-                                    (s.branch === selectedBranch || !s.branch)
-                                  );
-                                  const totalCount = classStudents.length;
-                                  
-                                  const gradedStudentsCount = classStudents.filter(s => {
-                                    if (c.level === 'nursery') {
-                                      return s.milestones && Object.keys(s.milestones).length > 0;
-                                    } else {
-                                      return s.grades && Object.keys(s.grades).length > 0;
-                                    }
-                                  }).length;
-
-                                  const approvedCount = classStudents.filter(s => s.resultsApproved === true).length;
-
-                                  // Check if any subject has "Submitted" scores waiting for board approval
-                                  const hasAnySubmittedAwaiting = classStudents.some(s => {
-                                    return Object.values(s.gradesStatus || {}).some(stat => stat === 'Submitted') || 
-                                           Object.values(s.milestonesStatus || {}).some(stat => stat === 'Submitted');
-                                  });
-
-                                  let statusLabel = '‚úèÔ∏è Under Entry (Draft)';
-                                  let statusColor = 'bg-slate-100 text-slate-600 border border-slate-200';
-                                  
-                                  if (approvedCount === totalCount && totalCount > 0) {
-                                    statusLabel = '‚úÖ Approved & Released';
-                                    statusColor = 'bg-emerald-50 text-emerald-800 border-emerald-250 border font-extrabold';
-                                  } else if (hasAnySubmittedAwaiting) {
-                                    statusLabel = '‚è≥ Computed (Awaiting Approval)';
-                                    statusColor = 'bg-amber-100 text-amber-800 border-amber-300 border font-bold animate-pulse';
-                                  } else if (approvedCount > 0) {
-                                    statusLabel = '‚è≥ Partial Release';
-                                    statusColor = 'bg-teal-50 text-teal-800 border-teal-200 border font-bold';
-                                  } else if (gradedStudentsCount > 0) {
-                                    statusLabel = '‚úèÔ∏è Draft In-Progress';
-                                    statusColor = 'bg-slate-50 text-slate-600 border-slate-200 border font-bold';
-                                  }
-
-                                  const calculateClassAvgVal = () => {
-                                    if (classStudents.length === 0) return 0;
-                                    if (c.level === 'nursery') return 0;
-                                    const studentAverages = classStudents.map(s => calculateGPA(getSecularGrades(s.grades || {})).avg);
-                                    const totalSum = studentAverages.reduce((sum, val) => sum + val, 0);
-                                    return Math.round(totalSum / Math.max(1, studentAverages.length));
-                                  };
-
-                                  const classAvg = calculateClassAvgVal();
-                                  const classAvgLetter = c.level === 'nursery' ? 'N/A' : calculateGPA({ temp: classAvg }).letter;
-
-                                  return (
-                                    <tr key={c.id} className="hover:bg-slate-55/35">
-                                      <td className="p-3 font-bold text-slate-900">{c.name}</td>
-                                      <td className="p-3 text-center uppercase font-mono text-[10px] font-bold text-indigo-600">{c.level} Stream</td>
-                                      <td className="p-3 text-center font-mono font-bold text-slate-500">{totalCount} rosters</td>
-                                      <td className="p-3 text-center">
-                                        {c.level === 'nursery' ? (
-                                          <span className="text-[10px] italic text-slate-400">Milestones</span>
-                                        ) : (
-                                          <span className="font-mono bg-indigo-50 border text-indigo-800 font-bold px-2 py-0.5 rounded">
-                                            {classAvg}% ({classAvgLetter})
-                                          </span>
-                                        )}
-                                      </td>
-                                      <td className="p-3 text-center">
-                                        <span className={`px-2 py-0.5 rounded text-[9.5px] ${statusColor}`}>
-                                          {statusLabel}
-                                        </span>
-                                      </td>
-                                      <td className="p-3 text-center">
-                                        <button
-                                          type="button"
-                                          onClick={() => setActiveModerateCourse({ classId: c.id, className: c.name, level: c.level })}
-                                          className="bg-white hover:bg-indigo-50 text-indigo-700 border border-slate-200 hover:border-indigo-200 px-3 py-1.5 rounded-xl font-bold cursor-pointer shadow-sm transition-all text-[11px]"
-                                        >
-                                          üîç Audit &amp; Moderate Class
-                                        </button>
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Metric Ribbon */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="bg-white border rounded-2xl p-5 shadow-sm space-y-2">
-                          <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider block">School Average GPA</span>
-                          <div className="flex items-baseline space-x-1.5">
-                            <span className="text-2xl font-black text-indigo-600">
-                              {(students.filter(s => s.level !== 'nursery').reduce((acc, curr) => acc + calculateGPA(curr.grades).avg, 0) / Math.max(1, students.filter(s => s.level !== 'nursery').length)).toFixed(0)}%
-                            </span>
-                            <span className="text-xs text-slate-500">Equivalent Tier B</span>
-                          </div>
-                        </div>
-                        <div className="bg-white border rounded-2xl p-5 shadow-sm space-y-2">
-                          <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider block">Honours Roll Ratio</span>
-                          <div className="flex items-baseline space-x-1.5">
-                            <span className="text-2xl font-black text-emerald-600">
-                              {((students.filter(s => s.level !== 'nursery' && calculateGPA(s.grades).avg >= 85).length / Math.max(1, students.filter(s => s.level !== 'nursery').length)) * 100).toFixed(0)}%
-                            </span>
-                            <span className="text-xs text-slate-500 font-semibold">Average &gt;= 85%</span>
-                          </div>
-                        </div>
-                        <div className="bg-white border rounded-2xl p-5 shadow-sm space-y-2">
-                          <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider block">Attendance vs GPA Link</span>
-                          <div className="flex items-baseline space-x-1.5">
-                            <span className="text-2xl font-black text-teal-600">Strong</span>
-                            <span className="text-xs text-slate-500">High logs map to higher average</span>
-                          </div>
-                        </div>
-                        <div className="bg-white border rounded-2xl p-5 shadow-sm space-y-2">
-                          <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider block">Planned Lesson Hours</span>
-                          <div className="flex items-baseline space-x-1.5">
-                            <span className="text-2xl font-black text-indigo-600">
-                              {curriculums.reduce((acc, cur) => acc + cur.topics.reduce((sum, top) => sum + top.hours, 0), 0)} Hrs
-                            </span>
-                            <span className="text-xs text-slate-500">across curriculums</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Main Analytics grid */}
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        
-                        {/* Class Rankings & Leaderboard */}
-                        <div className="bg-white border rounded-2xl p-5 shadow-sm space-y-4 lg:col-span-2">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-105 gap-2">
-                            <div>
-                              <h3 className="text-sm font-bold text-slate-900 leading-normal">Interactive Class Rankings &amp; Position Trackers</h3>
-                              <p className="text-[11px] text-slate-500">Filtered by Grade class levels and sorted dynamic GPA ranking lists</p>
-                            </div>
-                            <div className="flex items-center space-x-2 shrink-0">
-                              <span className="text-[10px] text-slate-400 uppercase font-mono font-bold">Grade filter:</span>
-                              <select 
-                                value={newCurrGrade}
-                                onChange={(e) => setNewCurrGrade(e.target.value)}
-                                className="bg-slate-50 border text-[11px] font-bold rounded-lg px-2.5 py-1 text-slate-800 cursor-pointer"
-                              >
-                                <option value="Grade 3">Grade 3</option>
-                                <option value="Grade 5">Grade 5</option>
-                                <option value="Grade 10">Grade 10</option>
-                                <option value="Grade 11">Grade 11</option>
-                              </select>
-                            </div>
-                          </div>
-
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-left text-xs divide-y divide-slate-100">
-                              <thead>
-                                <tr className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
-                                  <th className="py-2.5 font-bold">Rank</th>
-                                  <th className="py-2.5 font-bold">Student Name</th>
-                                  <th className="py-2.5 font-bold">Class Section</th>
-                                  <th className="py-2.5 font-bold">GPA Percentage</th>
-                                  <th className="py-2.5 font-bold">Letter Grade</th>
-                                  <th className="py-2.5 font-bold">Attendance rate</th>
-                                  <th className="py-2.5 font-bold">Academic Status</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-100 selection:bg-indigo-100 font-medium">
-                                {students
-                                  .filter(s => s.grade === newCurrGrade)
-                                  .map(s => {
-                                    const gpa = s.level === 'nursery' ? { avg: 90, letter: 'Milestones' } : calculateGPA(s.grades);
-                                    const attendance = s.attendancePercentage;
-                                    return { student: s, gpa, attendance };
-                                  })
-                                  .sort((a, b) => b.gpa.avg - a.gpa.avg)
-                                  .map((item, idx) => (
-                                    <tr key={item.student.id} className={`hover:bg-slate-50 transition-colors ${idx === 0 ? 'bg-indigo-50/20' : ''}`}>
-                                      <td className="py-3 font-mono font-bold text-slate-800">
-                                        {idx === 0 ? (
-                                          <span className="flex items-center space-x-1 text-amber-600 font-black">
-                                            <span>ü•á</span>
-                                            <span>#1</span>
-                                          </span>
-                                        ) : idx === 1 ? (
-                                          <span className="text-slate-500 font-bold">ü•à #2</span>
-                                        ) : idx === 2 ? (
-                                          <span className="text-amber-800 font-bold">ü•â #3</span>
-                                        ) : (
-                                          <span className="text-slate-400">#{idx + 1}</span>
-                                        )}
-                                      </td>
-                                      <td className="py-3 font-semibold text-slate-900">{item.student.name}</td>
-                                      <td className="py-3 font-mono text-slate-500">{item.student.classSection}</td>
-                                      <td className="py-3 font-mono font-black text-indigo-650">
-                                        {item.student.level === 'nursery' ? 'Nursery' : `${item.gpa.avg}%`}
-                                      </td>
-                                      <td className="py-3">
-                                        <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
-                                          item.gpa.letter === 'A' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
-                                          item.gpa.letter === 'B' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
-                                          item.gpa.letter === 'C' ? 'bg-amber-50 text-amber-700 border border-amber-100' : 'bg-rose-50 text-rose-700 border border-rose-100'
-                                        }`}>
-                                          {item.gpa.letter}
-                                        </span>
-                                      </td>
-                                      <td className="py-3">
-                                        <div className="flex items-center space-x-1.5 font-sans">
-                                          <span className="font-mono font-bold text-slate-705">{item.attendance}%</span>
-                                          <span className={`w-1.5 h-1.5 rounded-full ${item.attendance >= 90 ? 'bg-emerald-500' : item.attendance >= 80 ? 'bg-amber-500' : 'bg-rose-500'}`} />
-                                        </div>
-                                      </td>
-                                      <td className="py-3">
-                                        {item.attendance < 85 && item.student.level !== 'nursery' ? (
-                                          <span className="text-[9px] bg-amber-50 text-amber-800 border border-amber-100 px-1.5 py-0.5 rounded font-bold flex items-center w-fit">
-                                            <AlertCircle className="w-2.5 h-2.5 mr-0.5 animate-pulse text-amber-650" /> At Risk (Attendance Impact)
-                                          </span>
-                                        ) : (
-                                          <span className="text-[9px] bg-emerald-50 text-emerald-805 border border-emerald-100 px-1.5 py-0.5 rounded font-bold w-fit block">
-                                            In Good Standing
-                                          </span>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  ))}
-                                {students.filter(s => s.grade === newCurrGrade).length === 0 && (
-                                  <tr>
-                                    <td colSpan={7} className="text-center py-10 text-slate-400">
-                                      No students registered in this school Grade division.
-                                    </td>
-                                  </tr>
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-
-                        {/* Subject Diagnostics */}
-                        <div className="bg-white border rounded-2xl p-5 shadow-sm space-y-4 font-sans">
-                          <div>
-                            <h3 className="text-sm font-bold text-slate-900 leading-normal">Subject Performance Metrics</h3>
-                            <p className="text-[11px] text-slate-500">Continuous assessments averages mapped globally</p>
-                          </div>
-
-                          <div className="space-y-4">
-                            {['Mathematics', 'Science', 'English Language', 'Social Studies', 'Biology', 'Chemistry', 'Physics'].map(subject => {
-                              // Calculate overall score averages for this subject
-                              const childGrades = students
-                                .filter(s => s.level !== 'nursery' && s.grades[subject] !== undefined)
-                                .map(s => s.grades[subject]);
-                              const overallAvg = childGrades.length > 0 
-                                ? Math.round(childGrades.reduce((sum, score) => sum + score, 0) / childGrades.length)
-                                : null;
-
-                              if (overallAvg === null) return null;
-
-                              return (
-                                <div key={subject} className="space-y-1 text-xs">
-                                  <div className="flex justify-between items-center">
-                                    <span className="font-semibold text-slate-700">{subject}</span>
-                                    <span className="font-mono text-[10px] font-bold text-slate-500">Avg {overallAvg}%</span>
-                                  </div>
-                                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden flex">
-                                    <div 
-                                      className={`h-full rounded-full ${
-                                        overallAvg >= 85 ? 'bg-emerald-500' :
-                                        overallAvg >= 75 ? 'bg-indigo-500' : 'bg-amber-500'
-                                      }`}
-                                      style={{ width: `${overallAvg}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            }).filter(x => x !== null)}
-                          </div>
-
-                          {/* Attendance impact correlation summary */}
-                          <div className="bg-slate-50 border border-slate-200/50 rounded-xl p-3.5 space-y-2 text-[11px] text-slate-650 leading-normal">
-                            <span className="font-bold text-slate-800 text-xs block mb-1">Attendance Impact Correlation</span>
-                            <div className="space-y-1.5 font-sans">
-                              <p>üßë‚Äçüéì <strong>High Attenders (&gt;=90%)</strong> show an overall institutional average GPA of <span className="font-bold text-indigo-750">89.4%</span></p>
-                              <p>‚ö†Ô∏è <strong>Frequent Absence (&lt;85%)</strong> correlates with class GPAs slipping down to under <span className="font-bold text-rose-700">67.1%</span></p>
-                            </div>
-                          </div>
-                        </div>
-
-                      </div>
-
-                      {/* Year-over-Year Progression Tracker */}
-                      <div className="bg-white border rounded-2xl p-5 shadow-sm space-y-4">
-                        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-                          <div>
-                            <h3 className="text-sm font-bold text-slate-900 leading-normal">Year-over-Year (Y-O-Y) Student Growth &amp; Progress Trajectory</h3>
-                            <p className="text-[11px] text-slate-500 font-medium">Track structural progress history indexes for individual students over academic multi-terms</p>
-                          </div>
-                          <select
-                            value={reportStudent?.id || ''}
-                            onChange={(e) => {
-                              const found = branchStudents.find(s => s.id === e.target.value);
-                              if (found) setReportStudent(found);
-                            }}
-                            className="bg-slate-50 border text-[11px] font-bold rounded-lg px-2.5 py-1 text-slate-805 self-start cursor-pointer"
-                          >
-                            {branchStudents.map(s => <option key={s.id} value={s.id}>{s.name} ({s.grade})</option>)}
-                          </select>
-                        </div>
-
-                        {reportStudent ? (
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-                            
-                            {/* Growth Summary Widget */}
-                            <div className="bg-slate-50 border rounded-xl p-4 space-y-3.5">
-                              <div>
-                                <span className="text-[10px] text-slate-400 font-mono uppercase tracking-wide block">Current standing</span>
-                                <span className="text-lg font-black text-slate-800 block leading-tight">{reportStudent.name}</span>
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-2 text-xs">
-                                <div className="bg-white border border-slate-200/50 p-2.5 rounded-lg text-center">
-                                  <span className="text-[9px] text-slate-400 block uppercase font-bold">Active GPA</span>
-                                  <span className="text-base font-black text-indigo-600 font-mono mt-0.5 block font-bold">
-                                    {reportStudent.level === 'nursery' ? 'Milestone' : `${calculateGPA(reportStudent.grades).avg}%`}
-                                  </span>
-                                </div>
-                                <div className="bg-white border border-slate-200/50 p-2.5 rounded-lg text-center font-sans">
-                                  <span className="text-[9px] text-slate-400 block uppercase font-bold">Class position</span>
-                                  <span className="text-base font-black text-slate-700 font-mono mt-0.5 block font-bold">
-                                    #{getStudentClassRank(reportStudent.id, reportStudent.grade).rank} <span className="text-[10px] font-normal text-slate-400 font-sans">of {getStudentClassRank(reportStudent.id, reportStudent.grade).total}</span>
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="border-t border-slate-205 pt-3 flex items-center justify-between text-[11px]">
-                                <span className="text-slate-505 font-medium">Progress trajectory:</span>
-                                {reportStudent.academicProgression && reportStudent.academicProgression.length > 0 ? (
-                                  <span className="font-bold text-emerald-600 uppercase tracking-wider text-[10px] flex items-center bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 leading-none">
-                                    üìà Improving Trend
-                                  </span>
-                                ) : (
-                                  <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px] flex items-center bg-slate-100 px-2 py-0.5 rounded leading-none">
-                                    üí° Stable Baseline
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* YoY Timeline Table */}
-                            <div className="md:col-span-2 space-y-3 font-sans">
-                              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider block">Historical Progression Chronology</h4>
-                              
-                              <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-102 bg-white">
-                                {reportStudent.academicProgression && reportStudent.academicProgression.length > 0 ? (
-                                  reportStudent.academicProgression.map((prog, pIdx) => (
-                                    <div key={pIdx} className="p-3 flex justify-between items-center text-xs bg-slate-50/20">
-                                      <div className="space-y-0.5">
-                                        <p className="font-bold text-slate-800 leading-tight">{prog.term}</p>
-                                        <p className="text-[10px] text-slate-400 font-medium">Completed academic cohort progression</p>
-                                      </div>
-                                      <div className="flex items-center space-x-4">
-                                        <div className="text-right">
-                                          <span className="text-[10px] text-slate-400 block uppercase font-semibold">Term Average</span>
-                                          <span className="font-mono font-bold text-slate-800 text-sm">{prog.avg}%</span>
-                                        </div>
-                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                          prog.status === 'Promoted' ? 'bg-emerald-100 text-emerald-800 border border-emerald-250' : 'bg-indigo-100 text-indigo-850'
-                                        }`}>
-                                          {prog.status}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  ))
-                                ) : (
-                                  <div className="p-4 text-center text-slate-400 text-xs font-medium">
-                                    No historical academic terms in file. The system will collect progression data term-by-term.
-                                  </div>
-                                )}
-                                <div className="p-3 flex justify-between items-center text-xs bg-indigo-50/30">
-                                  <div className="space-y-0.5">
-                                    <p className="font-bold text-indigo-950 leading-none">Current Active Term (June 2026)</p>
-                                    <p className="text-[10px] text-indigo-650 font-medium">Ongoing assessments cycle</p>
-                                  </div>
-                                  <div className="text-right">
-                                    <span className="text-[10px] text-indigo-500 block uppercase font-bold">Active Average</span>
-                                    <span className="font-mono font-black text-indigo-905 text-sm block">
-                                      {reportStudent.level === 'nursery' ? 'Milestone Mode' : `${calculateGPA(reportStudent.grades).avg}%`}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                          </div>
-                        ) : (
-                          <p className="text-center py-6 text-slate-400 text-xs">Acknowledge student registry folder to load chronological growth models.</p>
-                        )}
-                      </div>
-
-                    </div>
-                  )}
-
-                  {/* -------------------------------------------------------------
-                      SUB TAB 2: PROGRESS REPORT CARDS & INDIVIDUAL ASSESSMENTS LOG
-                      ------------------------------------------------------------- */}
-                  {academicSubTab === 'report_cards' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
-                      
-                      {/* Student Selector Row Panel */}
-                      <div className="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-sm space-y-4 h-fit">
-                        <div className="space-y-0.5 border-b pb-3">
-                          <h3 className="font-bold text-sm text-slate-900 leading-snug">Assessments Portfolio</h3>
-                          <p className="text-[11px] text-slate-500 font-medium">Edit individual marks or compile report comments</p>
-                        </div>
-
-                        <div className="space-y-2 max-h-[480px] overflow-y-auto scrollbar-thin">
-                          {branchStudents.map(s => (
-                            <button
-                              key={s.id}
-                              onClick={() => {
-                                setReportStudent(s);
-                                setCustomAiFocus('');
-                                setAiErrorMsg(null);
-                              }}
-                              className={`w-full text-left p-3.5 rounded-xl border text-xs transition-all flex items-center justify-between cursor-pointer ${
-                                reportStudent?.id === s.id ? 
-                                'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-100/50 font-bold' : 
-                                'bg-slate-50 border-slate-200/85 hover:bg-white text-slate-700 hover:border-slate-300'
-                              }`}
-                            >
-                              <div className="space-y-0.5">
-                                <p className="font-semibold text-xs leading-normal">{s.name}</p>
-                                <p className={`text-[10px] ${reportStudent?.id === s.id ? 'text-indigo-200' : 'text-slate-400'}`}>
-                                  {s.grade}
-                                </p>
-                              </div>
-                              <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded uppercase ${
-                                reportStudent?.id === s.id ? 'bg-indigo-500 text-white shadow' : 'bg-slate-200 text-slate-650'
-                              }`}>
-                                {s.level === 'nursery' ? 'milestones' : `${calculateGPA(s.grades).avg}%`}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Active student full assessment desk */}
-                      <div className="lg:col-span-2 space-y-6">
-                        
-                        {reportStudent ? (
-                          <div className="space-y-6">
-                            
-                            {/* Academic Score / Milestone Interactive Logger */}
-                            <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm space-y-4">
-                              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b pb-4">
-                                <div>
-                                  <span className="bg-indigo-50 border border-indigo-100/55 text-indigo-705 font-bold tracking-widest uppercase text-[9px] px-2.5 py-0.5 rounded inline-block">
-                                    Continuous Assessment Portfolio
-                                  </span>
-                                  <h3 className="font-extrabold text-base text-slate-900 mt-1">Numerical Scores and Milestones Logger</h3>
-                                </div>
-                                <span className="text-[11px] text-slate-400 font-medium">Changes auto-save directly to backend state DB</span>
-                              </div>
-
-                              {reportStudent.level === 'nursery' ? (
-                                <div className="space-y-3">
-                                  <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                                    Nursery and Early Childhood progress depends on developmental milestones. Click to modify competencies:
-                                  </p>
-                                  
-                                  <div className="border border-slate-100 rounded-xl overflow-hidden divide-y divide-slate-100 animate-fade-in">
-                                    {Object.entries(getStudentMilestonesWithSubj(reportStudent)).map(([mil, currentVal]) => (
-                                      <div key={mil} className="p-3 bg-slate-50/40 text-xs flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-                                        <span className="text-slate-700 font-bold">{mil}</span>
-                                        <div className="flex items-center gap-1">
-                                          {(['Introduced', 'Developing', 'Mastered'] as string[]).map(status => (
-                                            <button
-                                              key={status}
-                                              type="button"
-                                              onClick={() => {
-                                                const revised = {
-                                                  ...reportStudent,
-                                                  milestones: {
-                                                    ...getStudentMilestonesWithSubj(reportStudent),
-                                                    [mil]: status
-                                                  }
-                                                };
-                                                setReportStudent(revised);
-                                                saveStudentChanges(revised);
-                                              }}
-                                              className={`px-2.5 py-1 text-[10px] font-bold rounded border cursor-pointer transition-colors ${
-                                                currentVal === status ?
-                                                (status === 'Mastered' ? 'bg-emerald-100 text-emerald-805 border-emerald-250 font-black' :
-                                                 status === 'Developing' ? 'bg-amber-100 text-amber-805 border-amber-250 font-bold' : 'bg-indigo-105 text-indigo-855 border-indigo-250') :
-                                                'bg-white text-slate-550 border-slate-205 hover:bg-slate-100'
-                                              }`}
-                                            >
-                                              {status}
-                                            </button>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="space-y-3 animate-fade-in">
-                                  <p className="text-xs text-slate-505 font-medium">
-                                    Modify the current standard scores directly. Islamia studies are marked in teal:
-                                  </p>
-
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
-                                    {Object.entries(getStudentGradesWithSubj(reportStudent)).map(([subj, score]) => {
-                                      const sObj = subjects.find(s => s.name === subj);
-                                      const isIslamia = sObj?.level === 'islamia';
-                                      return (
-                                        <div 
-                                          key={subj} 
-                                          className={`p-3.5 rounded-xl border flex items-center justify-between transition-all ${
-                                            isIslamia 
-                                              ? 'bg-emerald-50/40 border-emerald-150/70 shadow-3xs' 
-                                              : 'bg-slate-50/60 border-slate-150'
-                                          }`}
-                                        >
-                                          <div className="space-y-0.5 pr-2 truncate">
-                                            <div className="flex items-center space-x-1 gap-1">
-                                              <span className="font-bold text-slate-700 text-xs truncate leading-none">{subj}</span>
-                                              {isIslamia && (
-                                                <span className="text-[8px] font-extrabold uppercase font-mono px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 tracking-wider inline-flex items-center">
-                                                  Islamia
-                                                </span>
-                                              )}
-                                            </div>
-                                            {isIslamia && (
-                                              <span className="text-[9px] text-slate-400 block font-sans">Islamic Theology</span>
-                                            )}
-                                          </div>
-                                          <div className="flex items-center space-x-1.5 font-sans shrink-0">
-                                            <input 
-                                              type="number"
-                                              value={score}
-                                              min="0"
-                                              max="100"
-                                              onChange={(e) => {
-                                                const parseVal = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
-                                                const revised = {
-                                                  ...reportStudent,
-                                                  grades: {
-                                                    ...getStudentGradesWithSubj(reportStudent),
-                                                    [subj]: parseVal
-                                                  }
-                                                };
-                                                setReportStudent(revised);
-                                              }}
-                                              onBlur={() => {
-                                                const finalGrades = getStudentGradesWithSubj(reportStudent);
-                                                const revised = {
-                                                  ...reportStudent,
-                                                  grades: {
-                                                    ...finalGrades,
-                                                    [subj]: reportStudent.grades[subj] !== undefined ? reportStudent.grades[subj] : score
-                                                  }
-                                                };
-                                                saveStudentChanges(revised);
-                                              }}
-                                              className="w-14 bg-white border border-slate-250 rounded px-1.5 py-1 text-right text-xs font-mono font-bold focus:ring-1 focus:ring-indigo-500 outline-none"
-                                            />
-                                            <span className="text-[11px] text-slate-400 font-bold uppercase">/100</span>
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Standard pre-existing AI report generator block */}
-                            <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm space-y-4">
-                              <div className="flex items-center justify-between">
-                                <h4 className="font-bold text-xs text-slate-800 uppercase tracking-wider block">AI report evaluation generator</h4>
-                                
-                                <div className="flex items-center space-x-1.5 text-[11px] text-indigo-600 font-bold font-mono">
-                                  <Sparkles className="w-3.5 h-3.5 fill-indigo-100 text-indigo-650 animate-pulse" />
-                                  <span>Powered by Gemini 3.5</span>
-                                </div>
-                              </div>
-
-                              <p className="text-xs text-slate-500 leading-normal">
-                                Instruct Gemini on specific student criteria (e.g. "Focus on build listening skills", "Encourage maths focus" or "Acknowledge progress in sensory classes") to personalize comments:
-                              </p>
-
-                              <textarea 
-                                placeholder="Optional guidelines for the AI comment drafting... (e.g., 'Emphasize great improvement in biology and encourage to continue attending mathematics tutor center')"
-                                value={customAiFocus}
-                                onChange={(e) => setCustomAiFocus(e.target.value)}
-                                className="w-full bg-slate-55 rounded-xl border border-slate-200 p-3 text-xs outline-none focus:ring-1 focus:ring-indigo-500 min-h-[60px]"
-                              />
-
-                              {aiErrorMsg && (
-                                <div className="p-3 bg-amber-50 border border-amber-100 text-amber-800 text-xs rounded-xl flex items-start space-x-2">
-                                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
-                                  <div>
-                                    <p className="font-bold">AI generation aborted</p>
-                                    <p className="text-[11px] mt-0.5">{aiErrorMsg}</p>
-                                  </div>
-                                </div>
-                              )}
-
-                              <div>
-                                <button
-                                  type="button"
-                                  onClick={handleGenerateAiReportComment}
-                                  disabled={generatingReportComment}
-                                  className="bg-indigo-600 text-white font-semibold text-xs px-5 py-2.5 rounded-xl shadow shadow-indigo-100 flex items-center justify-center space-x-2 disabled:bg-indigo-400 hover:bg-indigo-705 disabled:cursor-not-allowed cursor-pointer transition-all"
-                                >
-                                  {generatingReportComment ? (
-                                    <>
-                                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white shrink-0" />
-                                      <span>Gemini compiling performance assessment...</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Sparkles className="w-4 h-4 shrink-0" />
-                                      <span>Draft AI Performance Evaluation</span>
-                                    </>
-                                  )}
-                                </button>
-                              </div>
-
-                              {/* Active Comment display / editor */}
-                              {reportStudent.reportComment && (
-                                <div className="bg-indigo-50/30 border border-indigo-100 rounded-xl p-4 space-y-3">
-                                  <div className="flex items-center justify-between text-xs font-bold text-indigo-950 px-0.5">
-                                    <span>Draft Evaluation Insight:</span>
-                                    <span className="text-[10px] text-indigo-600 font-semibold tracking-widest uppercase">Editable Draft</span>
-                                  </div>
-
-                                  <textarea 
-                                    value={reportStudent.reportComment}
-                                    onChange={(e) => {
-                                      const updated = {
-                                        ...reportStudent,
-                                        reportComment: e.target.value
-                                      };
-                                      setReportStudent(updated);
-                                    }}
-                                    className="w-full bg-white rounded-xl border border-indigo-100/80 p-3 text-xs text-slate-800 font-sans leading-relaxed outline-none focus:ring-1 focus:ring-indigo-500 min-h-[120px]"
-                                  />
-
-                                  <div className="flex justify-end space-x-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        saveStudentChanges(reportStudent);
-                                        alert("Evaluation comments saved.");
-                                      }}
-                                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-4 py-2 rounded-lg flex items-center space-x-2 shadow-sm transition-colors cursor-pointer"
-                                    >
-                                      <Save className="w-3.5 h-3.5 shrink-0" />
-                                      <span>Commit Commentary changes</span>
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* HIGH-FIDELITY visual Progress Report Card */}
-                            <div className="bg-indigo-950/5 border border-indigo-100 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
-                                <div>
-                                  <h3 className="text-sm font-extrabold text-indigo-950 flex items-center gap-1.5"><FileText className="w-4 h-4 text-indigo-600" /> Formal Academic Progress Report Card</h3>
-                                  <p className="text-[11px] mt-0.5 text-slate-500">Official institutional transcript format compiling scores, GPA rankings, and teacher feedback comments</p>
-                                </div>
-                                <button 
-                                  onClick={() => window.print()}
-                                  className="bg-indigo-600 text-white text-[11px] font-bold py-1.5 px-3.5 rounded-lg hover:bg-slate-900 cursor-pointer transition-colors shrink-0 self-start shadow"
-                                >
-                                  üñ®Ô∏è Print Formatted Report Card
-                                </button>
-                              </div>
-
-                              {/* Certificate Form Frame */}
-                              <div className="bg-white border-4 border-indigo-900/10 rounded-2xl p-6 space-y-6 text-slate-900 shadow font-sans max-w-2xl mx-auto">
-                                
-                                {/* Header section */}
-                                <div className="text-center space-y-1">
-                                  <h4 className="font-extrabold text-slate-950 text-base uppercase tracking-widest font-serif leading-none">Beacon Academy International School</h4>
-                                  <p className="text-[10px] text-slate-500 font-mono uppercase tracking-widest">Office of Academic Registrars &amp; Directorates</p>
-                                  <div className="h-0.5 bg-indigo-900 w-24 mx-auto my-1.5" />
-                                  <p className="text-[11px] bg-slate-900 text-white px-2.5 py-0.5 uppercase tracking-wide inline-block font-bold">Progress Report Card</p>
-                                </div>
-
-                                {/* Student credentials layout */}
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-50/50 p-4 rounded-xl border text-[11px] text-slate-700">
-                                  <div>
-                                    <span className="text-[9px] text-slate-400 uppercase tracking-wider block font-bold">Student Name</span>
-                                    <strong className="text-slate-900 leading-normal block">{reportStudent.name}</strong>
-                                  </div>
-                                  <div>
-                                    <span className="text-[9px] text-slate-400 uppercase tracking-wider block font-bold">Student ID / ADM</span>
-                                    <strong className="text-slate-900 font-mono block">{reportStudent.enrollmentNo || `ADM-2026-N${reportStudent.id.split('-').pop()}`}</strong>
-                                  </div>
-                                  <div>
-                                    <span className="text-[9px] text-slate-400 uppercase tracking-wider block font-bold">Grade Class</span>
-                                    <strong className="text-slate-900 block">{reportStudent.grade}</strong>
-                                  </div>
-                                  <div>
-                                    <span className="text-[9px] text-slate-400 uppercase tracking-wider block font-bold">Section division</span>
-                                    <strong className="text-slate-900 block font-mono">Division {reportStudent.classSection || "A"}</strong>
-                                  </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                  
-                                  {/* Left: Scores matrix table split into secular and islamia */}
-                                  <div className="space-y-4 font-sans text-xs">
-                                    <div>
-                                      <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-705 block border-b pb-1 font-sans flex items-center justify-between">
-                                        <span>üìù Standard Secular Schooling Results</span>
-                                        {reportStudent.level !== 'nursery' && (
-                                          <span className="text-[9px] font-mono font-bold text-indigo-650">Avg: {calculateGPA(getSecularGrades(reportStudent.grades || {})).avg}%</span>
-                                        )}
-                                      </span>
-                                      
-                                      <div className="divide-y divide-slate-100 text-[11px]">
-                                        {reportStudent.level === 'nursery' ? (
-                                          Object.entries(reportStudent.milestones || {}).map(([mil, score]) => (
-                                            <div key={mil} className="py-2.5 flex justify-between items-center gap-2">
-                                              <span className="text-slate-700 font-semibold leading-tight">{mil}</span>
-                                              <strong className="font-extrabold text-slate-900 shrink-0">{score}</strong>
-                                            </div>
-                                          ))
-                                        ) : (
-                                          Object.entries(reportStudent.grades || {})
-                                            .filter(([subj]) => {
-                                              const sObj = subjects.find(s => s.name === subj);
-                                              return !sObj || sObj.level !== 'islamia';
-                                            })
-                                            .map(([subj, score]) => (
-                                              <div key={subj} className="py-2 flex justify-between items-center">
-                                                <span className="text-slate-705 font-medium leading-none">{subj}</span>
-                                                <strong className="font-extrabold text-slate-900 font-mono shrink-0">
-                                                  {Number(score)} / 100 ({calculateGPA({temp: Number(score)}).letter})
-                                                </strong>
-                                              </div>
-                                            ))
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    {/* Islamia section (Only shown if student has islamiaClassId or has islamia grades) */}
-                                    {(reportStudent.islamiaClassId || Object.keys(getIslamiaGrades(reportStudent.grades || {})).length > 0) && (
-                                      <div className="bg-emerald-50/40 border border-emerald-150/70 rounded-xl p-3.5 space-y-2">
-                                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-850 block border-b border-emerald-100 pb-1 font-sans flex items-center justify-between">
-                                          <span className="flex items-center space-x-1">
-                                            <span>üåô Islamia Wing</span>
-                                          </span>
-                                          <span className="text-[9px] font-mono font-bold text-emerald-700">
-                                            Avg: {calculateGPA(getIslamiaGrades(reportStudent.grades || {})).avg}%
-                                          </span>
-                                        </span>
-                                        
-                                        <div className="divide-y divide-emerald-100/40 text-[11px]">
-                                          {Object.keys(getIslamiaGrades(reportStudent.grades || {})).length === 0 ? (
-                                            <p className="text-[10px] text-slate-400 italic py-1 font-sans leading-none">No Islamia theological grades recorded.</p>
-                                          ) : (
-                                            Object.entries(reportStudent.grades || {})
-                                              .filter(([subj]) => {
-                                                const sObj = subjects.find(s => s.name === subj);
-                                                return sObj && sObj.level === 'islamia';
-                                              })
-                                              .map(([subj, score]) => (
-                                                <div key={subj} className="py-1.5 flex justify-between items-center">
-                                                  <span className="text-slate-750 font-semibold leading-none">{subj}</span>
-                                                  <strong className="font-extrabold text-emerald-800 font-mono shrink-0">
-                                                    {Number(score)} / 100 ({calculateGPA({temp: Number(score)}).letter})
-                                                  </strong>
-                                                </div>
-                                              ))
-                                          )}
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {/* Right: Analytical Performance Indicators */}
-                                  <div className="space-y-4 bg-indigo-50/40 p-4 border border-indigo-100/50 rounded-xl h-fit">
-                                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-950 block">Assessments Analytics Summary</span>
-                                    
-                                    <div className="grid grid-cols-2 gap-3 text-xs leading-none">
-                                      <div className="bg-white p-2.5 rounded shadow-xs text-center border">
-                                        <span className="text-[9px] text-slate-400 block uppercase font-semibold">Active GPA</span>
-                                        <strong className="text-sm font-black text-indigo-700 font-mono mt-1 block">
-                                          {reportStudent.level === 'nursery' ? 'Milestones' : `${calculateGPA(reportStudent.grades).avg}% (${calculateGPA(reportStudent.grades).letter})`}
-                                        </strong>
-                                      </div>
-                                      <div className="bg-white p-2.5 rounded shadow-xs text-center border">
-                                        <span className="text-[9px] text-slate-400 block uppercase font-semibold">Class Rank</span>
-                                        <strong className="text-sm font-black text-indigo-700 font-mono mt-1 block font-bold">
-                                          #{getStudentClassRank(reportStudent.id, reportStudent.grade).rank} <span className="text-[9px] font-normal text-slate-400 font-sans">of {getStudentClassRank(reportStudent.id, reportStudent.grade).total}</span>
-                                        </strong>
-                                      </div>
-                                      <div className="bg-white p-2.5 rounded shadow-xs text-center border col-span-2">
-                                        <span className="text-[9px] text-slate-400 block uppercase font-semibold">Attendance rate</span>
-                                        <strong className="text-sm font-black text-indigo-700 font-mono mt-1 block font-bold">
-                                          {reportStudent.attendancePercentage}% <span className="text-[10px] font-normal text-emerald-600 font-sans">(Presences)</span>
-                                        </strong>
-                                      </div>
-                                    </div>
-
-                                    {/* Attendance impact callout */}
-                                    <div className="text-[10px] leading-relaxed text-indigo-950/80 font-sans">
-                                      {reportStudent.attendancePercentage >= 90 ? (
-                                        <p className="bg-emerald-50 text-emerald-800 p-2 rounded border border-emerald-100">
-                                          üí° Positive Attendance Correlation: Excellent academic presence supports healthy score metrics compilation.
-                                        </p>
-                                      ) : (
-                                        <p className="bg-amber-50 text-amber-800 p-2 rounded border border-amber-100 font-medium">
-                                          ‚ö†Ô∏è Attendance Alert impact: Frequent absences slip student position indexes and require tutoring review.
-                                        </p>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                </div>
-
-                                {/* Counselor Commentary block in certificate */}
-                                <div className="space-y-1.5 border-t pt-4">
-                                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#111827] block">Academic Counselor &amp; Class Teacher Commentary:</span>
-                                  <p className="text-[11px] leading-relaxed text-slate-705 italic bg-slate-50/70 p-3.5 border rounded-xl font-sans font-medium">
-                                    "{reportStudent.reportComment || `${reportStudent.name} is currently demonstrating diligent efforts inside Beacon school environments. The class instructor notes consistent behaviors and encourages active objective studies next term cycle.`}"
-                                  </p>
-                                </div>
-
-                                {/* Official closing seals sign off layout */}
-                                <div className="grid grid-cols-3 gap-4 border-t pt-6 text-[9px] text-center text-slate-500 font-semibold uppercase tracking-wider font-sans">
-                                  <div className="space-y-8">
-                                    <div className="h-0.5 bg-slate-200 w-32 mx-auto" />
-                                    <span>Class Instructor Signature</span>
-                                  </div>
-                                  <div className="space-y-8">
-                                    <div className="h-0.5 bg-slate-200 w-32 mx-auto" />
-                                    <span>Division Head Seal</span>
-                                  </div>
-                                  <div className="space-y-8">
-                                    <div className="h-0.5 bg-slate-200 w-32 mx-auto" />
-                                    <span>Beacon Principal Signature</span>
-                                  </div>
-                                </div>
-
-                              </div>
-                            </div>
-
-                          </div>
-                        ) : (
-                          <p className="text-center py-12 text-slate-400 text-xs">Admit student first from directory to access custom grade card compiling controls.</p>
-                        )}
-
-                      </div>
-
-                    </div>
-                  )}
-
-                  {/* -------------------------------------------------------------
-                      SUB TAB 3: CURRICULUM PLANNING & WORKLOADS ALLOCATION
-                      ------------------------------------------------------------- */}
-                  {academicSubTab === 'curriculum' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in font-sans">
-                      
-                      {/* Left Sidebar: Create New Curriculum Plan */}
-                      <div className="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-sm space-y-4 h-fit">
-                        <div className="space-y-0.5 border-b pb-3">
-                          <h3 className="font-bold text-sm text-slate-900 leading-snug">Plan Course Curriculum</h3>
-                          <p className="text-[11px] text-slate-500">Draft syllabus objectives and allocate specialized instruction workloads</p>
-                        </div>
-
-                        <form onSubmit={(e) => {
-                          e.preventDefault();
-                          if (!newCurrSubject.trim()) {
-                            alert("Please provide the Subject Name.");
-                            return;
-                          }
-                          handleAddCurriculum(newCurrGrade, newCurrSubject, currTopicsBuffer, newCurrTeacherId);
-                          // Reset
-                          setNewCurrSubject('');
-                          setNewCurrTeacherId('');
-                          setCurrTopicsBuffer([]);
-                          alert("New academic curriculum published and synced persistently.");
-                        }} className="space-y-3.5 text-xs">
-                          <div>
-                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1 font-mono">Target Grade Level</label>
-                            <select 
-                              value={newCurrGrade}
-                              onChange={(e) => setNewCurrGrade(e.target.value)}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-semibold cursor-pointer"
-                            >
-                              <option value="Preschool (Ages 2-3)">Preschool (Ages 2-3)</option>
-                              <option value="K1 (Ages 3-4)">K1 (Ages 3-4)</option>
-                              <option value="Grade 3">Grade 3</option>
-                              <option value="Grade 5">Grade 5</option>
-                              <option value="Grade 10">Grade 10</option>
-                              <option value="Grade 11">Grade 11</option>
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1 font-mono">Subject Name</label>
-                            <input 
-                              type="text"
-                              value={newCurrSubject}
-                              onChange={(e) => setNewCurrSubject(e.target.value)}
-                              placeholder="e.g. Environmental Sciences"
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-indigo-500 outline-none font-medium"
-                              required
-                            />
-                          </div>
-
-                          <div>
-                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1 font-mono">Workload Instructor</label>
-                            <select 
-                              value={newCurrTeacherId}
-                              onChange={(e) => setNewCurrTeacherId(e.target.value)}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-semibold cursor-pointer"
-                            >
-                              <option value="">Select Faculty Instructors</option>
-                              {teachers.map(t => (
-                                <option key={t.id} value={t.id}>{t.name} (ID: {t.id})</option>
-                              ))}
-                            </select>
-                          </div>
-
-                          {/* Temporary outline buffers */}
-                          <div className="bg-slate-50/50 p-3.5 rounded-xl border border-dashed border-indigo-200 space-y-3">
-                            <span className="text-[10px] font-bold text-slate-800 uppercase block tracking-wider font-mono">Dynamic Syllabus Chapters</span>
-                            
-                            {/* Current Buffered list */}
-                            {currTopicsBuffer.length > 0 && (
-                              <div className="space-y-2 border-b border-indigo-150 pb-2 mb-2 max-h-[140px] overflow-y-auto">
-                                {currTopicsBuffer.map((top, idx) => (
-                                  <div key={idx} className="bg-white border rounded p-2 text-[10px] space-y-1 relative shadow-xs">
-                                    <button
-                                      type="button"
-                                      onClick={() => setCurrTopicsBuffer(prev => prev.filter((_, i) => i !== idx))}
-                                      className="absolute top-1 right-1.5 text-slate-400 hover:text-rose-600 font-bold cursor-pointer text-xs"
-                                    >
-                                      ‚úï
-                                    </button>
-                                    <p className="font-bold text-slate-800 pr-5">{idx + 1}. {top.name} ({top.hours} Hrs)</p>
-                                    <p className="text-slate-500 italic pr-3">Obj: {top.objectives}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            {/* Buffer inputs */}
-                            <div className="space-y-2 text-[11px]">
-                              <div>
-                                <label className="text-[9px] text-[#222] font-semibold block mb-0.5 font-sans">Chapter Title</label>
-                                <input 
-                                  type="text"
-                                  value={newTopicName}
-                                  onChange={(e) => setNewTopicName(e.target.value)}
-                                  placeholder="e.g. Hydro-thermal dynamics"
-                                  className="w-full bg-white border rounded px-2 py-1 text-[11px]"
-                                />
-                              </div>
-                              <div className="grid grid-cols-3 gap-2">
-                                <div className="col-span-1">
-                                  <label className="text-[9px] text-[#222] font-semibold block mb-0.5">Est. Hours</label>
-                                  <input 
-                                    type="number"
-                                    value={newTopicHours}
-                                    onChange={(e) => setNewTopicHours(e.target.value)}
-                                    className="w-full bg-white border rounded px-2 py-1 text-[11px]"
-                                  />
-                                </div>
-                                <div className="col-span-2">
-                                  <label className="text-[9px] text-[#222] font-semibold block mb-0.5">Learning Goals</label>
-                                  <input 
-                                    type="text"
-                                    value={newTopicObjectives}
-                                    onChange={(e) => setNewTopicObjectives(e.target.value)}
-                                    placeholder="Learn steam ratios"
-                                    className="w-full bg-white border rounded px-2 py-1 text-[11px]"
-                                  />
-                                </div>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (!newTopicName.trim()) return;
-                                  const topicObj: Topic = {
-                                    name: newTopicName,
-                                    hours: parseInt(newTopicHours) || 12,
-                                    objectives: newTopicObjectives || "Identify core systems parameters"
-                                  };
-                                  setCurrTopicsBuffer(prev => [...prev, topicObj]);
-                                  setNewTopicName('');
-                                  setNewTopicObjectives('');
-                                }}
-                                className="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold py-1 px-2 rounded tracking-wide border cursor-pointer border-indigo-150 text-[10px] uppercase text-center block mt-1 leading-none"
-                              >
-                                + Stack Topic Chapter to Buffer List
-                              </button>
-                            </div>
-                          </div>
-
-                          <button 
-                            type="submit"
-                            className="w-full bg-slate-900 border text-white hover:bg-slate-950 font-bold py-2.5 rounded-lg shrink-0 tracking-wider transition-all shadow-md cursor-pointer text-center text-[11px] uppercase block"
-                          >
-                            Publish &amp; Sync Curriculum Plan
-                          </button>
-                        </form>
-                      </div>
-
-                      {/* Right View: Curr outlines catalog */}
-                      <div className="lg:col-span-2 space-y-6 animate-fade-in font-sans">
-                        <div className="flex justify-between items-center bg-white border p-4 px-5 rounded-2xl shadow-sm">
-                          <div>
-                            <h3 className="font-bold text-sm text-slate-950">Active Syllabus Course Catalogues</h3>
-                            <p className="text-xs text-slate-500 font-medium">Coordinate school objectives and faculty workloads</p>
-                          </div>
-                          <span className="font-mono text-xs bg-slate-100 font-bold py-1 px-3 rounded text-slate-655">
-                            {branchCurriculums.length} Catalogues Published
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {branchCurriculums.map(curr => {
-                            const teacherInfo = teachers.find(t => t.id === curr.teacherId);
-                            return (
-                              <div key={curr.id} className="bg-white border rounded-2xl p-5 shadow-sm space-y-4 relative flex flex-col justify-between">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (confirm("Unpublish this curriculum planning safely and remove objectives registries?")) {
-                                      handleDeleteCurriculum(curr.id);
-                                    }
-                                  }}
-                                  className="absolute top-4 right-4 bg-slate-50 hover:bg-rose-50 border border-slate-200 hover:border-rose-150 p-2 text-xs rounded-lg text-slate-400 hover:text-[#e11d48] cursor-pointer shadow-xs font-bold leading-none"
-                                  title="Safely Unpublish Syllabus"
-                                >
-                                  ‚úï
-                                </button>
-
-                                <div className="space-y-3">
-                                  <div className="space-y-0.5">
-                                    <span className="text-[9px] bg-indigo-50 text-indigo-700 border border-indigo-101 font-bold px-2 py-0.5 rounded uppercase">
-                                      {curr.grade}
-                                    </span>
-                                    <h4 className="font-black text-[#111827] text-md leading-snug mt-1">{curr.subject}</h4>
-                                  </div>
-
-                                  {/* Assigned instructor workload */}
-                                  <div className="bg-slate-50 border rounded-xl p-3 text-xs leading-none flex items-center justify-between">
-                                    <div>
-                                      <span className="text-[9px] text-slate-450 uppercase tracking-wider block font-bold leading-normal">Assigned Workload</span>
-                                      <strong className="text-[#111] mt-1 block">
-                                        {teacherInfo ? teacherInfo.name : "Unallocated Faculty Staff"}
-                                      </strong>
-                                    </div>
-                                    <span className="text-[9px] font-mono bg-indigo-50 text-indigo-750 px-1.5 py-0.5 rounded font-bold uppercase leading-normal">
-                                      {teacherInfo ? "Active Match" : "Pending Allocation"}
-                                    </span>
-                                  </div>
-
-                                  <div className="space-y-2 pt-1.5">
-                                    <span className="text-[10px] font-extrabold text-slate-400 uppercase block tracking-wider font-mono">Sessional Topics ({curr.topics.reduce((acc, c) => acc + c.hours, 0)} Hours)</span>
-                                    <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
-                                      {curr.topics.map((t, tIdx) => (
-                                        <div key={tIdx} className="bg-slate-50/50 p-2.5 rounded border border-slate-100 text-[10px] leading-relaxed">
-                                          <p className="font-bold text-slate-750">Unit {tIdx + 1}: {t.name} ({t.hours} Hours)</p>
-                                          <p className="text-slate-550 font-medium italic mt-0.5">Goal: {t.objectives}</p>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                          {curriculums.length === 0 && (
-                            <div className="bg-white border rounded-2xl py-12 text-center text-slate-450 text-xs col-span-2">
-                              No syllabi curricula logs configured. Build your first planned curriculum block on the left panel.
-                            </div>
-                          )}
-                        </div>
-
-                      </div>
-
-                    </div>
-                  )}
-
-                  {/* -------------------------------------------------------------
-                      SUB TAB 4: EXAMINATION MANAGEMENT SCHEDULER
-                      ------------------------------------------------------------- */}
-                  {academicSubTab === 'exams' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 animate-fade-in font-sans">
-                      
-                      {/* Sidebar scheduler form */}
-                      <div className="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-sm space-y-4 h-fit font-sans">
-                        <div className="space-y-0.5 border-b pb-3">
-                          <h3 className="font-bold text-sm text-slate-900 leading-snug">Exams Scheduler</h3>
-                          <p className="text-[11px] text-slate-500 font-medium">Declare structural assessment dates and weights parameters</p>
-                        </div>
-
-                        <form onSubmit={(e) => {
-                          e.preventDefault();
-                          if (!newExamTitle.trim() || !newExamSubject.trim()) {
-                            alert("Please fill out complete exam fields.");
-                            return;
-                          }
-                          handleAddExam(newExamTitle, newExamGrade, newExamSubject, newExamDate, parseFloat(newExamWeight) || 30, parseFloat(newExamTotalMarks) || 100);
-                          // Reset
-                          setNewExamTitle('');
-                          setNewExamSubject('');
-                          alert("New examination assessment scheduled.");
-                        }} className="space-y-3.5 text-xs">
-                          <div>
-                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1 font-mono">Exam / CAT Title</label>
-                            <input 
-                              type="text"
-                              value={newExamTitle}
-                              onChange={(e) => setNewExamTitle(e.target.value)}
-                              placeholder="e.g. End Term Quiz Portfolio"
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-medium"
-                              required
-                            />
-                          </div>
-
-                          <div>
-                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1 font-mono font-bold">Target Grade Class</label>
-                            <select 
-                              value={newExamGrade}
-                              onChange={(e) => setNewExamGrade(e.target.value)}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-semibold cursor-pointer"
-                            >
-                              <option value="Grade 3">Grade 3</option>
-                              <option value="Grade 5">Grade 5</option>
-                              <option value="Grade 10">Grade 10</option>
-                              <option value="Grade 11">Grade 11</option>
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1 font-mono font-bold">Course Subject</label>
-                            <input 
-                              type="text"
-                              value={newExamSubject}
-                              onChange={(e) => setNewExamSubject(e.target.value)}
-                              placeholder="e.g. Mathematics"
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-medium"
-                              required
-                            />
-                          </div>
-
-                          <div>
-                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1 font-mono">Assessment Date</label>
-                            <input 
-                              type="date"
-                              value={newExamDate}
-                              onChange={(e) => setNewExamDate(e.target.value)}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono"
-                              required
-                            />
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3.5">
-                            <div>
-                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1 font-mono">Weight (%)</label>
-                              <input 
-                                type="number"
-                                value={newExamWeight}
-                                onChange={(e) => setNewExamWeight(e.target.value)}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono text-right font-semibold font-bold"
-                                required
-                              />
-                            </div>
-                            <div>
-                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1 font-mono">Total marks</label>
-                              <input 
-                                type="number"
-                                value={newExamTotalMarks}
-                                onChange={(e) => setNewExamTotalMarks(e.target.value)}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono text-right font-bold"
-                                required
-                              />
-                            </div>
-                          </div>
-
-                          <button 
-                            type="submit"
-                            className="w-full bg-indigo-650 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg text-xs tracking-wide transition-colors cursor-pointer text-center block uppercase"
-                          >
-                            Schedule Exam Block
-                          </button>
-                        </form>
-                      </div>
-
-                      {/* Scheduled exam calendars board */}
-                      <div className="lg:col-span-3 space-y-6">
-                        <div className="bg-white border rounded-2xl p-5 shadow-sm space-y-4">
-                          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b pb-3">
-                            <div>
-                              <h3 className="font-bold text-sm text-slate-905 leading-snug">Term Examinations Timeline</h3>
-                              <p className="text-xs text-slate-500 font-medium font-sans">School-wide timelines scheduled for continuous evaluations</p>
-                            </div>
-                            <span className="font-mono text-xs bg-indigo-50 border border-indigo-100 font-bold px-2.5 py-0.5 rounded text-indigo-700">
-                              {branchExams.length} examinations scheduled
-                            </span>
-                          </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {branchExams.map(ex => (
-                              <div key={ex.id} className="bg-slate-50/50 border rounded-2xl p-4.5 space-y-3 relative flex flex-col justify-between hover:bg-slate-50 font-sans">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (confirm("Cancel and delete this planned exam block index?")) {
-                                      handleDeleteExam(ex.id);
-                                    }
-                                  }}
-                                  className="absolute top-4.5 right-4.5 text-slate-400 hover:text-rose-600 font-bold text-xs cursor-pointer"
-                                >
-                                  ‚úï
-                                </button>
-
-                                <div className="space-y-2">
-                                  <div className="flex items-center space-x-2">
-                                    <span className="bg-indigo-50 text-indigo-755 px-2 py-0.5 rounded text-[10px] font-mono font-black uppercase border border-indigo-100">
-                                      {ex.grade}
-                                    </span>
-                                    <span className="bg-rose-50 text-[#e11d48] px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase border border-rose-100">
-                                      Weight {ex.weightPercentage}%
-                                    </span>
-                                  </div>
-
-                                  <div className="space-y-0.5">
-                                    <h4 className="font-bold text-slate-800 text-sm leading-snug">{ex.title}</h4>
-                                    <p className="text-[11px] text-slate-500">Scheduled Course: <span className="font-semibold text-slate-700">{ex.subject}</span></p>
-                                  </div>
-                                </div>
-
-                                <div className="border-t border-slate-200/50 pt-3 flex justify-between items-center text-[10px] text-slate-450 uppercase tracking-widest font-mono font-sans leading-none">
-                                  <span className="font-semibold text-[9px] font-mono">Target date: {ex.date}</span>
-                                  <span className="font-bold text-rose-600 font-mono">Total {ex.totalMarks} Marks</span>
-                                </div>
-                              </div>
-                            ))}
-                            {exams.length === 0 && (
-                              <div className="py-12 text-center text-slate-400 text-xs font-medium">
-                                No scheduled examinations matching directories. Add an exam using the scheduler forms on the sidebar.
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Grading Weight System warnings */}
-                        <div className="bg-amber-50/60 border border-amber-100 rounded-2xl p-4 flex items-start space-x-3 text-xs leading-normal text-amber-900 font-sans">
-                          <AlertCircle className="w-5 h-5 shrink-0 text-amber-600 mt-0.5" />
-                          <div>
-                            <strong className="font-bold block">Weights Orchestration Guidance:</strong>
-                            <p className="mt-1 font-medium text-amber-800">
-                              Beacon standard guidelines suggest keeping overall sessional weight parameters aggregated at exactly 100% per term level. Configure scheduler weights variables to balance workloads smoothly.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                    </div>
-                  )}
-
-                  {/* -------------------------------------------------------------
-                      SUB TAB 5: SCHOOL GRADING SYSTEMS SCALE DIRECTORIES
-                      ------------------------------------------------------------- */}
-                  {academicSubTab === 'scales' && (
-                    <div className="bg-white border rounded-2xl p-5 shadow-sm space-y-4 animate-fade-in font-sans">
-                      <div className="border-b pb-4">
-                        <span className="text-[9px] bg-slate-900 text-white font-bold p-1 rounded font-mono uppercase tracking-widest">Grading Systems Controller</span>
-                        <h3 className="font-extrabold text-[#111] text-base mt-2">Customizable Letter Grade Limits and Boundary Parameters</h3>
-                        <p className="text-xs text-slate-500 font-medium">Edit lower bounds boundaries for each letter tier. Updates calculated student Report GPAs globally on Beacon School Registry.</p>
-                      </div>
-
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs divide-y font-medium text-slate-700">
-                          <thead>
-                            <tr className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
-                              <th className="py-3 font-bold">Grade Symbol</th>
-                              <th className="py-3 font-bold">Lower Score Boundary</th>
-                              <th className="py-3 font-bold font-semibold">Upper Score Boundary</th>
-                              <th className="py-3 font-bold font-mono">Grade Points (GPA)</th>
-                              <th className="py-3 font-bold">Evaluation Reference Description</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y font-medium text-slate-705">
-                            {gradeScales.map((scale, sIdx) => (
-                              <tr key={scale.id || scale.grade} className="hover:bg-slate-50/60">
-                                <td className="py-3.5">
-                                  <span className="px-3 py-1 bg-slate-100 font-mono font-black text-slate-900 rounded border uppercase">
-                                    Grade {scale.grade}
-                                  </span>
-                                </td>
-                                <td className="py-3.5">
-                                  <div className="flex items-center space-x-1.5 font-sans">
-                                    <input 
-                                      type="number"
-                                      value={scale.minScore}
-                                      onChange={(e) => {
-                                        const val = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
-                                        const updated = [...gradeScales];
-                                        updated[sIdx].minScore = val;
-                                        setGradeScales(updated);
-                                      }}
-                                      className="w-16 bg-white border border-slate-205 rounded px-2 py-1 font-mono font-bold text-slate-800 text-center text-xs outline-none focus:ring-1 focus:ring-indigo-550"
-                                    />
-                                    <span className="text-[10px] text-slate-400 uppercase font-mono">% score</span>
-                                  </div>
-                                </td>
-                                <td className="py-3.5">
-                                  <div className="flex items-center space-x-1.5 font-sans">
-                                    <input 
-                                      type="number"
-                                      value={scale.maxScore}
-                                      onChange={(e) => {
-                                        const val = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
-                                        const updated = [...gradeScales];
-                                        updated[sIdx].maxScore = val;
-                                        setGradeScales(updated);
-                                      }}
-                                      className="w-16 bg-white border border-slate-205 rounded px-2 py-1 font-mono font-bold text-slate-800 text-center text-xs outline-none focus:ring-1 focus:ring-indigo-550"
-                                    />
-                                    <span className="text-[10px] text-slate-400 uppercase font-mono">% score</span>
-                                  </div>
-                                </td>
-                                <td className="py-3.5 font-sans">
-                                  <input 
-                                    type="number"
-                                    step="0.1"
-                                    value={scale.gradePoints}
-                                    onChange={(e) => {
-                                      const val = parseFloat(e.target.value) || 0;
-                                      const updated = [...gradeScales];
-                                      updated[sIdx].gradePoints = val;
-                                      setGradeScales(updated);
-                                    }}
-                                    className="w-16 bg-white border border-slate-205 rounded px-2 py-1 font-mono font-bold text-slate-800 text-center text-xs outline-none focus:ring-1 focus:ring-indigo-550"
-                                  />
-                                </td>
-                                <td className="py-3.5 font-sans">
-                                  <input 
-                                    type="text"
-                                    value={scale.description}
-                                    onChange={(e) => {
-                                      const updated = [...gradeScales];
-                                      updated[sIdx].description = e.target.value;
-                                      setGradeScales(updated);
-                                    }}
-                                    className="w-full bg-white border border-slate-200 rounded px-2.5 py-1 text-xs text-slate-700 outline-none focus:ring-1 focus:ring-indigo-500"
-                                  />
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      <div className="border-t pt-4 flex justify-end">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleSaveGradeScales(gradeScales);
-                          }}
-                          className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2.5 px-6 rounded-xl flex items-center space-x-2 shadow cursor-pointer transition-all uppercase leading-none"
-                        >
-                          <Save className="w-4 h-4 shrink-0" />
-                          <span>Commit Grading Scale Configurations</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                </div>
-              )}
-
-              {/* -------------------------------------------------------------
-                  TAB 5: TIMETABLE & CLASS SCHEDULER
-                  ------------------------------------------------------------- */}
-              {activeTab === 'scheduler' && (
-                <div id="erp-view-scheduler" className="space-y-6">
-                  
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div>
-                      <h2 className="text-xl font-bold text-slate-900">Class Timetables &amp; Period Block Allocations</h2>
-                      <p className="text-xs text-slate-500">Configure weekly class schedules, manage classroom hours and match allocated teachers</p>
-                    </div>
-
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xs text-slate-500 font-bold">Select Active Grade:</span>
-                      <select
-                        value={currentScheduleGrade}
-                        onChange={(e) => setCurrentScheduleGrade(e.target.value)}
-                        className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700 font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
-                      >
-                        <option value="K1 (Ages 3-4)">K1 (Ages 3-4)</option>
-                        <option value="Preschool (Ages 2-3)">Preschool (Ages 2-3)</option>
-                        <option value="Grade 3">Grade 3</option>
-                        <option value="Grade 5">Grade 5</option>
-                        <option value="Grade 10">Grade 10</option>
-                        <option value="Grade 11">Grade 11</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                    
-                    {/* Schedule Allocator Panel form */}
-                    <div className="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-sm space-y-4 flex flex-col justify-between">
-                      <div className="space-y-4">
-                        <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wider">Book Period Slot</h3>
-                        
-                        <form onSubmit={handleAddSchedule} className="space-y-3 text-xs">
-                          <div>
-                            <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold mb-1">Weekday Selection</p>
-                            <select 
-                              value={newScheduleForm.day}
-                              onChange={(e) => setNewScheduleForm(f => ({ ...f, day: e.target.value }))}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs"
-                            >
-                              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(d => (
-                                <option key={d} value={d}>{d}</option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div>
-                            <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold mb-1">Period Hour</p>
-                            <select 
-                              value={newScheduleForm.period}
-                              onChange={(e) => setNewScheduleForm(f => ({ ...f, period: parseInt(e.target.value) }))}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs"
-                            >
-                              {[1, 2, 3, 4, 5, 6].map(p => (
-                                <option key={p} value={p}>Period {p} ({p + 8}:30 {(p + 8) >= 12 ? 'PM' : 'AM'})</option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div>
-                            <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold mb-1">Subject Title</p>
-                            <input 
-                              type="text"
-                              value={newScheduleForm.subject}
-                              onChange={(e) => setNewScheduleForm(f => ({ ...f, subject: e.target.value }))}
-                              placeholder="e.g. Mathematics, Motor play..."
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs"
-                              required
-                            />
-                          </div>
-
-                          <div>
-                            <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold mb-1">Assigned Teacher</p>
-                            <select 
-                              value={newScheduleForm.teacherId}
-                              onChange={(e) => setNewScheduleForm(f => ({ ...f, teacherId: e.target.value }))}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs"
-                            >
-                              <option value="">No Teacher</option>
-                              {teachers.map(t => (
-                                <option key={t.id} value={t.id}>{t.name}</option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <button 
-                            type="submit"
-                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg text-xs mt-2 transition-colors cursor-pointer"
-                          >
-                            Allocate Timetable Block
-                          </button>
-                        </form>
-
-                        <div className="border-t border-slate-100 pt-3 mt-1.5 space-y-2">
-                          <button
-                            type="button"
-                            onClick={handleAutoAssignAllSlots}
-                            className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold py-2 px-3 rounded-lg hover:from-violet-700 hover:to-indigo-700 transition-all cursor-pointer text-xs shadow-md flex items-center justify-center space-x-1.5"
-                          >
-                            <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-                            <span>‚ú® Smart Auto-Assign Plan</span>
-                          </button>
-                          <p className="text-[10px] text-slate-400 leading-tight">
-                            Auto-assigns remaining weekly lessons based on HR subject allocations, avoiding teacher double-bookings.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/50 text-[11px] leading-relaxed text-slate-500">
-                        <p className="font-semibold text-slate-800 mb-1 flex items-center">
-                          <AlertCircle className="w-3.5 h-3.5 mr-1 text-slate-550 inline shrink-0" />
-                          Scheduling Guidelines
-                        </p>
-                        Double clicking, or choosing specific slot selections with conflict criteria allows ERP timetable reallocation automatically. Click slot deletion icons to remove blocks.
-                      </div>
-                    </div>
-
-                    {/* Weekly Calendar matrix board */}
-                    <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm lg:col-span-3 space-y-4">
-                      
-                      <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-                        <div>
-                          <h3 className="font-bold text-slate-900 text-sm">Timetable Matrix: {currentScheduleGrade}</h3>
-                          <p className="text-xs text-slate-400 uppercase tracking-widest font-mono">Curriculum Schedule Grid</p>
-                        </div>
-                      </div>
-
-                      <div className="overflow-x-auto">
-                        <div className="min-w-[640px] space-y-3">
-                          {/* Calendar Days Matrix view */}
-                          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => {
-                            return (
-                              <div key={day} className="flex items-center space-x-3">
-                                
-                                <div className="w-24 font-bold text-xs text-slate-500 uppercase tracking-wide shrink-0">
-                                  {day}
-                                </div>
-
-                                <div className="flex-1 grid grid-cols-6 gap-2">
-                                  {[1, 2, 3, 4, 5, 6].map(pNum => {
-                                    // Search allocated schedules
-                                    const entry = branchSchedules.find(s => s.grade === currentScheduleGrade && s.day === day && s.period === pNum);
-                                    const teacher = entry ? teachers.find(t => t.id === entry.teacherId) : null;
-
-                                    return (
-                                      <div 
-                                        key={pNum}
-                                        className={`group relative p-3 rounded-xl border text-center transition-all flex flex-col justify-between min-h-[75px] ${
-                                          entry ? 'bg-indigo-50/50 border-indigo-100 text-slate-800 shadow-sm' : 'bg-slate-50/30 border-dashed border-slate-200 text-slate-400 hover:bg-slate-50 hover:border-slate-350'
-                                        }`}
-                                      >
-                                        <div className="text-[10px] font-mono tracking-wider font-semibold uppercase text-slate-400">
-                                          Period {pNum}
-                                        </div>
-
-                                        {entry ? (
-                                          <div className="space-y-1 my-1">
-                                            <p className="font-bold text-xs text-slate-950 truncate leading-snug">{entry.subject}</p>
-                                            {teacher && (
-                                              <p className="text-[10px] text-indigo-700 font-semibold truncate hover:no-underline">{teacher.name}</p>
-                                            )}
-                                          </div>
-                                        ) : (
-                                          <div className="text-[10px] text-slate-400 my-auto font-medium">Free Period</div>
-                                        )}
-
-                                        {entry && (
-                                          <button 
-                                            onClick={() => handleClearSchedulePeriod(day, pNum)}
-                                            className="absolute top-1.5 right-1.5 hidden group-hover:block transition-all opacity-70 hover:opacity-100 bg-white shadow rounded-md p-1 border text-rose-600 cursor-pointer"
-                                            title="Clear block"
-                                          >
-                                            <Trash2 className="w-3 h-3" />
-                                          </button>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                </div>
-              )}
-
-              {/* -------------------------------------------------------------
-                  TAB: SCHEDULE ACADEMIC CALENDAR & SESSIONS SETUP
-                  ------------------------------------------------------------- */}
-              {activeTab === 'calendar' && (
-                <div id="erp-view-calendar" className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200/80 shadow-sm">
-                  <AcademicCalendar 
-                    academicSessions={academicSessions}
-                    setAcademicSessions={setAcademicSessions}
-                    terms={terms}
-                    setTerms={setTerms}
-                    holidays={holidays}
-                    setHolidays={setHolidays}
-                    eventCategories={eventCategories}
-                    setEventCategories={setEventCategories}
-                    events={events}
-                    setEvents={setEvents}
-                    currentRole={currentSimulatedRole}
-                  />
-                </div>
-              )}
-
-              {/* -------------------------------------------------------------
-                  TAB: FINANCIAL SETTINGS & AUDIT CONTROLS
-                  ------------------------------------------------------------- */}
-              {activeTab === 'financial_settings' && (
-                <div id="erp-view-financial-settings" className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200/80 shadow-sm">
-                  <FinancialSettings 
-                    currentRole={currentSimulatedRole}
-                    activeSection={financialActiveSection}
-                    onSectionChange={setFinancialActiveSection}
-                  />
-                </div>
-              )}
-
-              {/* -------------------------------------------------------------
-                  TAB 6: AI CO-PELOT INTUITIVE ASSISTANT (CHAT)
-                  ------------------------------------------------------------- */}
-              {activeTab === 'assistant' && (
-                <div id="erp-view-assistant" className="space-y-6">
-                  
-                  <div className="border-b border-indigo-100 pb-4">
-                    <h2 className="text-xl font-bold text-slate-900">AI Educational Assistant Workspace</h2>
-                    <p className="text-xs text-slate-500">Formulate custom school lesson plan models, continuous assessment worksheet guidelines, parent emails and schedules</p>
-                  </div>
-
-                  {/* Chat interface */}
-                  <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                    
-                    {/* Quick prompts block */}
-                    <div className="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-sm space-y-4">
-                      <h3 className="font-bold text-xs text-slate-800 uppercase tracking-widest">Academic Templates</h3>
-                      <p className="text-xs text-slate-500 leading-normal">Click any direct populator prompt template to run continuous curriculum support models instantly:</p>
-                      
-                      <div className="space-y-2.5 text-xs font-semibold">
-                        <button 
-                          onClick={() => handleAssistantSend("Compile a detailed 5-day curriculum outline for Nursery motor skills sensory play using water, sand and clay")}
-                          className="w-full text-left p-3 rounded-xl bg-slate-50 border border-slate-200 hover:bg-indigo-50/20 hover:border-indigo-100 text-slate-700 hover:text-indigo-950 transition-colors block text-xs cursor-pointer"
-                        >
-                          Nursery Water &amp; Clay play schedule plans
-                        </button>
-                        
-                        <button 
-                          onClick={() => handleAssistantSend("Draft a polite, professional school email letter to parents explaining the importance of attendance and upcoming Grades Mathematics CAT exam dates")}
-                          className="w-full text-left p-3 rounded-xl bg-slate-50 border border-slate-200 hover:bg-indigo-50/20 hover:border-indigo-100 text-slate-700 hover:text-indigo-950 transition-colors block text-xs cursor-pointer"
-                        >
-                          Attendance &amp; CAT assessment newsletter draft
-                        </button>
-                        
-                        <button 
-                          onClick={() => handleAssistantSend("Provide 8 complex algebra and trigonometry test questions tailored for Secondary High School Grade 10 final examinations with step-by-step math proof instructions.")}
-                          className="w-full text-left p-3 rounded-xl bg-slate-50 border border-slate-200 hover:bg-indigo-50/20 hover:border-indigo-100 text-slate-700 hover:text-indigo-950 transition-colors block text-xs cursor-pointer"
-                        >
-                          Grade 10 Algebra Final exams compilation
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Chat messaging display */}
-                    <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm lg:col-span-3 min-h-[460px] flex flex-col justify-between space-y-4">
-                      
-                      {/* Active conversation */}
-                      <div className="flex-1 overflow-y-auto space-y-4 max-h-[480px] p-2 bg-slate-50/30 rounded-xl">
-                        {assistantLogs.map((msg, i) => (
-                          <div 
-                            key={i} 
-                            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                          >
-                            <div className={`max-w-[85%] rounded-2xl p-4 text-xs leading-relaxed ${
-                              msg.role === 'user' ? 
-                              'bg-indigo-600 text-white font-medium shadow-sm shadow-indigo-100/50' : 
-                              'bg-white border border-slate-200 text-slate-800'
-                            }`}>
-                              {/* Level context identifier tag */}
-                              {msg.role === 'model' && (
-                                <div className="flex items-center space-x-1 mb-2 text-[10px] text-indigo-600 font-bold tracking-widest uppercase">
-                                  <Sparkles className="w-3.5 h-3.5 fill-indigo-100" />
-                                  <span>Gemini ERP Officer</span>
-                                </div>
-                              )}
-                              <p className="whitespace-pre-line font-sans">{msg.text}</p>
-                            </div>
-                          </div>
-                        ))}
-                        {submittingAssistant && (
-                          <div className="flex justify-start">
-                            <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center space-x-2.5">
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600 shrink-0" />
-                              <span className="text-xs text-slate-500 font-medium">Gemini structuring curriculum files...</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Messaging inputs */}
-                      <div className="border-t border-slate-100 pt-3">
-                        <div className="flex items-center space-x-2">
-                          <input 
-                            type="text"
-                            placeholder="Formulate custom curriculum schedules, worksheet populators, continuous assessments templates..."
-                            value={aiInput}
-                            onChange={(e) => setAiInput(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleAssistantSend();
-                            }}
-                            className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 text-slate-900"
-                          />
-                          <button
-                            onClick={() => handleAssistantSend()}
-                            disabled={submittingAssistant || !aiInput.trim()}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl px-5 py-3 transition-colors disabled:bg-indigo-400 shadow shadow-indigo-100 shrink-0 cursor-pointer"
-                          >
-                            Send Prompt
-                          </button>
-                        </div>
-                        <p className="text-[10px] text-slate-400 text-right mt-1.5 font-sans">
-                          * AI Academic advice is parsed server-side securely. Always verify critical syllabus parameters.
-                        </p>
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                </div>
-              )}
-
-              {/* -------------------------------------------------------------
-                  TAB 7: SECURE PARENT PORTAL
-                  ------------------------------------------------------------- */}
-              {activeTab === 'parent' && (
-                <div id="erp-view-parent" className="space-y-6 animate-fade-in text-xs">
-                  
-                  <div className="border-b border-indigo-100 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div>
-                      <h2 className="text-xl font-bold text-slate-900 flex items-center">
-                        <span className="p-1.5 bg-indigo-600 text-white rounded-lg mr-2 inline-block shadow">
-                          <Settings className="w-4 h-4 shrink-0" />
-                        </span>
-                        Secure Parent Portal Desk
-                      </h2>
-                      <p className="text-xs text-slate-500 font-medium">Authorized parental monitoring, report card inspection &amp; financial settlement desk</p>
-                    </div>
-
-                    {loggedParentStudent && (
-                      <button
-                        onClick={() => {
-                          setLoggedParentStudent(null);
-                          setParentLoginEmail('');
-                          setParentAuthError(null);
-                        }}
-                        className="bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 font-bold text-xs py-1.5 px-3 rounded-lg transition-colors cursor-pointer"
-                      >
-                        Exit Family Session
-                      </button>
-                    )}
-                  </div>
-
-                  {!loggedParentStudent ? (
-                    <div className="max-w-md mx-auto my-12 bg-white rounded-2xl border border-slate-200 p-6 shadow-xl space-y-6">
-                      {/* Parent Login Dashboard Card */}
-                      <div className="text-center space-y-2">
-                        <div className="w-12 h-12 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-2xl mx-auto flex items-center justify-center shadow-inner">
-                          <Settings className="w-6 h-6 animate-pulse" />
-                        </div>
-                        <h3 className="font-bold text-lg text-slate-950">Family Account Sign-In</h3>
-                        <p className="text-xs text-slate-500 leading-relaxed">Provide school-registered parent email ID to securely load continuous statistics, homework, notices, and billing fee ledgers.</p>
-                      </div>
-
-                      {/* Admin Direct Inspection Desk */}
-                      {(currentSimulatedRole === 'Super Admin' || currentSimulatedRole === 'Branch Admin') && (
-                        <div className="bg-indigo-50/70 border border-indigo-150 p-4 rounded-xl space-y-3 shadow-xs">
-                          <div className="flex items-center space-x-1.5 text-indigo-950 font-bold text-xs">
-                            <ShieldCheck className="w-4 h-4 text-indigo-600" />
-                            <span>üëë Admin Direct Inspection Desk</span>
-                          </div>
-                          <p className="text-slate-600 leading-normal text-[10.5px]">
-                            As an authorized <strong>{currentSimulatedRole}</strong>, you can directly inspect any student's parent dashboard / view files immediately for compliance and query auditing.
-                          </p>
-                          <div className="space-y-1 w-full">
-                            <label className="text-[9.5px] uppercase font-bold tracking-wider text-slate-400 block">Select Student Record</label>
-                            <select
-                              onChange={(e) => {
-                                const std = students.find(s => s.id === e.target.value);
-                                if (std) {
-                                  setParentLoginEmail(std.parentEmail);
-                                  setLoggedParentStudent(std);
-                                  setParentAuthError(null);
-                                }
-                              }}
-                              className="w-full bg-white border border-indigo-200 rounded-lg p-2 text-xs text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 font-semibold"
-                            >
-                              <option value="">-- Choose student file to load --</option>
-                              {students.map(s => (
-                                <option key={s.id} value={s.id}>
-                                  {s.name} ({s.grade}) ‚Äî Parent: {s.parentEmail}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="space-y-4 text-xs">
-                        <div className="bg-slate-50 border border-indigo-100 p-3 rounded-xl space-y-1">
-                          <p className="font-bold text-indigo-950 flex items-center">
-                            <Info className="w-3.5 h-3.5 mr-1 text-indigo-700 shrink-0" />
-                            Pre-configured Demo Credentials
-                          </p>
-                          <p className="text-slate-555 leading-relaxed text-[11px]">
-                            Check registered student email fields. For example, use:
-                            <br />
-                            <span className="font-semibold text-slate-900 font-mono">parent1@gotham.edu</span> or similar.
-                          </p>
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <label className="font-bold tracking-wide uppercase text-[10px] text-slate-450">Guardian Registered Email ID</label>
-                          <input 
-                            type="email"
-                            placeholder="e.g. parent1@gotham.edu"
-                            value={parentLoginEmail}
-                            onChange={(e) => setParentLoginEmail(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                if(!parentLoginEmail.trim()) {
-                                  setParentAuthError("Email identifier is required.");
-                                  return;
-                                }
-                                const matches = students.filter(s => s.parentEmail.toLowerCase().trim() === parentLoginEmail.toLowerCase().trim());
-                                if(matches.length === 0) {
-                                  setParentAuthError("No student files found matching this guardian email identification. Contact administrator at usamah.m.qamar@gmail.com.");
-                                } else {
-                                  setParentAuthError(null);
-                                  setLoggedParentStudent(matches[0]);
-                                }
-                              }
-                            }}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-900 outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
-                          />
-                        </div>
-
-                        {parentAuthError && (
-                          <p className="text-xs text-rose-600 font-semibold bg-rose-50 border border-rose-100 rounded-lg p-2 text-center">{parentAuthError}</p>
-                        )}
-
-                        <button 
-                          onClick={() => {
-                            if(!parentLoginEmail.trim()) {
-                              setParentAuthError("Email identifier is required.");
-                              return;
-                            }
-                            const matches = students.filter(s => s.parentEmail.toLowerCase().trim() === parentLoginEmail.toLowerCase().trim());
-                            if(matches.length === 0) {
-                              setParentAuthError("No student files found matching this guardian email identification. Contact administrator at usamah.m.qamar@gmail.com.");
-                            } else {
-                              setParentAuthError(null);
-                              setLoggedParentStudent(matches[0]);
-                            }
-                          }}
-                          className="w-full bg-indigo-600 text-white font-bold py-2.5 rounded-lg hover:bg-indigo-700 transition-all text-xs shadow cursor-pointer text-center"
-                        >
-                          Unlock Student Folder
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      {/* Authenticated Portal Dashboard */}
-                      
-                      {/* Family switcher if guardian has multiple children */}
-                      {students.filter(s => s.parentEmail.toLowerCase().trim() === parentLoginEmail.toLowerCase().trim()).length > 1 && (
-                        <div className="bg-amber-50 border border-amber-150 p-3 rounded-xl flex items-center justify-between text-xs shadow-inner">
-                          <span className="text-amber-900 font-semibold">Multiple students linked under your email:</span>
-                          <div className="flex gap-1.5 flex-wrap">
-                            {students.filter(s => s.parentEmail.toLowerCase().trim() === parentLoginEmail.toLowerCase().trim()).map(child => (
-                              <button
-                                key={child.id}
-                                onClick={() => setLoggedParentStudent(child)}
-                                className={`px-2.5 py-1 text-[11px] font-bold rounded transition-all cursor-pointer ${
-                                  loggedParentStudent.id === child.id ? 'bg-indigo-600 text-white shadow' : 'bg-white text-slate-700 border hover:bg-slate-50'
-                                }`}
-                              >
-                                {child.name}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Active Restrictions Alert Banner */}
-                      {studentRestrictions?.isOverdue && (
-                        <div className="bg-amber-50/90 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row gap-3 items-start text-xs shadow-sm">
-                          <div className="p-2 bg-amber-100 text-amber-800 rounded-xl">
-                            <AlertTriangle className="w-5 h-5 shrink-0" />
-                          </div>
-                          <div className="space-y-1 flex-1">
-                            <h4 className="font-bold text-amber-950 text-xs">‚ö†Ô∏è Outstanding School Fees Past Due Notice</h4>
-                            <p className="text-amber-800 leading-normal text-[11px]">
-                              Our administrative records indicate that termly fee statement payments for <strong>{loggedParentStudent.name}</strong> are overdue. Under the current institutional Fee Template policy rules, the following system access and student services restrictions are active:
-                            </p>
-                            <div className="flex flex-wrap gap-1.5 pt-1">
-                              {studentRestrictions.activeRestrictions?.blockReportCard && (
-                                <span className="bg-amber-100 text-amber-900 border border-amber-200/50 text-[9px] font-bold px-2 py-0.5 rounded font-mono uppercase">Report Card Locked</span>
-                              )}
-                              {studentRestrictions.activeRestrictions?.blockParentPortal && (
-                                <span className="bg-amber-100 text-amber-900 border border-amber-200/50 text-[9px] font-bold px-2 py-0.5 rounded font-mono uppercase">Portal Actions Restricted</span>
-                              )}
-                              {studentRestrictions.activeRestrictions?.blockBooks && (
-                                <span className="bg-amber-100 text-amber-900 border border-amber-200/50 text-[9px] font-bold px-2 py-0.5 rounded font-mono uppercase">Library Books Blocked</span>
-                              )}
-                              {studentRestrictions.activeRestrictions?.blockPromotion && (
-                                <span className="bg-amber-100 text-amber-900 border border-amber-200/50 text-[9px] font-bold px-2 py-0.5 rounded font-mono uppercase">Promotion Flag Blocked</span>
-                              )}
-                              {studentRestrictions.activeRestrictions?.blockRegistration && (
-                                <span className="bg-amber-100 text-amber-900 border border-amber-200/50 text-[9px] font-bold px-2 py-0.5 rounded font-mono uppercase">Registration Blocked</span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right text-[10px] font-mono font-bold text-amber-900 shrink-0 bg-white/70 border border-amber-200 rounded-xl p-2 self-center">
-                            Overdue Invoices: {studentRestrictions.overdueBills?.length}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Header overview banner for the ward */}
-                      <div className="bg-slate-900 p-6 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6 text-white text-xs border border-slate-800">
-                        <div className="space-y-1">
-                          <p className="text-slate-450 tracking-wider font-semibold uppercase text-[10px]">Student Placement Directory Case File</p>
-                          <h3 className="text-lg font-bold text-white flex items-center">{loggedParentStudent.name}</h3>
-                          <p className="text-slate-400 font-medium">Class: <span className="font-semibold text-white">{loggedParentStudent.grade}</span> ‚Ä¢ Room {loggedParentStudent.classSection} ‚Ä¢ Enrollment: <span className="text-white font-mono">{loggedParentStudent.enrollmentNo || 'ADM-2026-6432'}</span></p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl text-center">
-                            <p className="text-slate-400 font-semibold text-[10px] uppercase">Attendance Score</p>
-                            <p className="text-xl font-bold text-emerald-400">{loggedParentStudent.attendancePercentage || 100}%</p>
-                          </div>
-                          <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl text-center">
-                            <p className="text-slate-400 font-semibold text-[10px] uppercase">Ledger Balance</p>
-                            <p className="text-xl font-bold text-rose-450">${loggedParentStudent.feeStatements?.outstandingBalance || 0}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Parent Dashboard Bento Layout */}
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        
-                        {/* LEFT COLUMN: Report cards & Continuous Homework Notice items */}
-                        <div className="lg:col-span-2 space-y-6">
-                          
-                          {/* Report cards section */}
-                          <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm space-y-4">
-                            <div className="flex items-center justify-between">
-                              <h3 className="font-bold text-sm text-slate-900 uppercase tracking-widest flex items-center">
-                                <Award className="w-4 h-4 mr-1 text-slate-550 shrink-0" />
-                                Official Term Academic Progress &amp; Report Card
-                              </h3>
-                              <span className="font-semibold font-mono text-[10px] bg-indigo-50 text-indigo-700 px-2 py-1 rounded">TERM 2/3 CURRICULUM</span>
-                            </div>
-
-                            {studentRestrictions?.activeRestrictions?.blockReportCard ? (
-                              <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-center space-y-3">
-                                <div className="mx-auto w-10 h-10 bg-rose-50 rounded-full flex items-center justify-center text-rose-600 border border-rose-200">
-                                  <Lock className="w-5 h-5 shrink-0" />
-                                </div>
-                                <h4 className="font-extrabold text-rose-950 text-xs uppercase tracking-wider">Academic Report Card Locked</h4>
-                                <p className="text-[11px] text-rose-800 leading-normal max-w-sm mx-auto font-medium">
-                                  Access to the Continuous academic evaluation report card for <strong>{loggedParentStudent.name}</strong> is currently locked. This lock is applied automatically due to outstanding overdue fee balances under the current institutional Fee Template regulations. Please settle the outstanding balance to lift this restriction immediately.
-                                </p>
-                              </div>
-                            ) : !loggedParentStudent.resultsApproved ? (
-                              <div className="bg-slate-50 border border-amber-200 rounded-2xl p-6 text-center space-y-3">
-                                <div className="mx-auto w-10 h-10 bg-amber-50 rounded-full flex items-center justify-center text-amber-600 border border-amber-200">
-                                  <Lock className="w-5 h-5 shrink-0" />
-                                </div>
-                                <h4 className="font-black text-slate-800 text-xs">Scholastic Results Under Moderation</h4>
-                                <p className="text-[11px] text-slate-500 leading-normal max-w-sm mx-auto">
-                                  The Continuous Evaluation report cards for the current assessment period are currently undergoing administrative verification, moderation, and board audit. Final results will be securely released to your parent portal here once authorized by the Board of Directors.
-                                </p>
-                              </div>
-                            ) : (
-                              <>
-                                {loggedParentStudent.level === 'nursery' ? (
-                                  <div className="divide-y divide-slate-100 bg-slate-50 border rounded-xl overflow-hidden shadow-inner font-bold">
-                                    {Object.entries(loggedParentStudent.milestones || {}).map(([mil, stat]) => (
-                                      <div key={mil} className="p-3 bg-white flex items-center justify-between text-xs">
-                                        <span className="font-semibold text-slate-700">{mil}</span>
-                                        <span className={`font-bold px-2 py-0.5 rounded text-[10px] ${
-                                          stat === 'Mastered' ? 'bg-emerald-50 text-emerald-800 border-emerald-100 border' :
-                                          stat === 'Developing' ? 'bg-amber-50 text-amber-805 border-amber-100 border' : 'bg-slate-100 text-slate-550 border'
-                                        }`}>
-                                          {stat}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className="space-y-3">
-                                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider px-2">
-                                      <div className="col-span-2">Academic Subject</div>
-                                      <div className="text-center">Min Standard</div>
-                                      <div className="text-center">Score Scored</div>
-                                      <div className="text-center">Grade Rating</div>
-                                    </div>
-                                    <div className="divide-y divide-slate-105 border border-slate-200 rounded-xl overflow-hidden bg-slate-50 shadow-inner">
-                                      {Object.entries(loggedParentStudent.grades || {}).map(([subj, score]) => {
-                                        const scoreNum = Number(score) || 0;
-                                        return (
-                                          <div key={subj} className="grid grid-cols-2 md:grid-cols-5 gap-2 p-3 bg-white items-center text-xs">
-                                            <div className="col-span-2 font-bold text-slate-800">{subj}</div>
-                                            <span className="text-center font-mono text-slate-400">50/100</span>
-                                            <span className="text-center font-bold font-mono text-slate-900">{scoreNum}/100</span>
-                                            <span className={`m-auto px-2 py-0.5 rounded font-bold font-mono text-[10px] text-center ${
-                                              scoreNum >= 90 ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' :
-                                              scoreNum >= 80 ? 'bg-teal-50 text-teal-800 border border-teal-100' :
-                                              scoreNum >= 70 ? 'bg-amber-50 text-amber-805 border border-amber-100' : 'bg-rose-50 text-rose-805 border border-rose-100'
-                                            }`}>
-                                              {scoreNum >= 90 ? 'Grade A' : scoreNum >= 80 ? 'Grade B' : scoreNum >= 70 ? 'Grade C' : 'Pass D'}
-                                            </span>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
-                                      <div className="p-3 bg-slate-900 text-slate-200 rounded-xl flex flex-col justify-between text-xs font-semibold border border-slate-850">
-                                        <span className="text-slate-450 text-[9px] uppercase font-bold tracking-wider">Cumulative GPA Average</span>
-                                        <span className="font-mono text-base font-black text-indigo-300 mt-1">
-                                          {calculateGPA(loggedParentStudent.grades).avg}% ({calculateGPA(loggedParentStudent.grades).letter})
-                                        </span>
-                                      </div>
-                                      
-                                      <div className="p-3 bg-slate-900 text-slate-200 rounded-xl flex flex-col justify-between text-xs font-semibold border border-slate-850">
-                                        <span className="text-slate-450 text-[9px] uppercase font-bold tracking-wider">Terminal Class Rank</span>
-                                        <span className="font-mono text-base font-black text-amber-400 mt-1">
-                                          {loggedParentStudent.terminalRank ? `#${loggedParentStudent.terminalRank}` : 'Unassigned'}
-                                          <span className="text-[10px] font-normal text-slate-400 font-sans ml-1">
-                                            of {students.filter(s => s.grade === loggedParentStudent.grade && (s.branch === selectedBranch || !s.branch)).length}
-                                          </span>
-                                        </span>
-                                      </div>
-                                      
-                                      <div className="p-3 bg-slate-900 text-slate-200 rounded-xl flex flex-col justify-between text-xs font-semibold border border-slate-850">
-                                        <span className="text-slate-450 text-[9px] uppercase font-bold tracking-wider">Academic Percentile</span>
-                                        <span className="font-mono text-base font-black text-emerald-400 mt-1">
-                                          {loggedParentStudent.terminalPercentile !== undefined ? `${loggedParentStudent.terminalPercentile}th` : 'Unassigned'}
-                                          <span className="text-[9px] font-normal text-slate-400 font-sans ml-1">Percentile</span>
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Report cards Teacher remarks with Gemini AI */}
-                                {loggedParentStudent.reportComment && (
-                                  <div className="bg-indigo-50/25 border border-indigo-100/50 p-4 rounded-xl space-y-2 mt-4">
-                                    <p className="font-bold text-xs text-indigo-950 flex items-center">
-                                      <Sparkles className="w-3.5 h-3.5 mr-1 text-indigo-600 shrink-0" />
-                                      Academic Progression Supervisor Remarks:
-                                    </p>
-                                    <p className="text-indigo-900 leading-normal italic text-[11px] whitespace-pre-line">{loggedParentStudent.reportComment}</p>
-                                  </div>
-                                )}
-                              </>
-                            )}
-                          </div>
-
-                          {/* Homework assignment lists */}
-                          <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm space-y-4">
-                            <h3 className="font-bold text-sm text-slate-900 uppercase tracking-widest flex items-center">
-                              <BookOpen className="w-4 h-4 mr-1 text-slate-550 shrink-0" />
-                              Term Assignments &amp; Homework Tasks
-                            </h3>
-                            
-                            {(!loggedParentStudent.homework || loggedParentStudent.homework.length === 0) ? (
-                              <p className="text-slate-400 italic text-center py-4 border rounded-xl text-xs font-medium">No active homework tasks assigned.</p>
-                            ) : (
-                              <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-slate-50 shadow-inner mt-2">
-                                {loggedParentStudent.homework.map((hw) => (
-                                  <div key={hw.id} className="p-3.5 bg-white hover:bg-slate-50 flex items-center justify-between text-xs">
-                                    <div className="space-y-1">
-                                      <div className="flex items-center space-x-2">
-                                        <span className="font-bold text-slate-900">{hw.task}</span>
-                                        <span className="bg-slate-100 text-slate-600 font-mono text-[9px] px-1.5 py-0.5 rounded font-bold uppercase">{hw.subject}</span>
-                                      </div>
-                                      <p className="text-[10px] text-slate-400 font-medium font-mono">Submission Due Date: {hw.dueDate}</p>
-                                    </div>
-                                    <div className="flex items-center">
-                                      {hw.status === 'Completed' ? (
-                                        <span className="text-emerald-700 font-bold bg-emerald-50 border border-emerald-100 px-2.5 py-0.5 rounded text-[10px]">Submitted &amp; Approved</span>
-                                      ) : (
-                                        <button 
-                                          onClick={() => {
-                                            const copyHw = [...(loggedParentStudent.homework || [])];
-                                            const idx = copyHw.findIndex(h => h.id === hw.id);
-                                            if (idx !== -1) {
-                                              copyHw[idx] = { ...copyHw[idx], status: 'Completed' };
-                                            }
-                                            const updated = { ...loggedParentStudent, homework: copyHw };
-                                            setLoggedParentStudent(updated);
-                                            saveStudentChanges(updated);
-                                            alert("Homework marked as Completed & Submitted!");
-                                          }}
-                                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-2.5 py-1 rounded text-[10px] transition-colors cursor-pointer"
-                                        >
-                                          Mark Submitted
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                        </div>
-
-                        {/* RIGHT COLUMN: Notices, Conduct Alerts, Vaccine data and inline Fees settlement */}
-                        <div className="space-y-6 text-xs">
-                          
-                          {/* Financial settlement segment */}
-                          <div id="parent-statement-billing" className="bg-slate-50 text-slate-600 p-6 rounded-2xl border border-slate-200 space-y-4 shadow-sm">
-                            <div>
-                              <h3 className="font-bold text-sm text-slate-800 uppercase tracking-widest">School Account Ledger &amp; Fees</h3>
-                              <p className="text-[10px] text-slate-505 font-medium">Secure clearing gateway for continuous tuition settlements</p>
-                            </div>
-
-                            <div className="bg-white p-4 rounded-xl border border-slate-200/80 flex items-center justify-between text-xs">
-                              <span className="text-slate-500 font-semibold">Net Outstanding Balance:</span>
-                              <span className="text-lg font-bold text-rose-650 font-mono">
-                                ${loggedParentStudent.feeStatements?.outstandingBalance || 0}
-                              </span>
-                            </div>
-
-                            {/* List of individual invoices */}
-                            <div className="space-y-2 bg-white/70 p-2.5 border border-slate-200/60 rounded-xl max-h-[140px] overflow-y-auto">
-                              {(!loggedParentStudent.feeStatements?.invoices || loggedParentStudent.feeStatements.invoices.length === 0) ? (
-                                <p className="text-[10px] text-slate-500 italic text-center py-2">No fee statements on file.</p>
-                              ) : (
-                                loggedParentStudent.feeStatements.invoices.map(inv => (
-                                  <div key={inv.id} className="text-[11px] flex justify-between items-center py-1.5 border-b border-slate-100 text-slate-650">
-                                    <div className="pr-2">
-                                      <p className="font-semibold text-slate-800 text-[11px] leading-tight">{inv.description}</p>
-                                      <span className="text-[9px] text-slate-400 font-medium">{inv.date || 'June 2026'}</span>
-                                    </div>
-                                    <div className="text-right shrink-0">
-                                      <p className="font-bold font-mono text-[11px]">${inv.amount}</p>
-                                      <span className={`text-[9px] font-bold uppercase ${inv.status === 'Paid' ? 'text-emerald-600' : 'text-amber-600'}`}>
-                                        {inv.status}
-                                      </span>
-                                    </div>
-                                  </div>
-                                ))
-                              )}
-                            </div>
-
-                            {/* Pay off invoices flow */}
-                            {loggedParentStudent.feeStatements && loggedParentStudent.feeStatements.outstandingBalance > 0 ? (
-                              <div className="bg-white p-4 border border-indigo-100 rounded-xl space-y-3 shadow-xs">
-                                <p className="font-bold text-xs text-indigo-600">Settle Statement Balance:</p>
-                                <div className="space-y-2 font-mono">
-                                  <input 
-                                    type="text"
-                                    placeholder="Cardholder Name"
-                                    className="w-full bg-slate-50 border border-slate-200 rounded px-2.5 py-1.5 text-[11px] text-slate-800 outline-none"
-                                    defaultValue={loggedParentStudent.parentName}
-                                  />
-                                  <input 
-                                    type="text"
-                                    placeholder="Card details: 4111 8888 ‚Ä¢‚Ä¢‚Ä¢‚Ä¢ ‚Ä¢‚Ä¢‚Ä¢‚Ä¢"
-                                    maxLength={19}
-                                    defaultValue="4111 5555 2222 9384"
-                                    className="w-full bg-slate-50 border border-slate-200 rounded px-2.5 py-1.5 text-[11px] text-slate-800 outline-none"
-                                  />
-                                </div>
-                                <button
-                                  type="button"
-                                  disabled={processingParentPayment}
-                                  onClick={async () => {
-                                    setProcessingParentPayment(true);
-                                    setTimeout(() => {
-                                      const invoices = [...(loggedParentStudent.feeStatements?.invoices || [])].map(inv => ({
-                                        ...inv,
-                                        status: 'Paid' as const,
-                                        paid: inv.amount
-                                      }));
-                                      const updated = {
-                                        ...loggedParentStudent,
-                                        feeStatements: {
-                                          invoices,
-                                          outstandingBalance: 0
-                                        }
-                                      };
-                                      setLoggedParentStudent(updated);
-                                      saveStudentChanges(updated);
-                                      setProcessingParentPayment(false);
-                                      setPaymentSuccessReport("Payment clear! Invoices settled successfully.");
-                                      setTimeout(() => setPaymentSuccessReport(null), 5000);
-                                    }, 1200);
-                                  }}
-                                  className="w-full bg-indigo-600 hover:bg-indigo-500 font-bold text-white text-xs py-2 rounded-lg cursor-pointer transition-colors disabled:bg-slate-800 font-sans"
-                                >
-                                  {processingParentPayment ? 'Securing Transaction...' : 'Settle Oustanding Statement'}
-                                </button>
-                                {paymentSuccessReport && (
-                                  <div className="bg-emerald-950/60 text-emerald-300 p-2 text-center font-bold text-[10px] rounded border border-emerald-900/60 leading-normal font-sans">
-                                    {paymentSuccessReport}
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="bg-emerald-950/20 text-emerald-400 p-4 text-center text-xs font-bold rounded-xl border border-emerald-900/30">
-                                ‚úì Balance settled. Thank you!
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Notices and Bulletins specific to student */}
-                          <div className="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-sm space-y-4">
-                            <h3 className="font-bold text-xs text-slate-850 uppercase tracking-widest flex items-center">
-                              <Info className="w-4 h-4 mr-1 text-slate-700 shrink-0" />
-                              Broad Bulletin Advisory Notices
-                            </h3>
-                            
-                            <div className="space-y-3">
-                              {(!loggedParentStudent.notices || loggedParentStudent.notices.length === 0) ? (
-                                <p className="text-slate-400 italic text-center py-2 text-[11px] bg-slate-50 border rounded-lg font-medium">No generic bulletins posted.</p>
-                              ) : (
-                                loggedParentStudent.notices.map(not => (
-                                  <div key={not.id} className="p-3 bg-slate-50 border rounded-xl space-y-1 shadow-sm">
-                                    <div className="flex justify-between items-start">
-                                      <span className="font-bold text-slate-900 leading-tight block">{not.title}</span>
-                                      <span className="font-mono text-[9px] text-slate-400 font-medium shrink-0 ml-2">{not.date}</span>
-                                    </div>
-                                    <p className="text-[11px] text-slate-555 leading-relaxed pt-1">{not.content}</p>
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Health records and allergen warnings */}
-                          <div className="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-sm space-y-4">
-                            <h3 className="font-bold text-xs text-slate-800 uppercase tracking-widest flex items-center">
-                              <Activity className="w-4 h-4 mr-1 text-slate-550 shrink-0" />
-                              Medical Profile &amp; Allergen Ledger
-                            </h3>
-                            <div className="bg-indigo-50/15 border border-indigo-150 p-4 rounded-xl space-y-2.5 text-xs">
-                              <div className="flex justify-between items-center py-1 border-b border-indigo-100/30">
-                                <span className="text-slate-500 font-medium font-sans">Critical Allergies / Diet:</span>
-                                <span className="font-bold text-rose-700 leading-tight">{loggedParentStudent.healthInfo?.allergies || 'Zero Warnings'}</span>
-                              </div>
-                              <div className="flex justify-between items-center py-1 border-b border-indigo-100/30">
-                                <span className="text-slate-500 font-medium">Medical Diagnoses:</span>
-                                <span className="font-bold text-indigo-950">{loggedParentStudent.healthInfo?.medicalConditions || 'Clear'}</span>
-                              </div>
-                              <div className="flex justify-between items-center py-1 border-b border-indigo-100/30">
-                                <span className="text-slate-500 font-medium">Primary Blood Classification:</span>
-                                <span className="font-bold font-mono text-slate-850">{loggedParentStudent.healthInfo?.bloodGroup || 'O+'}</span>
-                              </div>
-                              <div className="flex justify-between items-center py-1">
-                                <span className="text-slate-555 font-medium">Immunizations Summary:</span>
-                                <span className="font-bold text-slate-850 text-right leading-relaxed block max-w-[150px] ml-2">{loggedParentStudent.healthInfo?.vaccinations || 'Complete'}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                        </div>
-
-                      </div>
-
-                    </div>
-                  )}
-
-                </div>
-              )}
-
-              {activeTab === 'admission' && (
-                <div id="erp-view-admission" className="space-y-6 animate-fade-in text-xs font-sans text-slate-700">
-                  
-                  {/* Top Header Banner */}
-                  <div className="border-b border-indigo-100 pb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                    <div>
-                      <h2 className="text-xl font-bold text-slate-900 flex items-center">
-                        <span className="p-1.5 bg-emerald-600 text-white rounded-lg mr-2 inline-block shadow">
-                          <CheckCircle className="w-4 h-4 shrink-0 font-bold" />
-                        </span>
-                        SAMS Online Admissions Hub
-                      </h2>
-                      <p className="text-xs text-slate-500 font-medium">Interactive Multi-Stage School Admission Clearing, parent profiling, and chairman class placement desk</p>
-                    </div>
-
-                    <div className="bg-emerald-50 border border-emerald-100 px-3.5 py-1.5 rounded-xl flex items-center space-x-2 text-emerald-800 font-bold text-[11px] font-mono shadow-sm">
-                      <Sparkles className="w-3.5 h-3.5 fill-emerald-100 text-emerald-700 animate-pulse shrink-0" />
-                      <span>{branchAdmissions.length} Registered Pipeline applications</span>
-                    </div>
-                  </div>
-
-                  {/* Pipeline Stepper Infographic Block */}
-                  <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
-                    <div className={`p-3 rounded-xl border flex flex-col items-center justify-center space-y-1 ${admissionRole === 'registrar' ? 'bg-indigo-50 border-indigo-200' : 'bg-slate-50 border-slate-100'}`}>
-                      <div className="flex items-center justify-between w-full px-1">
-                        <span className="text-[10px] uppercase font-bold text-slate-400 font-mono">Stage 1</span>
-                        <span className="bg-amber-100 text-amber-800 font-mono text-[9px] font-bold px-1.5 py-0.2 rounded-full">
-                          {branchAdmissions.filter(a => a.status === 'Pre-registered').length} pending
-                        </span>
-                      </div>
-                      <p className="font-bold text-slate-850 text-xs">Pre-Registration Desk</p>
-                      <span className="text-[10px] text-slate-500 font-medium">Completed at School Office</span>
-                    </div>
-                    <div className={`p-3 rounded-xl border flex flex-col items-center justify-center space-y-1 ${admissionRole === 'parent' ? 'bg-indigo-50 border-indigo-200' : 'bg-slate-50 border-slate-100'}`}>
-                      <div className="flex items-center justify-between w-full px-1">
-                        <span className="text-[10px] uppercase font-bold text-slate-400 font-mono">Stage 2</span>
-                        <span className="bg-rose-100 text-rose-800 font-mono text-[9px] font-bold px-1.5 py-0.2 rounded-full">
-                          {branchAdmissions.filter(a => a.status === 'Pre-registered').length} waiting
-                        </span>
-                      </div>
-                      <p className="font-bold text-slate-850 text-xs">Online Parent Form</p>
-                      <span className="text-[10px] text-slate-500 font-medium">Filled by Guardian Online</span>
-                    </div>
-                    <div className={`p-3 rounded-xl border flex flex-col items-center justify-center space-y-1 ${admissionRole === 'headteacher' ? 'bg-indigo-50 border-indigo-200' : 'bg-slate-50 border-slate-100'}`}>
-                      <div className="flex items-center justify-between w-full px-1">
-                        <span className="text-[10px] uppercase font-bold text-slate-400 font-mono">Stage 3</span>
-                        <span className="bg-violet-100 text-violet-800 font-mono text-[9px] font-bold px-1.5 py-0.2 rounded-full">
-                          {branchAdmissions.filter(a => a.status === 'Submitted by Parent').length} pending
-                        </span>
-                      </div>
-                      <p className="font-bold text-slate-850 text-xs">Head Teacher Review</p>
-                      <span className="text-[10px] text-slate-500 font-medium">Academic Interview Notes</span>
-                    </div>
-                    <div className={`p-3 rounded-xl border flex flex-col items-center justify-center space-y-1 ${admissionRole === 'chairman' ? 'bg-indigo-50 border-indigo-200' : 'bg-slate-50 border-slate-100'}`}>
-                      <div className="flex items-center justify-between w-full px-1">
-                        <span className="text-[10px] uppercase font-bold text-slate-400 font-mono">Stage 4</span>
-                        <span className="bg-emerald-100 text-emerald-800 font-mono text-[9px] font-bold px-1.5 py-0.2 rounded-full">
-                          {branchAdmissions.filter(a => a.status === 'HT Reviewed').length} ready
-                        </span>
-                      </div>
-                      <p className="font-bold text-slate-850 text-xs">Chairman Placement</p>
-                      <span className="text-[10px] text-slate-500 font-medium">Class Allocation &amp; Admitted</span>
-                    </div>
-                  </div>
-
-                  {/* Role Switcher tabs */}
-                  <div className="flex bg-slate-100 border p-1 rounded-xl gap-1">
-                    {[
-                      { role: 'registrar' as const, label: 'Registrar Panel', desc: 'Pre-registration', icon: Users, color: 'text-indigo-600' },
-                      { role: 'parent' as const, label: 'Parent Portal Form', desc: 'Online Profiling', icon: Settings, color: 'text-rose-600' },
-                      { role: 'headteacher' as const, label: 'Principal Desk', desc: 'Interview Evaluation', icon: GraduationCap, color: 'text-violet-600' },
-                      { role: 'chairman' as const, label: 'Chairman Board Room', desc: 'Allocation Office', icon: Award, color: 'text-emerald-600' }
-                    ].map(tab => {
-                      const IconComp = tab.icon;
-                      return (
-                        <button
-                          key={tab.role}
-                          onClick={() => {
-                            setAdmissionRole(tab.role);
-                            setSelectedAdmissionId('');
-                            if (tab.role === 'parent') {
-                              // Select parent form first pre-registered candidate if any
-                              const preReg = branchAdmissions.find(a => a.status === 'Pre-registered');
-                              if (preReg) setSelectedAdmissionId(preReg.id);
-                            } else if (tab.role === 'headteacher') {
-                              const pendingHt = branchAdmissions.find(a => a.status === 'Submitted by Parent');
-                              if (pendingHt) {
-                                setSelectedAdmissionId(pendingHt.id);
-                                setHtReviewNotes(`Completed intake sample assessment. ${pendingHt.name} shows strong levels for ${pendingHt.grade}.`);
-                              }
-                            } else if (tab.role === 'chairman') {
-                              const pendingCh = branchAdmissions.find(a => a.status === 'HT Reviewed');
-                              if (pendingCh) setSelectedAdmissionId(pendingCh.id);
-                            }
-                          }}
-                          className={`flex-1 py-3 px-2 rounded-lg text-center flex flex-col items-center justify-center transition-all cursor-pointer ${
-                            admissionRole === tab.role ? 'bg-white text-slate-900 border border-slate-200 shadow font-bold' : 'text-slate-500 hover:text-slate-850 font-medium'
-                          }`}
-                        >
-                          <div className="flex items-center space-x-1">
-                            <IconComp className={`w-4 h-4 ${tab.color}`} />
-                            <span className="text-xs leading-none">{tab.label}</span>
-                          </div>
-                          <span className="text-[9px] text-slate-400 font-normal leading-normal">{tab.desc}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Dynamic Inline Feedback Banner */}
-                  <AnimatePresence>
-                    {admissionsFeedback && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className={`p-4 rounded-xl border flex items-start space-x-3 shadow-xs ${
-                          admissionsFeedback.type === 'success' 
-                            ? 'bg-emerald-50 border-emerald-200 text-emerald-900' 
-                            : admissionsFeedback.type === 'error' 
-                            ? 'bg-rose-50 border-rose-200 text-rose-900' 
-                            : 'bg-indigo-50 border-indigo-200 text-indigo-900'
-                        }`}
-                      >
-                        <span className="p-1 rounded-lg bg-white/80 shadow-xs">
-                          {admissionsFeedback.type === 'success' ? (
-                            <CheckCircle className="w-4 h-4 text-emerald-600" />
-                          ) : admissionsFeedback.type === 'error' ? (
-                            <AlertCircle className="w-4 h-4 text-rose-600" />
-                          ) : (
-                            <Info className="w-4 h-4 text-indigo-600" />
-                          )}
-                        </span>
-                        <div className="flex-1 text-left">
-                          <p className="font-bold text-xs">
-                            {admissionsFeedback.type === 'success' ? 'Intake Operation Successful' : admissionsFeedback.type === 'error' ? 'Operation Error Encountered' : 'System Guidance Indicator'}
-                          </p>
-                          <p className="text-[11px] mt-0.5 leading-relaxed font-medium">
-                            {admissionsFeedback.message}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setAdmissionsFeedback(null)}
-                          className="text-slate-400 hover:text-slate-650 cursor-pointer p-0.5"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  {/* ACTIVE VIEW CARD CAROUSEL */}
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                    
-                    {/* Role specific input form workspace */}
-                    <div className="lg:col-span-12 xl:col-span-8 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-6">
-                      
-                      {admissionRole === 'registrar' && (
-                        <form onSubmit={handlePreRegister} className="space-y-4">
-                          <div className="border-b pb-3 border-slate-150">
-                            <h3 className="font-bold text-sm text-indigo-955 flex items-center">
-                              <UserPlus className="w-4 h-4 mr-1.5 text-indigo-600" />
-                              Pre-Registration / Early Intake Ledger
-                            </h3>
-                            <p className="text-[11px] text-slate-450 mt-0.5 font-sans">Initialize general applicant profile. This registers physical documents check and flags the student for parent online expansion.</p>
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                              <label className="font-bold tracking-wide uppercase text-[10px] text-slate-500">Applicant Name</label>
-                              <input
-                                type="text"
-                                required
-                                value={regForm.name}
-                                onChange={(e) => setRegForm(f => ({ ...f, name: e.target.value }))}
-                                placeholder="Full Name of Child"
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-950 outline-none focus:ring-1 focus:ring-indigo-500"
-                              />
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="space-y-1.5">
-                                <label className="font-bold tracking-wide uppercase text-[10px] text-slate-500">Division Level</label>
-                                <select
-                                  value={regForm.level}
-                                  onChange={(e) => {
-                                    const lev = e.target.value as 'nursery' | 'primary' | 'secondary';
-                                    const devGrade = lev === 'nursery' ? 'K1 (Ages 3-4)' : lev === 'primary' ? 'Grade 3' : 'Grade 10';
-                                    setRegForm(f => ({ ...f, level: lev, grade: devGrade }));
-                                  }}
-                                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5"
-                                >
-                                  <option value="nursery">Nursery School</option>
-                                  <option value="primary">Primary School</option>
-                                  <option value="secondary">Secondary School</option>
-                                </select>
-                              </div>
-                              <div className="space-y-1.5">
-                                <label className="font-bold tracking-wide uppercase text-[10px] text-slate-500">Target Grade</label>
-                                {regForm.level === 'nursery' ? (
-                                  <select
-                                    value={regForm.grade}
-                                    onChange={(e) => setRegForm(f => ({ ...f, grade: e.target.value }))}
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5"
-                                  >
-                                    <option value="Preschool (Ages 2-3)">Preschool (Ages 2-3)</option>
-                                    <option value="K1 (Ages 3-4)">K1 (Ages 3-4)</option>
-                                    <option value="K2 (Ages 4-5)">K2 (Ages 4-5)</option>
-                                  </select>
-                                ) : regForm.level === 'primary' ? (
-                                  <select
-                                    value={regForm.grade}
-                                    onChange={(e) => setRegForm(f => ({ ...f, grade: e.target.value }))}
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5"
-                                  >
-                                    <option value="Grade 1">Grade 1</option>
-                                    <option value="Grade 2">Grade 2</option>
-                                    <option value="Grade 3">Grade 3</option>
-                                    <option value="Grade 4">Grade 4</option>
-                                    <option value="Grade 5">Grade 5</option>
-                                  </select>
-                                ) : (
-                                  <select
-                                    value={regForm.grade}
-                                    onChange={(e) => setRegForm(f => ({ ...f, grade: e.target.value }))}
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5"
-                                  >
-                                    <option value="Grade 9">Grade 9</option>
-                                    <option value="Grade 10">Grade 10</option>
-                                    <option value="Grade 11">Grade 11</option>
-                                    <option value="Grade 12">Grade 12</option>
-                                  </select>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                            <div className="space-y-1.5">
-                              <label className="font-bold tracking-wide uppercase text-[10px] text-slate-500">Primary Guardian Name</label>
-                              <input
-                                type="text"
-                                required
-                                value={regForm.parentName}
-                                onChange={(e) => setRegForm(f => ({ ...f, parentName: e.target.value }))}
-                                placeholder="Mr. / Mrs. Guardian"
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-950 outline-none"
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <label className="font-bold tracking-wide uppercase text-[10px] text-slate-500">Guardian Email</label>
-                              <input
-                                type="email"
-                                required
-                                value={regForm.parentEmail}
-                                onChange={(e) => setRegForm(f => ({ ...f, parentEmail: e.target.value }))}
-                                placeholder="parent@gmail.com"
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-950 font-mono outline-none"
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <label className="font-bold tracking-wide uppercase text-[10px] text-slate-500">Guardian Phone</label>
-                              <input
-                                type="text"
-                                value={regForm.parentPhone}
-                                onChange={(e) => setRegForm(f => ({ ...f, parentPhone: e.target.value }))}
-                                placeholder="+234 (800) ‚Ä¢‚Ä¢-‚Ä¢‚Ä¢‚Ä¢-‚Ä¢‚Ä¢"
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-950 font-mono outline-none"
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <label className="font-bold tracking-wide text-indigo-650 uppercase text-[10px] flex items-center font-semibold">
-                                <Sparkles className="w-3 h-3 text-indigo-500 mr-1 animate-pulse" />
-                                Target SAMS Branch
-                              </label>
-                              <select
-                                value={regForm.branch}
-                                onChange={(e) => setRegForm(f => ({ ...f, branch: e.target.value as 'GN' | 'RS' }))}
-                                className="w-full bg-slate-50 border border-indigo-200 rounded-lg p-2.5 text-xs font-bold text-slate-900"
-                              >
-                                <option value="GN">Gawun Nama (GN)</option>
-                                <option value="RS">Runjin Sambo (RS)</option>
-                              </select>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50 p-4 border border-slate-200 rounded-xl gap-4">
-                            <p className="text-slate-450 leading-relaxed max-w-sm text-[11px] font-medium font-sans">
-                              * Applicant will be registered directly under the specified SAMS campus branch <span className="text-indigo-650 font-semibold font-mono">SAMS {regForm.branch === 'RS' ? 'Runjin Sambo' : 'Gawun Nama'}</span>.
-                            </p>
-                            <button
-                              type="submit"
-                              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2.5 rounded-xl cursor-pointer shadow hover:shadow-lg transition-all"
-                            >
-                              Issue Pre-Registration Code
-                            </button>
-                          </div>
-                        </form>
-                      )}
-
-                      {admissionRole === 'parent' && (
-                        <form onSubmit={handleParentSubmit} className="space-y-4">
-                          <div className="border-b pb-3 border-slate-150 flex justify-between items-center flex-wrap gap-2">
-                            <div>
-                              <h3 className="font-bold text-sm text-indigo-955 flex items-center">
-                                <Settings className="w-4 h-4 mr-1.5 text-rose-500" />
-                                Online Application Portal Stage
-                              </h3>
-                              <p className="text-[11px] text-slate-450 mt-0.5">Completed by the guardian online to register home history, allergy profiles, and emergency details.</p>
-                            </div>
-
-                            <div className="flex items-center space-x-2">
-                              <span className="text-[10px] uppercase font-bold text-slate-500 font-mono shrink-0">Selected Application:</span>
-                              <input
-                                type="text"
-                                required
-                                value={selectedAdmissionId}
-                                onChange={(e) => setSelectedAdmissionId(e.target.value)}
-                                placeholder="e.g. APP-2026-6184"
-                                className="bg-slate-50 border border-slate-250 rounded-lg px-2.5 py-1 text-xs font-mono font-bold w-36 outline-none focus:border-rose-500 text-rose-600 text-center"
-                              />
-                            </div>
-                          </div>
-
-                          {/* Quick Selection Helper for testing */}
-                          {branchAdmissions.filter(a => a.status === 'Pre-registered').length > 0 ? (
-                            <div className="bg-amber-50 border border-amber-100 p-3 rounded-xl flex items-center justify-between text-xs">
-                              <div className="pr-2 leading-relaxed text-amber-900 font-medium">
-                                <span className="font-bold">Intelligent Tester Assist:</span> Click any candidate below to load their code directly!
-                              </div>
-                              <div className="flex gap-1.5 flex-wrap">
-                                {branchAdmissions.filter(a => a.status === 'Pre-registered').map(cand => (
-                                  <button
-                                    type="button"
-                                    key={cand.id}
-                                    onClick={() => {
-                                      setSelectedAdmissionId(cand.id);
-                                    }}
-                                    className={`px-2 py-1 text-[10px] rounded font-bold transition-all cursor-pointer ${
-                                      selectedAdmissionId === cand.id ? 'bg-indigo-600 text-white shadow' : 'bg-white text-slate-700 border hover:bg-slate-50'
-                                    }`}
-                                  >
-                                    {cand.name} ({cand.id})
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="bg-slate-50 p-3 rounded-xl text-center italic text-slate-400">
-                              No pending pre-registered candidates available in SAMS {selectedBranch} database.
-                            </div>
-                          )}
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="space-y-1.5">
-                                <label className="font-bold tracking-wide uppercase text-[10px] text-slate-500">Date of Birth</label>
-                                <input
-                                  type="date"
-                                  value={parentForm.dob}
-                                  onChange={(e) => setParentForm(f => ({ ...f, dob: e.target.value }))}
-                                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-950 font-mono outline-none"
-                                />
-                              </div>
-                              <div className="space-y-1.5">
-                                <label className="font-bold tracking-wide uppercase text-[10px] text-slate-500">Gender</label>
-                                <select
-                                  value={parentForm.gender}
-                                  onChange={(e) => setParentForm(f => ({ ...f, gender: e.target.value as any }))}
-                                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5"
-                                >
-                                  <option value="Male">Male</option>
-                                  <option value="Female">Female</option>
-                                </select>
-                              </div>
-                            </div>
-                            <div className="space-y-1.5">
-                              <label className="font-bold tracking-wide uppercase text-[10px] text-slate-500">Residential Address</label>
-                              <input
-                                type="text"
-                                value={parentForm.address}
-                                onChange={(e) => setParentForm(f => ({ ...f, address: e.target.value }))}
-                                placeholder="Physical Home Address, Sokoto Province"
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none text-slate-950"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div className="space-y-1.5">
-                              <label className="font-bold tracking-wide uppercase text-[10px] text-slate-500">Medical Allergies</label>
-                              <input
-                                type="text"
-                                value={parentForm.medicalAllergies}
-                                onChange={(e) => setParentForm(f => ({ ...f, medicalAllergies: e.target.value }))}
-                                placeholder="None or specific (e.g. Nuts)"
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none text-slate-950"
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <label className="font-bold tracking-wide uppercase text-[10px] text-slate-500">Chronic Conditions</label>
-                              <input
-                                type="text"
-                                value={parentForm.medicalConditions}
-                                onChange={(e) => setParentForm(f => ({ ...f, medicalConditions: e.target.value }))}
-                                placeholder="Asthma, bronchitis, etc."
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none text-slate-950"
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <label className="font-bold tracking-wide uppercase text-[10px] text-slate-500">Blood Classification</label>
-                              <select
-                                value={parentForm.bloodGroup}
-                                onChange={(e) => setParentForm(f => ({ ...f, bloodGroup: e.target.value }))}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5"
-                              >
-                                <option value="O+">O Positive (Universal)</option>
-                                <option value="A+">A Positive</option>
-                                <option value="B+">B Positive</option>
-                                <option value="O-">O Negative</option>
-                                <option value="AB+">AB Positive</option>
-                              </select>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                              <label className="font-bold tracking-wide uppercase text-[10px] text-slate-500">Previous School Attended</label>
-                              <input
-                                type="text"
-                                value={parentForm.previousSchool}
-                                onChange={(e) => setParentForm(f => ({ ...f, previousSchool: e.target.value }))}
-                                placeholder="e.g. Sokoto Academic Academy"
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none text-slate-950"
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <label className="font-bold tracking-wide uppercase text-[10px] text-slate-500">Sports &amp; Extracurricular Interests</label>
-                              <input
-                                type="text"
-                                value={parentForm.interests}
-                                onChange={(e) => setParentForm(f => ({ ...f, interests: e.target.value }))}
-                                placeholder="e.g. Football, Debating, Traditional Music"
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none text-slate-950"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="flex justify-end pt-3 border-t border-slate-100">
-                            <button
-                              type="submit"
-                              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2.5 rounded-xl cursor-pointer font-sans shadow shadow-indigo-150"
-                            >
-                              Lock &amp; Submit Online Profile
-                            </button>
-                          </div>
-                        </form>
-                      )}
-
-                      {admissionRole === 'headteacher' && (
-                        <form onSubmit={handleHTReviewSubmit} className="space-y-4">
-                          <div className="border-b pb-3 border-slate-150 flex justify-between items-center flex-wrap gap-2">
-                            <div>
-                              <h3 className="font-bold text-sm text-indigo-955 flex items-center">
-                                <GraduationCap className="w-4 h-4 mr-1.5 text-violet-600 animate-bounce" />
-                                Principal Educational Assessment &amp; Interview Panel
-                              </h3>
-                              <p className="text-[11px] text-slate-450 mt-0.5">Head Teacher records evaluation metrics, test results, or behavioral readiness after interview meetings.</p>
-                            </div>
-
-                            <div className="flex items-center space-x-2">
-                              <span className="text-[10px] uppercase font-bold text-slate-500 font-mono shrink-0">Selected Candidate:</span>
-                              <input
-                                type="text"
-                                required
-                                value={selectedAdmissionId}
-                                onChange={(e) => setSelectedAdmissionId(e.target.value)}
-                                placeholder="e.g. APP-2026-9284"
-                                className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-mono font-bold w-36 outline-none focus:border-indigo-500 text-violet-700 text-center"
-                              />
-                            </div>
-                          </div>
-
-                          {/* Quick Selection Helper for HT testing */}
-                          {branchAdmissions.filter(a => a.status === 'Submitted by Parent').length > 0 ? (
-                            <div className="bg-violet-50 border border-violet-100 p-3 rounded-xl flex items-center justify-between text-xs">
-                              <div className="pr-2 leading-relaxed text-violet-900 font-medium">
-                                <span className="font-bold">Candidates Pending Interview:</span> Click one to load dossier instantly!
-                              </div>
-                              <div className="flex gap-1.5 flex-wrap">
-                                {branchAdmissions.filter(a => a.status === 'Submitted by Parent').map(cand => (
-                                  <button
-                                    type="button"
-                                    key={cand.id}
-                                    onClick={() => {
-                                      setSelectedAdmissionId(cand.id);
-                                      setHtReviewNotes(`Completed intake sample assessment. ${cand.name} shows strong learning potential and meets physical development milestones.`);
-                                    }}
-                                    className={`px-2 py-1 text-[10px] rounded font-bold transition-all cursor-pointer ${
-                                      selectedAdmissionId === cand.id ? 'bg-indigo-600 text-white shadow' : 'bg-white text-slate-700 border hover:bg-slate-50'
-                                    }`}
-                                  >
-                                    {cand.name} ({cand.id})
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="bg-slate-50 p-3 rounded-xl text-center italic text-slate-400">
-                              No candidates are ready in the "Submitted by Parent" pipeline stage. Fill a parent application form first to promote!
-                            </div>
-                          )}
-
-                          <div className="space-y-4">
-                            {selectedAdmissionId && branchAdmissions.find(a => a.id === selectedAdmissionId) && (
-                              <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2 leading-relaxed">
-                                <p className="font-bold text-xs text-slate-800">Brief Candidate Dossier ({selectedAdmissionId}):</p>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-[11px] text-slate-650">
-                                  <p>Applicant Name: <span className="font-bold text-slate-900">{branchAdmissions.find(a => a.id === selectedAdmissionId)?.name}</span></p>
-                                  <p>Placement: <span className="font-bold text-slate-900">{branchAdmissions.find(a => a.id === selectedAdmissionId)?.grade}</span></p>
-                                  <p>DOB: <span className="font-bold text-slate-900 font-mono">{branchAdmissions.find(a => a.id === selectedAdmissionId)?.dob || 'Unset'}</span></p>
-                                  <p>Prior Academy: <span className="font-bold text-slate-900">{branchAdmissions.find(a => a.id === selectedAdmissionId)?.previousSchool || 'None'}</span></p>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Prospective Parent Interview Scorecard Panel */}
-                            <div className="bg-slate-50/50 shadow-xs border border-violet-150/80 rounded-xl p-4 space-y-3">
-                              <div className="flex items-center justify-between border-b border-violet-100/60 pb-2">
-                                <div>
-                                  <h4 className="font-bold text-xs text-slate-900 uppercase tracking-wide flex items-center">
-                                    <ClipboardCheck className="w-4 h-4 mr-1.5 text-violet-650 shrink-0" />
-                                    Prospective Parent Interview Scorecard
-                                  </h4>
-                                  <p className="text-[10px] text-slate-500 mt-0.5">Evaluate parental readiness, responsiveness, and child cognitive development parameters (Scale: 1-10)</p>
-                                </div>
-                                <span className="bg-violet-50 text-violet-700 font-mono text-[9px] font-bold px-2 py-0.5 rounded border border-violet-100">
-                                  CORE AUDIT METRICS
-                                </span>
-                              </div>
-
-                              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-                                {/* Sliders (Col-span 8) */}
-                                <div className="md:col-span-8 space-y-2.5">
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    
-                                    {/* Metric 1 */}
-                                    <div className="bg-white p-2.5 rounded-lg border border-slate-150 space-y-1">
-                                      <div className="flex justify-between items-center text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                                        <span>Parent Punctuality &amp; Prep</span>
-                                        <span className="text-violet-700 text-[11px] font-mono font-bold bg-violet-50/50 px-1 py-0.2 rounded border border-violet-100">{parentPunctuality} / 10</span>
-                                      </div>
-                                      <input
-                                        type="range"
-                                        min="1"
-                                        max="10"
-                                        value={parentPunctuality}
-                                        onChange={(e) => setParentPunctuality(parseInt(e.target.value))}
-                                        className="w-full accent-violet-600 cursor-pointer h-1.5 bg-slate-150 rounded-lg appearance-none"
-                                      />
-                                      <div className="flex justify-between text-[8px] text-slate-400">
-                                        <span>Poor</span>
-                                        <span>Adequate</span>
-                                        <span>Exceptional</span>
-                                      </div>
-                                    </div>
-
-                                    {/* Metric 2 */}
-                                    <div className="bg-white p-2.5 rounded-lg border border-slate-150 space-y-1">
-                                      <div className="flex justify-between items-center text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                                        <span>Parental Engagement Index</span>
-                                        <span className="text-violet-700 text-[11px] font-mono font-bold bg-violet-50/50 px-1 py-0.2 rounded border border-violet-100">{parentEngagement} / 10</span>
-                                      </div>
-                                      <input
-                                        type="range"
-                                        min="1"
-                                        max="10"
-                                        value={parentEngagement}
-                                        onChange={(e) => setParentEngagement(parseInt(e.target.value))}
-                                        className="w-full accent-violet-600 cursor-pointer h-1.5 bg-slate-155 rounded-lg appearance-none"
-                                      />
-                                      <div className="flex justify-between text-[8px] text-slate-400">
-                                        <span>Detached</span>
-                                        <span>Supportive</span>
-                                        <span>Collaborative</span>
-                                      </div>
-                                    </div>
-
-                                    {/* Metric 3 */}
-                                    <div className="bg-white p-2.5 rounded-lg border border-slate-150 space-y-1">
-                                      <div className="flex justify-between items-center text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                                        <span>Student Cognitive Readiness</span>
-                                        <span className="text-violet-700 text-[11px] font-mono font-bold bg-violet-50/50 px-1 py-0.2 rounded border border-violet-100">{studentResponsiveness} / 10</span>
-                                      </div>
-                                      <input
-                                        type="range"
-                                        min="1"
-                                        max="10"
-                                        value={studentResponsiveness}
-                                        onChange={(e) => setStudentResponsiveness(parseInt(e.target.value))}
-                                        className="w-full accent-violet-600 cursor-pointer h-1.5 bg-slate-155 rounded-lg appearance-none"
-                                      />
-                                      <div className="flex justify-between text-[8px] text-slate-400">
-                                        <span>Low</span>
-                                        <span>Responsive</span>
-                                        <span>Highly Active</span>
-                                      </div>
-                                    </div>
-
-                                    {/* Metric 4 */}
-                                    <div className="bg-white p-2.5 rounded-lg border border-slate-150 space-y-1">
-                                      <div className="flex justify-between items-center text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                                        <span>Social Maturity &amp; Adaptability</span>
-                                        <span className="text-violet-700 text-[11px] font-mono font-bold bg-violet-50/50 px-1 py-0.2 rounded border border-violet-100">{academicReadiness} / 10</span>
-                                      </div>
-                                      <input
-                                        type="range"
-                                        min="1"
-                                        max="10"
-                                        value={academicReadiness}
-                                        onChange={(e) => setAcademicReadiness(parseInt(e.target.value))}
-                                        className="w-full accent-violet-600 cursor-pointer h-1.5 bg-slate-155 rounded-lg appearance-none"
-                                      />
-                                      <div className="flex justify-between text-[8px] text-slate-400">
-                                        <span>Behind</span>
-                                        <span>Age-Appropriate</span>
-                                        <span>Advanced</span>
-                                      </div>
-                                    </div>
-
-                                  </div>
-                                </div>
-
-                                {/* Aggregate Score Panel (Col-span 4) */}
-                                <div className="md:col-span-4 bg-violet-900 text-white p-4 rounded-xl flex flex-col items-center justify-center text-center space-y-2 shadow-sm relative overflow-hidden">
-                                  <div className="absolute top-0 right-0 w-20 h-20 bg-violet-800 rounded-full translate-x-10 -translate-y-10 opacity-40"></div>
-                                  <span className="text-[9px] font-bold uppercase tracking-wider text-violet-200">Composite Score</span>
-                                  <div className="flex items-baseline space-x-0.5 text-white">
-                                    <span className="text-2xl font-extrabold font-mono tracking-tight">{parentPunctuality + parentEngagement + studentResponsiveness + academicReadiness}</span>
-                                    <span className="text-[10px] font-semibold text-violet-300 font-mono">/ 40</span>
-                                  </div>
-                                  <div className="bg-violet-850 px-2 py-0.5 rounded-md text-[9px] font-bold font-sans border border-violet-700">
-                                    {parentPunctuality + parentEngagement + studentResponsiveness + academicReadiness >= 32 ? "üåü High Potential Fit" :
-                                     parentPunctuality + parentEngagement + studentResponsiveness + academicReadiness >= 24 ? "üëç Recommended" :
-                                     parentPunctuality + parentEngagement + studentResponsiveness + academicReadiness >= 16 ? "‚ö†Ô∏è Conditional Offer" :
-                                     "‚ùå Advisory Suggested"}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                              <div className="sm:col-span-2 space-y-1.5">
-                                <label className="font-bold tracking-wide uppercase text-[10px] text-slate-500">Principal Interview Evaluation Notes</label>
-                                <textarea
-                                  required
-                                  value={htReviewNotes}
-                                  onChange={(e) => setHtReviewNotes(e.target.value)}
-                                  placeholder="Write notes on reading skills, math levels, emotional development, or special advisory remarks..."
-                                  rows={3}
-                                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-955 outline-none focus:ring-1 focus:ring-indigo-500"
-                                />
-                              </div>
-                              <div className="space-y-3">
-                                <div className="space-y-1.5">
-                                  <label className="font-bold tracking-wide uppercase text-[10px] text-slate-500">Evaluation Verdict</label>
-                                  <select
-                                    value={htEvaluation}
-                                    onChange={(e) => setHtEvaluation(e.target.value as any)}
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-950 font-medium"
-                                  >
-                                    <option value="Recommended">Recommended for Admission</option>
-                                    <option value="Conditional">Conditional Placement Offer</option>
-                                    <option value="Rejected">Rejected</option>
-                                  </select>
-                                </div>
-                                <div className="space-y-1.5">
-                                  <label className="font-bold tracking-wide uppercase text-[10px] text-slate-500">Intake Evaluator Signature</label>
-                                  <input
-                                    type="text"
-                                    required
-                                    value={htReviewedBy}
-                                    onChange={(e) => setHtReviewedBy(e.target.value)}
-                                    placeholder="Interviewer Name"
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-950 font-bold font-sans outline-none"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex justify-end pt-3 border-t border-slate-100">
-                            <button
-                              type="submit"
-                              className="bg-indigo-600 hover:bg-indigo-750 text-white font-bold px-6 py-2.5 rounded-xl cursor-pointer shadow shadow-indigo-150"
-                            >
-                              Authorize Evaluation &amp; Forward to Chairman
-                            </button>
-                          </div>
-                        </form>
-                      )}
-
-                      {admissionRole === 'chairman' && (
-                        <form onSubmit={handleChairmanApprove} className="space-y-4">
-                          <div className="border-b pb-3 border-slate-150 flex justify-between items-center flex-wrap gap-2">
-                            <div>
-                              <h3 className="font-bold text-sm text-indigo-955 flex items-center">
-                                <Award className="w-4 h-4 mr-1.5 text-emerald-650" />
-                                Executive Chairman Office (Final Placement Authorization Board)
-                              </h3>
-                              <p className="text-[11px] text-slate-450 mt-0.5">Chairman performs final secure signature, generates tuition bills, and appoints physical class section.</p>
-                            </div>
-
-                            <div className="flex items-center space-x-2">
-                              <span className="text-[10px] uppercase font-bold text-slate-500 font-mono shrink-0">Selected Visa:</span>
-                              <input
-                                type="text"
-                                required
-                                value={selectedAdmissionId}
-                                onChange={(e) => setSelectedAdmissionId(e.target.value)}
-                                placeholder="APP-2026-7734"
-                                className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-mono font-bold w-36 outline-none focus:border-emerald-500 text-emerald-700 text-center"
-                              />
-                            </div>
-                          </div>
-
-                          {/* Quick Selection Helper for Chairman testing */}
-                          {branchAdmissions.filter(a => a.status === 'HT Reviewed').length > 0 ? (
-                            <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-xl flex items-center justify-between text-xs">
-                              <div className="pr-2 leading-relaxed text-emerald-990 font-medium">
-                                <span className="font-bold">Candidates ready for Final Commission:</span> Click to load:
-                              </div>
-                              <div className="flex gap-1.5 flex-wrap">
-                                {branchAdmissions.filter(a => a.status === 'HT Reviewed').map(cand => (
-                                  <button
-                                    type="button"
-                                    key={cand.id}
-                                    onClick={() => {
-                                      setSelectedAdmissionId(cand.id);
-                                    }}
-                                    className={`px-2 py-1 text-[10px] rounded font-bold transition-all cursor-pointer ${
-                                      selectedAdmissionId === cand.id ? 'bg-indigo-600 text-white shadow' : 'bg-white text-slate-700 border hover:bg-slate-50'
-                                    }`}
-                                  >
-                                    {cand.name} ({cand.id})
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="bg-slate-50 p-3 rounded-xl text-center italic text-slate-400">
-                              No candidate files have been pushed with Principal interview recommendations yet under campus {selectedBranch}.
-                            </div>
-                          )}
-
-                          <div className="space-y-4">
-                            {selectedAdmissionId && branchAdmissions.find(a => a.id === selectedAdmissionId) && (
-                              <div className="bg-slate-50 border border-slate-150 p-4 rounded-xl space-y-4 leading-relaxed">
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-[11px] text-slate-700">
-                                  <p>Applicant Name: <span className="font-bold text-slate-900">{branchAdmissions.find(a => a.id === selectedAdmissionId)?.name}</span></p>
-                                  <p>Type Level: <span className="font-bold text-indigo-905 capitalize">{branchAdmissions.find(a => a.id === selectedAdmissionId)?.level}</span></p>
-                                  <p>Assigned Grade: <span className="font-bold text-indigo-905">{branchAdmissions.find(a => a.id === selectedAdmissionId)?.grade}</span></p>
-                                  <p>Division Campus: <span className="font-bold text-slate-900">SAMS {branchAdmissions.find(a => a.id === selectedAdmissionId)?.branch === 'RS' ? 'Runjin Sambo' : 'Gawun Nama'}</span></p>
-                                </div>
-                                <div className="p-3 bg-violet-50/50 rounded-lg border border-violet-100">
-                                  <p className="font-bold text-xs text-violet-955 flex items-center">
-                                    <GraduationCap className="w-3.5 h-3.5 mr-1 text-violet-650 shrink-0" />
-                                    Head Teacher Evaluation verdict (by {branchAdmissions.find(a => a.id === selectedAdmissionId)?.htReviewedBy}):
-                                  </p>
-                                  <p className="text-violet-900 italic text-[11px] pt-1 leading-normal whitespace-pre-line">
-                                    "{branchAdmissions.find(a => a.id === selectedAdmissionId)?.htNotes}"
-                                  </p>
-                                </div>
-
-                                {/* Scorecard visualizer display for Board Chairman review */}
-                                {branchAdmissions.find(a => a.id === selectedAdmissionId)?.interviewScorecard && (
-                                  <div className="p-3.5 bg-violet-50/40 rounded-lg border border-violet-100/80 grid grid-cols-2 sm:grid-cols-5 gap-3 items-center">
-                                    <div className="text-center bg-violet-900 text-white p-2 rounded-lg font-bold">
-                                      <p className="text-[8px] uppercase tracking-wider text-violet-200">Interview Score</p>
-                                      <p className="text-sm font-mono">{branchAdmissions.find(a => a.id === selectedAdmissionId)?.interviewScorecard.totalScore} <span className="text-[9px]">/40</span></p>
-                                    </div>
-                                    <div className="text-[10px] text-slate-600">
-                                      <p className="font-bold uppercase text-slate-400 text-[8px]">Punctuality</p>
-                                      <p className="font-semibold text-slate-800">{branchAdmissions.find(a => a.id === selectedAdmissionId)?.interviewScorecard.parentPunctuality} / 10</p>
-                                    </div>
-                                    <div className="text-[10px] text-slate-600">
-                                      <p className="font-bold uppercase text-slate-400 text-[8px]">Engagement</p>
-                                      <p className="font-semibold text-slate-800">{branchAdmissions.find(a => a.id === selectedAdmissionId)?.interviewScorecard.parentEngagement} / 10</p>
-                                    </div>
-                                    <div className="text-[10px] text-slate-600">
-                                      <p className="font-bold uppercase text-slate-400 text-[8px]">Responsiveness</p>
-                                      <p className="font-semibold text-slate-800">{branchAdmissions.find(a => a.id === selectedAdmissionId)?.interviewScorecard.studentResponsiveness} / 10</p>
-                                    </div>
-                                    <div className="text-[10px] text-slate-600">
-                                      <p className="font-bold uppercase text-slate-400 text-[8px]">Readiness</p>
-                                      <p className="font-semibold text-slate-800">{branchAdmissions.find(a => a.id === selectedAdmissionId)?.interviewScorecard.academicReadiness} / 10</p>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 font-sans">
-                              <div className="sm:col-span-2 space-y-1.5 font-sans">
-                                <label className="font-bold tracking-wide uppercase text-[10px] text-slate-500">Board Chairman Visa Comment / Directives</label>
-                                <textarea
-                                  value={chairmanNotes}
-                                  onChange={(e) => setChairmanNotes(e.target.value)}
-                                  placeholder="Confirm final placement, instruct the registrar to prepare uniforms, or set custom billing instructions..."
-                                  rows={2}
-                                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-950 outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
-                                />
-                              </div>
-                              <div className="space-y-1.5 font-sans">
-                                <label className="font-bold tracking-wide uppercase text-[10px] text-slate-500">Physical Class Section Allocation</label>
-                                <select
-                                  value={allocatedSection}
-                                  onChange={(e) => setAllocatedSection(e.target.value)}
-                                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-950 font-bold outline-none cursor-pointer font-sans"
-                                >
-                                  <option value="A">Section A (Main Intake)</option>
-                                  <option value="B">Section B (Alternative Placement)</option>
-                                  <option value="C">Section C (Nursery/Primary Custom)</option>
-                                  <option value="Gold">Honors Gold Section</option>
-                                </select>
-                              </div>
-                              <div className="space-y-1.5 font-sans">
-                                <label className="font-bold tracking-wide uppercase text-[10px] text-slate-500">Automatic Billing Template</label>
-                                <select
-                                  value={selectedFeeTemplateId}
-                                  onChange={(e) => setSelectedFeeTemplateId(e.target.value)}
-                                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-indigo-950 font-bold outline-none cursor-pointer focus:border-indigo-500 focus:ring-1 focus:ring-indigo-550 font-sans"
-                                >
-                                  <option value="">-- No Template (‚Ç¶1,500 Base) --</option>
-                                  {feeTemplates.map((tpl) => (
-                                    <option key={tpl.id} value={tpl.id}>
-                                      {tpl.id} ({tpl.branch} - Term {tpl.term.slice(-1)}: ‚Ç¶{tpl.totalFee?.toLocaleString()})
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-emerald-50 border border-emerald-100 p-4 rounded-xl gap-4">
-                            <p className="text-slate-450 leading-relaxed max-w-sm text-[11px] font-sans">
-                              * Visa command automatically populates a live SAMS student file and issues standard outstanding ledger parameters.
-                            </p>
-                            <button
-                              type="submit"
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-2.5 rounded-xl cursor-pointer shadow hover:shadow-lg transition-all"
-                            >
-                              Affix Chairman Seal &amp; Allocate Class
-                            </button>
-                          </div>
-                        </form>
-                      )}
-
-                    </div>
-
-                    {/* Quick helper manual info card cards */}
-                    <div className="lg:col-span-12 xl:col-span-4 bg-slate-50 text-slate-700 p-6 rounded-2xl border border-slate-200 space-y-5 shadow-sm text-xs">
-                      <div>
-                        <h4 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Multi-Role Play Guide</h4>
-                        <p className="text-[10px] text-slate-500 font-medium">Test the entire admissions line step-by-step!</p>
-                      </div>
-
-                      <div className="space-y-4 leading-relaxed font-sans">
-                        <div className="space-y-1 bg-white p-3.5 rounded-xl border border-slate-200/85 shadow-xs">
-                          <p className="font-bold text-indigo-700">1. Registrar Desk</p>
-                          <p className="text-slate-600 text-[11px]">
-                            Enter names and target levels to issue an early pre-registration code.
-                          </p>
-                        </div>
-                        <div className="space-y-1 bg-white p-3.5 rounded-xl border border-slate-200/85 shadow-xs">
-                          <p className="font-bold text-rose-700">2. Parent Application Form</p>
-                          <p className="text-slate-600 text-[11px]">
-                            Choose a candidate from the assist bar. Submit chronic illnesses, home addresses, and previous academic profiles.
-                          </p>
-                        </div>
-                        <div className="space-y-1 bg-white p-3.5 rounded-xl border border-slate-200/85 shadow-xs">
-                          <p className="font-bold text-violet-700">3. Head Teacher (Principal)</p>
-                          <p className="text-slate-600 text-[11px]">
-                            Record grades checklists and review reports. Forward the file to the board and recommend final offers.
-                          </p>
-                        </div>
-                        <div className="space-y-1 bg-white p-3.5 rounded-xl border border-slate-200/85 shadow-xs">
-                          <p className="font-bold text-emerald-700">4. Board Chairman Office</p>
-                          <p className="text-slate-600 text-[11px]">
-                            Affix seal and designate room sections. Approved profiles instantly sync to SAMS active students roster!
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                  </div>
-
-                  {/* ACTIVE PIPELINE REGISTRY WORKSPACE */}
-                  <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                      <div>
-                        <h3 className="font-bold text-sm text-slate-900 uppercase tracking-wide flex items-center">
-                          <FileText className="w-4 h-4 mr-1 text-slate-550" />
-                          Live Campus Admissions Tracker
-                        </h3>
-                        <p className="text-xs text-slate-505 font-medium font-sans">
-                          Real-time database tracking of applications scheduled for SAMS {selectedBranch === 'RS' ? 'Runjin Sambo Campus' : 'Gawun Nama Campus'}
-                        </p>
-                      </div>
-
-                      <div className="text-[10px] uppercase font-bold tracking-widest text-slate-450 bg-slate-100 px-3 py-1.5 rounded-lg border font-mono">
-                        SAMS SOKOTO DATABASE ACTIVE
-                      </div>
-                    </div>
-
-                    <div className="overflow-x-auto border border-slate-150 rounded-xl">
-                      <table className="w-full text-left border-collapse text-xs">
-                        <thead>
-                          <tr className="bg-slate-50/70 text-slate-500 font-bold border-b border-slate-150 font-sans">
-                            <th className="p-3.5">Application Code</th>
-                            <th className="p-3.5">Candidate Child</th>
-                            <th className="p-3.5">Level / Grade</th>
-                            <th className="p-3.5">Guardian Contact</th>
-                            <th className="p-3.5 text-center">Pipeline Progress State</th>
-                            <th className="p-3.5">Intake Date</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 bg-white font-sans text-slate-700">
-                          {branchAdmissions.length === 0 ? (
-                            <tr>
-                              <td colSpan={6} className="p-8 text-center text-slate-400 italic">
-                                No admissions applications registered under active SAMS branch. Introduce a new early intake today!
-                              </td>
-                            </tr>
-                          ) : (
-                            branchAdmissions.map((app) => (
-                              <tr key={app.id} className="hover:bg-slate-50/50">
-                                <td className="p-3.5 font-mono font-bold text-indigo-750">{app.id}</td>
-                                <td className="p-3.5 font-semibold text-slate-900">{app.name}</td>
-                                <td className="p-3.5">
-                                  <div className="space-y-0.5">
-                                    <span className="font-semibold text-slate-800">{app.grade}</span>
-                                    <span className="block text-[10px] text-slate-400 uppercase tracking-wide font-bold">{app.level}</span>
-                                  </div>
-                                </td>
-                                <td className="p-3.5">
-                                  <div className="space-y-0.5 text-slate-650">
-                                    <p className="font-semibold">{app.parentName}</p>
-                                    <p className="text-[10px] font-mono">{app.parentEmail}</p>
-                                  </div>
-                                </td>
-                                <td className="p-3.5 text-center">
-                                  <span className={`inline-block font-mono text-[10px] font-bold px-2.5 py-1 rounded-full ${
-                                    app.status === 'Pre-registered' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
-                                    app.status === 'Submitted by Parent' ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' :
-                                    app.status === 'HT Reviewed' ? 'bg-purple-50 text-purple-750 border border-purple-100' :
-                                    'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                                  }`}>
-                                    {app.status === 'Pre-registered' && '‚ë† Pre-Registered'}
-                                    {app.status === 'Submitted by Parent' && '‚ë° Submitted by Parent (Pending HT)'}
-                                    {app.status === 'HT Reviewed' && '‚ë¢ Reviewed by Principal (Pending Board)'}
-                                    {app.status === 'Approved & Allocated' && '‚ë£ Officially Approved & Admitted!'}
-                                  </span>
-                                </td>
-                                <td className="p-3.5 text-slate-500 font-mono text-[11px]">{app.preRegDate}</td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                </div>
-              )}
-
-              {activeTab === 'security' && (
-                <div id="erp-view-security" className="space-y-6 animate-fade-in text-xs font-sans text-slate-700">
-                  
-                  {/* IAM Top Title & Status Banner */}
-                  <div className="border-b border-indigo-100 pb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                    <div>
-                      <h2 className="text-xl font-bold text-slate-900 flex items-center">
-                        <span className="p-1.5 bg-rose-600 text-white rounded-lg mr-2 inline-block shadow animate-pulse">
-                          <ShieldCheck className="w-4 h-4 shrink-0 font-bold" />
-                        </span>
-                        SAMS Identity &amp; Access Management (IAM)
-                      </h2>
-                      <p className="text-xs text-slate-500 font-medium font-sans">
-                        Configure administrative roles, toggle global access matrices, track security audits, and manage sandbox simulation profiles.
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className={`px-3 py-1.5 rounded-xl border flex items-center space-x-2 text-[11px] font-mono font-bold shadow-sm ${
-                        securityLockdownMode 
-                          ? 'bg-rose-50 border-rose-200 text-rose-750 animate-pulse' 
-                          : 'bg-emerald-50 border-emerald-100 text-emerald-800'
-                      }`}>
-                        <Lock className={`w-3.5 h-3.5 ${securityLockdownMode ? 'text-rose-600' : 'text-emerald-600'}`} />
-                        <span>{securityLockdownMode ? 'SYSTEM LOCKED DOWN ‚ö†Ô∏è' : 'All ERP Systems Secured'}</span>
-                      </div>
-                      
-                      <div className="bg-slate-100 text-slate-650 px-3 py-1.5 rounded-xl border text-[10px] font-mono font-bold border-slate-200">
-                        PORT: 3000 (Local Ingress)
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Top Notification Warning if lockdown is active */}
-                  {securityLockdownMode && (
-                    <div className="bg-rose-650 text-white p-4 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-md bg-gradient-to-r from-rose-700 to-rose-800 animate-pulse">
-                      <div className="flex items-center space-x-3">
-                        <ShieldAlert className="w-6 h-6 shrink-0 text-white animate-bounce" />
-                        <div>
-                          <p className="font-extrabold text-sm">Emergency System Lockdown Active</p>
-                          <p className="text-[11px] text-rose-150 font-medium">Standard school roles are completely blocked from accessing SAMS modules. Only Super Admins can navigate the platform.</p>
-                        </div>
-                      </div>
-                      <button 
-                        type="button"
-                        onClick={() => {
-                          setSecurityLockdownMode(false);
-                          addAuditLog(currentSimulatedRole, 'SECURITY', 'Emergency lockdown deactivated by administrator override.', 'SUCCESS');
-                          alert("üü¢ LOCKDOWN TERMINATED: Standard ERP permissions have been successfully restored.");
-                        }}
-                        className="bg-white hover:bg-slate-100 text-rose-700 font-extrabold px-4 py-2 rounded-xl transition-colors cursor-pointer uppercase text-[10px] shadow-sm"
-                      >
-                        Deactivate Lockdown üîì
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Module Tabs Selector bar */}
-                  <div className="flex flex-wrap bg-slate-100/80 border p-1 rounded-2xl gap-1 border-slate-200">
-                    {[
-                      { id: 'users' as const, label: 'üë§ Simulated Logins & Accounts', desc: 'Credential management', count: systemUsers.length },
-                      { id: 'employeeAccounts' as const, label: 'üè¢ Employee Identity & Branch IAM', desc: 'Branch-based account lifecycle', count: teachers.length },
-                      { id: 'permissions' as const, label: 'üõ°Ô∏è Custom Permission Matrix', desc: 'RBAC Access controls', count: 'Dynamic' },
-                      { id: 'audit' as const, label: 'üìã System Security Audit Trail', desc: 'Active security log stream', count: securityAuditLogs.length },
-                      { id: 'settings' as const, label: '‚öôÔ∏è Emergency Systems Override', desc: 'Lockdown & timeout configs', count: 'Critical' }
-                    ].map(tb => (
-                      <button
-                        key={tb.id}
-                        type="button"
-                        onClick={() => setSecuritySubTab(tb.id)}
-                        className={`flex-1 min-w-[190px] text-left p-3 rounded-xl transition-all cursor-pointer ${
-                          securitySubTab === tb.id 
-                            ? 'bg-white text-slate-900 border border-slate-200/80 shadow-sm font-bold' 
-                            : 'hover:bg-slate-200/40 text-slate-500'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-xs">{tb.label}</span>
-                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold ${
-                            securitySubTab === tb.id ? 'bg-indigo-50 text-indigo-700 font-black' : 'bg-slate-200 text-slate-600'
-                          }`}>{tb.count}</span>
-                        </div>
-                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">{tb.desc}</p>
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* SUBTAB CONTENT: EMPLOYEE IDENTITY & BRANCH IAM CONSOLE */}
-                  {securitySubTab === 'employeeAccounts' && (
-                    <div className="animate-fade-in">
-                      <EmployeeUserAccountsConsole
-                        teachers={teachers}
-                        setTeachers={setTeachers}
-                        systemUsers={systemUsers}
-                        setSystemUsers={setSystemUsers}
-                        currentRole={currentSimulatedRole}
-                        currentUserName={systemUsers.find(u => u.role === currentSimulatedRole)?.name || 'Engr. Usamah M. Qamar (Super Administrator)'}
-                        activeBranch={selectedBranch}
-                        onNavigateToTeacher={(teacherId) => {
-                          const target = teachers.find(t => t.id === teacherId || t.employeeId === teacherId);
-                          if (target) {
-                            setSelectedTeacher(target);
-                            setActiveTab('teachers');
-                            setHrSubTab('personnel');
-                          }
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {/* SUBTAB CONTENT 1: SIMULATED LOGINS & ACCOUNTS */}
-                  {securitySubTab === 'users' && (
-                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 animate-fade-in">
-                      
-                      {/* Left: Accounts Registry List */}
-                      <div className="xl:col-span-2 bg-white rounded-3xl border border-slate-200 p-5 space-y-4 shadow-sm">
-                        <div className="flex justify-between items-center flex-wrap gap-2 pb-2 border-b border-slate-100">
-                          <div>
-                            <h3 className="text-sm font-bold text-slate-900 uppercase flex items-center gap-1.5">
-                              <span>Interactive Accounts Ledger</span>
-                            </h3>
-                            <p className="text-[10px] text-slate-500 font-medium font-sans">Manage, edit, and instantly assume administrative personnel accounts on the fly.</p>
-                          </div>
-                          <span className="bg-indigo-50 text-indigo-700 font-mono px-2.5 py-1 rounded-xl text-[10px] font-extrabold border border-indigo-100">
-                            {systemUsers.length} Active System Logins
-                          </span>
-                        </div>
-
-                        <div className="overflow-x-auto rounded-2xl border border-slate-200">
-                          <table className="w-full text-left border-collapse">
-                            <thead>
-                              <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500 tracking-wider font-mono">
-                                <th className="p-3.5">User Account Credentials</th>
-                                <th className="p-3.5 text-center">Authorization Group</th>
-                                <th className="p-3.5 text-center">Campus Restrictions</th>
-                                <th className="p-3.5 text-center">Status</th>
-                                <th className="p-3.5 text-right">Access Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 text-[11px] text-slate-650">
-                              {systemUsers.map(usr => (
-                                <tr key={usr.id} className="hover:bg-slate-50/30 transition-colors">
-                                  <td className="p-3.5 text-slate-800">
-                                    <div className="space-y-0.5">
-                                      <p className="font-extrabold text-slate-900">{usr.name}</p>
-                                      <p className="text-[10px] text-slate-500 font-mono">{usr.email}</p>
-                                      {usr.phone && <p className="text-[9px] text-slate-400 font-mono">{usr.phone}</p>}
-                                    </div>
-                                  </td>
-                                  <td className="p-3.5 text-center">
-                                    <span className={`inline-block font-mono font-bold px-2.5 py-1 rounded-full text-[9px] uppercase tracking-wide border ${
-                                      usr.role === 'Super Admin' ? 'bg-rose-50 border-rose-100 text-rose-700' :
-                                      usr.role === 'Branch Admin' ? 'bg-blue-50 border-blue-100 text-blue-700' :
-                                      usr.role === 'Accountant' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' :
-                                      usr.role === 'Store Manager' ? 'bg-indigo-50 border-indigo-100 text-indigo-700' :
-                                      usr.role === 'Teacher' ? 'bg-purple-50 border-purple-100 text-purple-700' :
-                                      'bg-amber-50 border-amber-100 text-amber-700'
-                                    }`}>
-                                      {usr.role}
-                                    </span>
-                                  </td>
-                                  <td className="p-3.5 text-center font-bold text-slate-800 font-mono text-[10px]">
-                                    {usr.branch === 'All' ? 'üåê ALL CAMPUSES' : `${usr.branch} CAMPUS`}
-                                  </td>
-                                  <td className="p-3.5 text-center">
-                                    <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold border ${
-                                      usr.status === 'Active' 
-                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
-                                        : 'bg-rose-50 text-rose-800 border-rose-200 font-extrabold animate-pulse'
-                                    }`}>
-                                      ‚óè {usr.status}
-                                    </span>
-                                  </td>
-                                  <td className="p-3.5 text-right">
-                                    <div className="flex justify-end items-center gap-2">
-                                      <button 
-                                        type="button"
-                                        onClick={() => {
-                                          if (usr.status !== 'Active') {
-                                            alert(`‚ùå ACCESS SUSPENDED: This user credential is marked as "${usr.status}". Please reactivate before simulating.`);
-                                            return;
-                                          }
-                                          setCurrentSimulatedRole(usr.role);
-                                          if (usr.branch !== 'All') {
-                                            setSelectedBranch(usr.branch as any);
-                                          }
-                                          addAuditLog(usr.name, 'SIMULATION', `Simulated login session activated via accounts ledger. Role: ${usr.role}, Campus: ${usr.branch}`, 'SUCCESS');
-                                          alert(`üîë SIMULATION INITIATED: Successfully assumed simulated administrative login for "${usr.name}" as a "${usr.role}".`);
-                                        }}
-                                        className="bg-slate-900 hover:bg-slate-950 text-white font-semibold px-2.5 py-1 rounded-lg text-[9px] transition-colors cursor-pointer font-mono whitespace-nowrap"
-                                      >
-                                        Simulate Login üîë
-                                      </button>
-                                      
-                                      <button 
-                                        type="button"
-                                        onClick={() => {
-                                          setSelectedUser(usr);
-                                          setIsEditingUser(true);
-                                          setNewUserForm({
-                                            name: usr.name,
-                                            email: usr.email,
-                                            role: usr.role,
-                                            branch: usr.branch,
-                                            status: usr.status,
-                                            phone: usr.phone || ''
-                                          });
-                                          addAuditLog('System Admin', 'IAM', `Selected user ID ${usr.id} for credentials modification.`, 'INFO');
-                                        }}
-                                        className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold px-2 py-1 rounded-lg text-[9px] transition-colors cursor-pointer"
-                                      >
-                                        Edit
-                                      </button>
-                                      
-                                      <button 
-                                        type="button"
-                                        onClick={() => {
-                                          if (confirm(`‚ö†Ô∏è CRITICAL REVOCATION\n\nAre you sure you want to permanently revoke administrative access credentials for ${usr.name}?`)) {
-                                            setSystemUsers(prev => prev.filter(u => u.id !== usr.id));
-                                            addAuditLog('System Admin', 'IAM', `Permanently revoked credentials for user: ${usr.name}`, 'WARNING');
-                                            alert(`Credentials revoked successfully.`);
-                                          }
-                                        }}
-                                        className="bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold px-1 py-1 rounded-lg text-[9px] transition-colors cursor-pointer font-bold"
-                                      >
-                                        Delete
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-
-                        {/* Credentials Simulation Tip */}
-                        <div className="bg-amber-50 border border-amber-200/55 p-4 rounded-2xl text-[11px] text-amber-800 leading-relaxed font-sans">
-                          <p className="font-bold flex items-center gap-1">
-                            <span>üí°</span>
-                            <span>Simulation Advice for Testers</span>
-                          </p>
-                          <p className="text-amber-800/90 mt-1">
-                            SAMS utilizes a fully reactive local sandboxed state. Click any <strong>Simulate Login üîë</strong> button to instantly adopt that staff member's credentials and branch context. The SAMS sidebar and modules will adapt immediately to reflect their exact access credentials.
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Right: Add/Edit Form Box */}
-                      <div className="bg-white rounded-3xl border border-slate-200 p-5 space-y-4 shadow-sm h-fit">
-                        <div>
-                          <h3 className="text-sm font-bold text-slate-900 uppercase">
-                            {isEditingUser ? 'Edit System Account' : 'Register New Credentials'}
-                          </h3>
-                          <p className="text-[10px] text-slate-505 font-sans font-medium">
-                            Grant administrative roles and localized campus privileges securely.
-                          </p>
-                        </div>
-
-                        <form 
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            if (!newUserForm.name.trim() || !newUserForm.email.trim()) {
-                              alert("Please fill in Name and Email.");
-                              return;
-                            }
-                            if (isEditingUser && selectedUser) {
-                              setSystemUsers(prev => prev.map(u => u.id === selectedUser.id ? { ...u, ...newUserForm } : u));
-                              addAuditLog('System Admin', 'IAM', `Credentials modified for user: ${newUserForm.name} (${newUserForm.role})`, 'SUCCESS');
-                              setIsEditingUser(false);
-                              setSelectedUser(null);
-                              alert("‚ú® SUCCESS: Administrative user settings updated correctly.");
-                            } else {
-                              const nextId = 'usr-' + (systemUsers.length + 1);
-                              const payload = {
-                                id: nextId,
-                                ...newUserForm,
-                                accessCount: 0
-                              };
-                              setSystemUsers(prev => [...prev, payload]);
-                              addAuditLog('System Admin', 'IAM', `Registered new login credentials for: ${newUserForm.name} (${newUserForm.role})`, 'SUCCESS');
-                              alert("‚ú® SUCCESS: New administrative credentials registered perfectly.");
-                            }
-                            setNewUserForm({
-                              name: '',
-                              email: '',
-                              role: 'Teacher',
-                              branch: 'GN',
-                              status: 'Active',
-                              phone: ''
-                            });
-                          }}
-                          className="space-y-4 text-xs font-sans text-slate-700"
-                        >
-                          <div className="space-y-1.5">
-                            <label className="font-bold text-[10px] text-slate-500 uppercase tracking-widest block font-sans">Personnel Full Name</label>
-                            <input 
-                              type="text"
-                              required
-                              placeholder="e.g. Dr. Yusuf Idris"
-                              value={newUserForm.name}
-                              onChange={(e) => setNewUserForm(f => ({ ...f, name: e.target.value }))}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none focus:ring-1 focus:ring-rose-500"
-                            />
-                          </div>
-
-                          <div className="space-y-1.5">
-                            <label className="font-bold text-[10px] text-slate-500 uppercase tracking-widest block font-sans">Official Email</label>
-                            <input 
-                              type="email"
-                              required
-                              placeholder="e.g. yusuf.idris@sams.gn.com"
-                              value={newUserForm.email}
-                              onChange={(e) => setNewUserForm(f => ({ ...f, email: e.target.value }))}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none focus:ring-1 focus:ring-rose-500 font-mono text-[11px]"
-                            />
-                          </div>
-
-                          <div className="space-y-1.5">
-                            <label className="font-bold text-[10px] text-slate-500 uppercase tracking-widest block font-sans">Mobile Phone (Optional)</label>
-                            <input 
-                              type="text"
-                              placeholder="e.g. +234 803 555 6666"
-                              value={newUserForm.phone}
-                              onChange={(e) => setNewUserForm(f => ({ ...f, phone: e.target.value }))}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none focus:ring-1 focus:ring-rose-500 font-mono text-[11px]"
-                            />
-                          </div>
-
-                          <div className="space-y-1.5">
-                            <label className="font-bold text-[10px] text-slate-500 uppercase tracking-widest block font-sans">Primary Security Group</label>
-                            <select
-                              value={newUserForm.role}
-                              onChange={(e) => setNewUserForm(f => ({ ...f, role: e.target.value }))}
-                              className="w-full bg-white border border-slate-200 rounded-xl p-2.5 outline-none cursor-pointer focus:border-rose-500 font-semibold"
-                            >
-                              <option value="Super Administrator">üëë Super Administrator</option>
-                              <option value="Proprietor">üëë Proprietor</option>
-                              <option value="Branch Administrator">üè¢ Branch Administrator</option>
-                              <option value="Principal">üéì Principal</option>
-                              <option value="Accountant">üí∞ Accountant Officer</option>
-                              <option value="Store Manager">üì¶ Store Manager</option>
-                              <option value="Teacher">üë©‚Äçüè´ Academic Teacher</option>
-                              <option value="Parent">üë™ Parent Monitor</option>
-                            </select>
-                          </div>
-
-                          <div className="space-y-1.5">
-                            <label className="font-bold text-[10px] text-slate-500 uppercase tracking-widest block font-sans">Campus Security Scope</label>
-                            <select
-                              value={newUserForm.branch}
-                              onChange={(e) => setNewUserForm(f => ({ ...f, branch: e.target.value }))}
-                              className="w-full bg-white border border-slate-200 rounded-xl p-2.5 outline-none cursor-pointer focus:border-rose-500 font-semibold"
-                            >
-                              <option value="All">üåê All Campuses (Global Access)</option>
-                              <option value="GN">Gawun Nama (GN) - Main Location</option>
-                              <option value="RS">Runjin Sambo (RS) - West Campus</option>
-                            </select>
-                          </div>
-
-                          <div className="space-y-1.5">
-                            <label className="font-bold text-[10px] text-slate-500 uppercase tracking-widest block font-sans">Account Login Status</label>
-                            <select
-                              value={newUserForm.status}
-                              onChange={(e) => setNewUserForm(f => ({ ...f, status: e.target.value }))}
-                              className="w-full bg-white border border-slate-200 rounded-xl p-2.5 outline-none cursor-pointer focus:border-rose-500 font-semibold"
-                            >
-                              <option value="Active">üü¢ Active (Authorized)</option>
-                              <option value="Suspended">üî¥ Suspended (Access Locked)</option>
-                            </select>
-                          </div>
-
-                          <div className="pt-2 flex gap-2">
-                            {isEditingUser && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setIsEditingUser(false);
-                                  setSelectedUser(null);
-                                  setNewUserForm({
-                                    name: '',
-                                    email: '',
-                                    role: 'Teacher',
-                                    branch: 'GN',
-                                    status: 'Active',
-                                    phone: ''
-                                  });
-                                }}
-                                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold py-2 px-4 rounded-xl transition-all cursor-pointer text-center font-mono text-[10px] uppercase"
-                              >
-                                Cancel
-                              </button>
-                            )}
-                            <button
-                              type="submit"
-                              className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-extrabold py-2.5 px-4 rounded-xl transition-all cursor-pointer text-center font-mono text-[10px] uppercase tracking-wider shadow-sm"
-                            >
-                              {isEditingUser ? 'Save System Profile' : 'Authorize Credentials'}
-                            </button>
-                          </div>
-                        </form>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* SUBTAB CONTENT 2: CUSTOM PERMISSION MATRIX */}
-                  {securitySubTab === 'permissions' && (
-                    <div id="editable-matrix-card" className="bg-white rounded-3xl border border-slate-200 p-6 space-y-4 shadow-sm animate-fade-in">
-                      <div className="flex justify-between items-center flex-wrap gap-4 pb-2 border-b border-slate-100">
-                        <div>
-                          <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                            <ShieldCheck className="w-5 h-5 text-rose-600 shrink-0 animate-pulse" />
-                            Role-Based Permission Matrix (RBAC)
-                          </h3>
-                          <p className="text-[11px] text-slate-505 font-medium">
-                            Configure localized system access of school personnel divisions in real time. Directly check boxes to permit access, or uncheck to immediately lock tabs for security. No complex setup or server reloads needed.
-                          </p>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (confirm("Reset administrative access groups to system default profiles? This overrides customized toggles.")) {
-                              const defaultPermissions = {
-                                'Super Admin': ['overview', 'students', 'teachers', 'payroll', 'classes', 'grades', 'scheduler', 'assistant', 'parent', 'admission', 'consolidation', 'calendar', 'health', 'financial_settings', 'attendance_desk'],
-                                'Branch Admin': ['overview', 'students', 'teachers', 'payroll', 'classes', 'grades', 'scheduler', 'assistant', 'parent', 'admission', 'consolidation', 'calendar', 'health', 'financial_settings', 'attendance_desk'],
-                                'Accountant': ['overview', 'students', 'parent', 'payroll', 'calendar', 'health', 'financial_settings'],
-                                'Store Manager': ['overview', 'classes'],
-                                'Teacher': ['teachers', 'classes', 'grades', 'scheduler', 'assistant', 'calendar', 'attendance_desk'],
-                                'Parent': ['parent', 'calendar']
-                              };
-                              setRolePermissions(defaultPermissions);
-                              addAuditLog(currentSimulatedRole, 'IAM', 'Reset all role permissions to SAMS standard defaults.', 'WARNING');
-                              alert("‚ú® SUCCESS: SAMS role permission matrices restored successfully.");
-                            }
-                          }}
-                          className="bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-[10px] font-extrabold uppercase font-mono tracking-wider transition-all cursor-pointer"
-                        >
-                          Restore Security Defaults ‚öôÔ∏è
-                        </button>
-                      </div>
-
-                      <div className="overflow-x-auto rounded-2xl border border-slate-200">
-                        <table className="w-full text-left border-collapse table-fixed min-w-[1050px]">
-                          <thead>
-                            <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500 tracking-wider font-mono">
-                              <th className="p-3.5 w-44">Administrative Role Group</th>
-                              {[
-                                { id: 'overview', label: 'üìä Stats' },
-                                { id: 'students', label: 'üë• Students' },
-                                { id: 'teachers', label: 'üíº HR Portal' },
-                                { id: 'payroll', label: 'üí≥ Payroll' },
-                                { id: 'classes', label: 'üè´ Class Hub' },
-                                { id: 'grades', label: '‚úèÔ∏è Gradebook' },
-                                { id: 'consolidation', label: 'üîí Consol' },
-                                { id: 'scheduler', label: 'üìÖ Schedule' },
-                                { id: 'calendar', label: 'üìÜ Calendar' },
-                                { id: 'health', label: '‚ù§Ô∏è Health' },
-                                { id: 'financial_settings', label: 'ü™ô Finance' },
-                                { id: 'assistant', label: 'ü§ñ AI Pilot' },
-                                { id: 'admission', label: 'üéì Admissions' },
-                                { id: 'parent', label: 'üë™ Parents' }
-                              ].map(tabCol => (
-                                <th key={tabCol.id} className="p-3 text-center text-[9px]" title={tabCol.label}>{tabCol.label}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 text-[11px] font-sans">
-                            {['Super Administrator', 'Proprietor', 'Branch Administrator', 'Principal', 'Accountant', 'Teacher', 'Store Manager', 'Parent'].map(role => {
-                              const allowedModules = rolePermissions[role] || [];
-                              const isSuperAdmin = role === 'Super Administrator' || role === 'Super Admin' || role === 'Proprietor';
-                              return (
-                                <tr key={role} className="hover:bg-slate-50/50 transition-colors">
-                                  <td className="p-3.5 bg-slate-50/40 border-r border-slate-150">
-                                    <span className="font-extrabold text-slate-900 block">{role}</span>
-                                    <span className="text-[9px] text-slate-405 font-mono">
-                                      {isSuperAdmin ? 'Full Security Override' : `${allowedModules.length} Modules Permitted`}
-                                    </span>
-                                  </td>
-
-                                  {[
-                                    'overview', 'students', 'teachers', 'payroll', 'classes', 'grades', 'consolidation', 'scheduler', 'calendar', 'health', 'financial_settings', 'assistant', 'admission', 'parent'
-                                  ].map(mod => {
-                                    const isPermitted = allowedModules.includes(mod);
-                                    return (
-                                      <td key={mod} className="p-3 text-center">
-                                        <input 
-                                          type="checkbox"
-                                          checked={isPermitted || isSuperAdmin}
-                                          disabled={isSuperAdmin}
-                                          onChange={(e) => {
-                                            const checked = e.target.checked;
-                                            setRolePermissions(prev => {
-                                              const updated = { ...prev };
-                                              const list = updated[role] ? [...updated[role]] : [];
-                                              if (checked) {
-                                                if (!list.includes(mod)) list.push(mod);
-                                              } else {
-                                                const idx = list.indexOf(mod);
-                                                if (idx !== -1) list.splice(idx, 1);
-                                              }
-                                              updated[role] = list;
-                                              return updated;
-                                            });
-                                            addAuditLog(currentSimulatedRole, 'IAM', `${role}'s security privilege to "${mod.toUpperCase()}" module has been toggled to ${checked ? 'GRANTED' : 'REVOKED'}.`, checked ? 'SUCCESS' : 'WARNING');
-                                          }}
-                                          className={`w-4 h-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500 transition-all ${
-                                            isSuperAdmin ? 'opacity-40 cursor-not-allowed bg-rose-200' : 'cursor-pointer'
-                                          }`}
-                                        />
-                                      </td>
-                                    );
-                                  })}
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* Info on Dynamic Locks */}
-                      <div className="bg-rose-50 border border-rose-150 p-4 rounded-2xl space-y-1 text-rose-950 font-sans">
-                        <p className="font-bold flex items-center gap-1 text-rose-800">
-                          <span>üîí</span>
-                          <span>Dynamic Access Lock Enforcement Guidelines</span>
-                        </p>
-                        <p className="text-[11px] leading-relaxed">
-                          SAMS instantly enforces access privileges on the sidebar navigation buttons. If you uncheck a permission module for a role (e.g. unchecking 'Gradebook' for 'Teacher'), simulating that role will immediately lock that tab with a security padlock üîí and render an "Access Denied" barrier screen when clicked.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* SUBTAB CONTENT 3: LIVE SECURITY AUDIT TRAIL */}
-                  {securitySubTab === 'audit' && (
-                    <div className="bg-white rounded-3xl border border-slate-200 p-5 space-y-4 shadow-sm animate-fade-in">
-                      
-                      {/* Filter Bar */}
-                      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-                        <div className="space-y-1">
-                          <h3 className="text-sm font-bold text-slate-900 uppercase">SAMS Core Security Log Stream</h3>
-                          <p className="text-[10px] text-slate-500 font-sans font-medium">Real-time immutable tracking of user sessions, permission updates, database actions, and system health checks.</p>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-2">
-                          <input 
-                            type="text"
-                            placeholder="Search logs (e.g. simulation)..."
-                            value={auditSearch}
-                            onChange={(e) => setAuditSearch(e.target.value)}
-                            className="bg-slate-50 border border-slate-250 rounded-xl px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-rose-500 w-full sm:w-52 font-medium"
-                          />
-
-                          <select
-                            value={auditCategory}
-                            onChange={(e) => setAuditCategory(e.target.value)}
-                            className="bg-white border border-slate-250 rounded-xl px-2.5 py-1.5 text-[11px] outline-none font-semibold cursor-pointer"
-                          >
-                            <option value="All">All Categories</option>
-                            <option value="SYSTEM">SYSTEM</option>
-                            <option value="DATABASE">DATABASE</option>
-                            <option value="IAM">IAM (Credentials)</option>
-                            <option value="SECURITY">SECURITY</option>
-                            <option value="SIMULATION">SIMULATION</option>
-                          </select>
-
-                          <select
-                            value={auditStatus}
-                            onChange={(e) => setAuditStatus(e.target.value)}
-                            className="bg-white border border-slate-250 rounded-xl px-2.5 py-1.5 text-[11px] outline-none font-semibold cursor-pointer"
-                          >
-                            <option value="All">All Statuses</option>
-                            <option value="SUCCESS">üü¢ SUCCESS</option>
-                            <option value="INFO">üîµ INFO</option>
-                            <option value="WARNING">üü° WARNING</option>
-                            <option value="CRITICAL">üî¥ CRITICAL</option>
-                          </select>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const jsonString = `data:text/json;charset=utf-8,` + encodeURIComponent(JSON.stringify(securityAuditLogs, null, 2));
-                              const downloadAnchor = document.createElement('a');
-                              downloadAnchor.setAttribute("href", jsonString);
-                              downloadAnchor.setAttribute("download", `sams-security-audit-${Date.now()}.json`);
-                              document.body.appendChild(downloadAnchor);
-                              downloadAnchor.click();
-                              downloadAnchor.remove();
-                              addAuditLog('Super Admin', 'SECURITY', 'Security audit log exported to JSON offline file.', 'SUCCESS');
-                            }}
-                            className="bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 font-bold text-[10px] uppercase font-mono px-3 py-1.5 rounded-xl transition-all cursor-pointer"
-                          >
-                            Export Audit JSON üì•
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (confirm("‚ö†Ô∏è WIPE SECURITY AUDIT TRAIL\n\nAre you sure you want to completely purge SAMS local security audit history? This action is irrevocable.")) {
-                                setSecurityAuditLogs([
-                                  { id: `log-${Date.now()}`, timestamp: new Date().toISOString(), user: 'Super Admin', category: 'SECURITY', message: 'Audit trail database flushed and re-initialized by administrator.', status: 'WARNING' }
-                                ]);
-                              }
-                            }}
-                            className="bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold text-[10px] uppercase font-mono px-3 py-1.5 rounded-xl transition-all cursor-pointer"
-                          >
-                            Flush Logs üßπ
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Log Table Stream */}
-                      <div className="overflow-x-auto rounded-2xl border border-slate-200">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500 tracking-wider font-mono">
-                              <th className="p-3 w-32">Timestamp</th>
-                              <th className="p-3 w-32">Category</th>
-                              <th className="p-3">Action Narrative / Message</th>
-                              <th className="p-3 w-40">Security Group Actor</th>
-                              <th className="p-3 text-center w-28">Log Level</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 text-xs font-mono text-slate-650">
-                            {(() => {
-                              const filtered = securityAuditLogs.filter(log => {
-                                const matchesSearch = 
-                                  log.message.toLowerCase().includes(auditSearch.toLowerCase()) || 
-                                  log.user.toLowerCase().includes(auditSearch.toLowerCase());
-                                const matchesCategory = auditCategory === 'All' || log.category === auditCategory;
-                                const matchesStatus = auditStatus === 'All' || log.status === auditStatus;
-                                return matchesSearch && matchesCategory && matchesStatus;
-                              });
-
-                              if (filtered.length === 0) {
-                                return (
-                                  <tr>
-                                    <td colSpan={5} className="p-12 text-center text-slate-400 italic bg-slate-50/20 font-sans">
-                                      No security log events correspond to your filters. Adjust terms to expand your query.
-                                    </td>
-                                  </tr>
-                                );
-                              }
-
-                              return filtered.map(log => {
-                                const logTime = new Date(log.timestamp).toLocaleTimeString();
-                                return (
-                                  <tr key={log.id} className="hover:bg-slate-50/40 transition-all">
-                                    <td className="p-3 text-slate-400 font-bold">{logTime}</td>
-                                    <td className="p-3">
-                                      <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold border ${
-                                        log.category === 'SYSTEM' ? 'bg-indigo-50 text-indigo-700 border border-indigo-150' :
-                                        log.category === 'DATABASE' ? 'bg-amber-50 text-amber-700 border border-amber-150' :
-                                        log.category === 'SECURITY' ? 'bg-rose-50 text-rose-700 border border-rose-150 animate-pulse' :
-                                        log.category === 'SIMULATION' ? 'bg-purple-50 text-purple-700 border border-purple-150' :
-                                        'bg-slate-100 text-slate-650 border border-slate-200'
-                                      }`}>
-                                        {log.category}
-                                      </span>
-                                    </td>
-                                    <td className="p-3 text-slate-800 font-sans font-medium">{log.message}</td>
-                                    <td className="p-3 text-slate-500 font-sans font-semibold flex items-center gap-1.5">
-                                      <span>üë§</span> {log.user}
-                                    </td>
-                                    <td className="p-3 text-center">
-                                      <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-extrabold border ${
-                                        log.status === 'SUCCESS' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
-                                        log.status === 'INFO' ? 'bg-blue-50 text-blue-800 border-blue-200' :
-                                        log.status === 'WARNING' ? 'bg-orange-50 text-orange-800 border-orange-200' :
-                                        'bg-rose-50 text-rose-800 border-rose-200 font-black animate-pulse'
-                                      }`}>
-                                        {log.status}
-                                      </span>
-                                    </td>
-                                  </tr>
-                                );
-                              });
-                            })()}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* SUBTAB CONTENT 4: EMERGENCY SYSTEMS OVERRIDE */}
-                  {securitySubTab === 'settings' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
-                      
-                      {/* Emergency Lockdown Dashboard Card */}
-                      <div className="bg-white rounded-3xl border border-slate-200 p-5 space-y-4 shadow-sm">
-                        <div className="flex items-center gap-2">
-                          <div className="bg-rose-50 text-rose-700 p-2.5 rounded-2xl">
-                            <ShieldAlert className="w-5 h-5 animate-pulse" />
-                          </div>
-                          <div>
-                            <h4 className="font-extrabold text-slate-800 text-xs uppercase tracking-wider font-sans">Lockdown Overrides (Emergency Lockdown)</h4>
-                            <p className="text-[10px] text-slate-405 font-sans font-medium">Instantly isolate SAMS from non-SuperAdmin access scopes.</p>
-                          </div>
-                        </div>
-
-                        <div className="space-y-3 font-sans">
-                          <p className="text-[11px] text-slate-505 leading-relaxed">
-                            Engaging lockdown instantly restricts all regular school roles (Accountants, Store Managers, Teachers, Parents) from navigating to any SAMS modules. Users who attempt access are locked out and returned to the overview statistics page.
-                          </p>
-
-                          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
-                            <div className="flex justify-between items-center text-xs">
-                              <span className="font-bold text-slate-600">Current Lockdown Status:</span>
-                              <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase font-mono ${
-                                securityLockdownMode ? 'bg-rose-100 text-rose-700 font-extrabold' : 'bg-emerald-100 text-emerald-800'
-                              }`}>
-                                {securityLockdownMode ? 'üîí ENGAGED / ISOLATED' : 'üîì DISENGAGED (SECURE)'}
-                              </span>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const nextState = !securityLockdownMode;
-                                setSecurityLockdownMode(nextState);
-                                addAuditLog(currentSimulatedRole, 'SECURITY', nextState ? 'SYSTEM LOCKDOWN DISPATCHED BY OPERATOR!' : 'System lockdown canceled; normal scopes restored.', nextState ? 'CRITICAL' : 'SUCCESS');
-                                alert(nextState 
-                                  ? "‚ö†Ô∏è LOCKDOWN DISPATCHED:\n\nAll standard SAMS modules have been successfully restricted to administrative personnel groups."
-                                  : "üü¢ LOCKDOWN REVOKED:\n\nSAMS operations have resumed with standard security boundaries."
-                                );
-                              }}
-                              className={`w-full font-extrabold py-2 px-4 rounded-xl text-xs uppercase tracking-wider font-mono transition-all cursor-pointer text-center shadow-sm ${
-                                securityLockdownMode 
-                                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold' 
-                                  : 'bg-rose-600 hover:bg-rose-700 text-white animate-pulse font-bold'
-                              }`}
-                            >
-                              {securityLockdownMode ? 'Disengage Lockdown üîì' : 'Engage Emergency Lockdown ‚ö†Ô∏è'}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Mock API Key Policies Card */}
-                      <div className="bg-white rounded-3xl border border-slate-200 p-5 space-y-4 shadow-sm">
-                        <div className="flex items-center gap-2">
-                          <div className="bg-indigo-50 text-indigo-700 p-2.5 rounded-2xl">
-                            <Key className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <h4 className="font-extrabold text-slate-800 text-xs uppercase tracking-wider font-sans">API Integrity &amp; Secrets Management</h4>
-                            <p className="text-[10px] text-slate-405 font-sans font-medium">Observe how SAMS secures backend keys and connections.</p>
-                          </div>
-                        </div>
-
-                        <div className="space-y-3 font-sans text-xs">
-                          <p className="text-[11px] text-slate-505 leading-relaxed">
-                            To protect sensitive system assets, SAMS operates on a modern full-stack server architecture. API credentials (including your Google Gemini Key) are held server-side only in container environments.
-                          </p>
-
-                          <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-                            <span className="font-bold text-slate-400 block text-[9px] uppercase tracking-wider font-mono">Secret Parameter Audits</span>
-                            
-                            <div className="space-y-1.5 font-mono text-[10px]">
-                              <div className="flex justify-between items-center">
-                                <span>GEMINI_API_KEY</span>
-                                <span className="text-emerald-700 font-bold">‚óè Server-Side Only (Hidden)</span>
-                              </div>
-                              <div className="flex justify-between items-center">
-                                <span>SSL_ENCRYPTION</span>
-                                <span className="text-emerald-700 font-bold">‚óè SHA-256 TLS Active</span>
-                              </div>
-                              <div className="flex justify-between items-center">
-                                <span>CONTAINER_PORT</span>
-                                <span className="text-indigo-700 font-bold">‚óè Bind 3000 Ingress</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                </div>
-              )}
-
-        </main>
-
-      </div>
-
-      {/* -------------------------------------------------------------
-          MUTATION MODALS (STUDENT / TEACHER CREATE FORMS)
-          ------------------------------------------------------------- */}
-
-      {/* 1. Add Student Modal */}
-      {showAddStudent && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full overflow-hidden">
-            <div className="bg-indigo-600 text-white p-5 flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-base">Admit New Student folder</h3>
-                <p className="text-[11px] text-indigo-100 mt-0.5">Configure demographic details and placement divisions</p>
-              </div>
-              <button 
-                onClick={() => setShowAddStudent(false)}
-                className="text-white hover:text-slate-100 font-bold text-sm bg-indigo-700/50 p-1.5 rounded-lg"
-              >
-                ‚úï
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateStudent} className="p-6 space-y-4 text-xs font-sans text-slate-700">
-              <div className="space-y-1">
-                <label className="font-bold tracking-wide uppercase text-[10px] text-slate-550">Legal Full Name</label>
-                <input 
-                  type="text"
-                  required
-                  placeholder="e.g. Liam Anderson"
-                  value={newStudentForm.name}
-                  onChange={(e) => setNewStudentForm(f => ({ ...f, name: e.target.value }))}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-900 outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold tracking-wide uppercase text-[10px] text-slate-550">School Division Stage</label>
-                  <select
-                    value={newStudentForm.level}
-                    onChange={(e) => {
-                      const lev = e.target.value as 'nursery' | 'primary' | 'secondary';
-                      const defaultGrade = lev === 'nursery' ? 'K1 (Ages 3-4)' : lev === 'primary' ? 'Grade 3' : 'Grade 10';
-                      setNewStudentForm(f => ({ ...f, level: lev, grade: defaultGrade }));
-                    }}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs"
-                  >
-                    <option value="nursery">Nursery school</option>
-                    <option value="primary">Primary school</option>
-                    <option value="secondary">Secondary school</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-bold tracking-wide uppercase text-[10px] text-slate-550">Class Placement</label>
-                  {newStudentForm.level === 'nursery' ? (
-                    <select
-                      value={newStudentForm.grade}
-                      onChange={(e) => setNewStudentForm(f => ({ ...f, grade: e.target.value }))}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-900"
-                    >
-                      <option value="Preschool (Ages 2-3)">Preschool (Ages 2-3)</option>
-                      <option value="K1 (Ages 3-4)">K1 (Ages 3-4)</option>
-                      <option value="K2 (Ages 4-5)">K2 (Ages 4-5)</option>
-                    </select>
-                  ) : newStudentForm.level === 'primary' ? (
-                    <select
-                      value={newStudentForm.grade}
-                      onChange={(e) => setNewStudentForm(f => ({ ...f, grade: e.target.value }))}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-900"
-                    >
-                      <option value="Grade 1">Grade 1</option>
-                      <option value="Grade 2">Grade 2</option>
-                      <option value="Grade 3">Grade 3</option>
-                      <option value="Grade 4">Grade 4</option>
-                      <option value="Grade 5">Grade 5</option>
-                    </select>
-                  ) : (
-                    <select
-                      value={newStudentForm.grade}
-                      onChange={(e) => setNewStudentForm(f => ({ ...f, grade: e.target.value }))}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-900"
-                    >
-                      <option value="Grade 9">Grade 9</option>
-                      <option value="Grade 10">Grade 10</option>
-                      <option value="Grade 11">Grade 11</option>
-                      <option value="Grade 12">Grade 12</option>
-                    </select>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold tracking-wide uppercase text-[10px] text-slate-550">Division Room Section</label>
-                  <input 
-                    type="text"
-                    placeholder="e.g. A"
-                    value={newStudentForm.classSection}
-                    onChange={(e) => setNewStudentForm(f => ({ ...f, classSection: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-900 outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-bold tracking-wide uppercase text-[10px] text-slate-550">Behavioral Standard</label>
-                  <select
-                    value={newStudentForm.behaviorRating}
-                    onChange={(e) => setNewStudentForm(f => ({ ...f, behaviorRating: e.target.value as any }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-900"
-                  >
-                    <option value="Excellent">Excellent</option>
-                    <option value="Good">Good</option>
-                    <option value="Needs Improvement">Needs Improvement</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Optional Islamia Course Selection */}
-              <div className="space-y-1 bg-emerald-50/35 border border-emerald-150 p-3.5 rounded-xl font-sans">
-                <label className="font-bold tracking-widest uppercase text-[9.5px] text-emerald-850 block">
-                  üåô Islamia Wing Enrollment (Optional Program)
-                </label>
-                <select
-                  value={newStudentForm.islamiaClassId}
-                  onChange={(e) => setNewStudentForm(f => ({ ...f, islamiaClassId: e.target.value }))}
-                  className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs text-teal-800 font-bold cursor-pointer font-sans"
-                >
-                  <option value="">-- No Enrollment / Secular Only --</option>
-                  {classes
-                    .filter(c => c.level === 'islamia' && (!c.branch || c.branch === selectedBranch))
-                    .map(c => (
-                      <option key={c.id} value={c.id}>Islamia: {c.name}</option>
-                    ))}
-                </select>
-                <p className="text-[9px] text-slate-455 leading-tight mt-1">
-                  Enrolling the student links them to theological classes. Their results will print separately on their combined card.
-                </p>
-              </div>
-
-              {/* Registration & Serial Code Config */}
-              <div className="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100/80 space-y-2.5">
-                <span className="font-extrabold tracking-wider uppercase text-[9px] text-indigo-805 block">Admission Registration Format Code config</span>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="space-y-1">
-                    <label className="text-[9px] text-slate-400 uppercase font-bold">Admission Session</label>
-                    <select
-                      value={newStudentForm.sessionYear}
-                      onChange={(e) => setNewStudentForm(f => ({ ...f, sessionYear: e.target.value }))}
-                      className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs text-slate-900 focus:ring-1 focus:ring-indigo-500 outline-none font-semibold"
-                    >
-                      <option value="20">2020-2021 (Code 20)</option>
-                      <option value="21">2021-2022 (Code 21)</option>
-                      <option value="22">2022-2023 (Code 22)</option>
-                      <option value="23">2023-2024 (Code 23)</option>
-                      <option value="24">2024-2025 (Code 24)</option>
-                      <option value="25">2025-2026 (Code 25)</option>
-                      <option value="26">2026-2027 (Code 26)</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] text-slate-400 uppercase font-bold">Unique Serial</label>
-                    <input 
-                      type="number"
-                      placeholder={`Auto: ${students.reduce((max, s) => Math.max(max, Number(s.serialNumber) || 0), 1000) + 1}`}
-                      value={newStudentForm.serialNumber}
-                      onChange={(e) => setNewStudentForm(f => ({ ...f, serialNumber: e.target.value }))}
-                      className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs text-slate-900 focus:ring-1 focus:ring-indigo-500 outline-none font-mono"
-                      title="Unique sequential serial allocated globally"
-                    />
-                  </div>
-                </div>
-
-                <div className="bg-indigo-600 text-white rounded-lg p-2.5 flex justify-between items-center shadow-xs">
-                  <div>
-                    <span className="text-[8px] text-indigo-200 uppercase tracking-widest block font-bold leading-none">Admission Registration Number Preview</span>
-                    <span className="font-mono text-xs font-black tracking-wider block mt-0.5">
-                      {`${selectedBranch || "GN"}${newStudentForm.sessionYear || "26"}${getLiveClassCode(newStudentForm.grade)}${String(newStudentForm.serialNumber ? newStudentForm.serialNumber : (students.reduce((max, s) => Math.max(max, Number(s.serialNumber) || 0), 1000) + 1)).padStart(3, "0")}`}
-                    </span>
-                  </div>
-                  <div className="text-[8px] bg-indigo-700/80 px-1.5 py-0.5 rounded font-mono font-bold uppercase">
-                    Class code: {getLiveClassCode(newStudentForm.grade)}
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2.5- pt-2 border-t border-slate-100 flex flex-col space-y-3">
-                <span className="font-bold tracking-wide uppercase text-[10px] text-slate-550">Guardian Emergency Credentials</span>
-                
-                <div className="space-y-1">
-                  <span className="text-[10px] text-slate-400">Guardian Name</span>
-                  <input 
-                    type="text"
-                    required
-                    placeholder="e.g. Mrs. Mary Anderson"
-                    value={newStudentForm.parentName}
-                    onChange={(e) => setNewStudentForm(f => ({ ...f, parentName: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-900 outline-none"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-slate-400">Guardian Email</span>
-                    <input 
-                      type="email"
-                      required
-                      placeholder="guardian@example.com"
-                      value={newStudentForm.parentEmail}
-                      onChange={(e) => setNewStudentForm(f => ({ ...f, parentEmail: e.target.value }))}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-900 font-mono outline-none"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-slate-400">Emergency Phone</span>
-                    <input 
-                      type="text"
-                      required
-                      placeholder="+1 (555) 0122"
-                      value={newStudentForm.parentPhone}
-                      onChange={(e) => setNewStudentForm(f => ({ ...f, parentPhone: e.target.value }))}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-900 font-mono outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-4 flex justify-end space-x-2">
-                <button 
-                  type="button"
-                  onClick={() => setShowAddStudent(false)}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer"
-                >
-                  Cancel Allocation
-                </button>
-                <button 
-                  type="submit"
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-2' rounded-xl shadow-md cursor-pointer"
-                >
-                  Admit Student Record
-                </button>
-              </div>
-
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 1b. Bulk Student Import Modal */}
-      {showBulkImport && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="bg-emerald-600 text-white p-5 flex items-center justify-between shrink-0">
-              <div>
-                <h3 className="font-bold text-base flex items-center gap-1.5">
-                  <UploadCloud className="w-5 h-5 shrink-0" />
-                  <span>Previous Portal Bulk Import Portal</span>
-                </h3>
-                <p className="text-[11px] text-emerald-100 mt-0.5">Import student ledger profiles in bulk. Autocorrelates unique serial numbers and class format structures.</p>
-              </div>
-              <button 
-                onClick={() => setShowBulkImport(false)}
-                className="text-white hover:text-slate-100 font-bold text-sm bg-emerald-700/50 p-1.5 rounded-lg"
-              >
-                ‚úï
-              </button>
-            </div>
-
-            <div className="p-6 overflow-y-auto space-y-4 text-xs text-slate-700 flex-1 w-full max-w-full">
-              <div className="bg-emerald-50 text-emerald-850 p-3.5 rounded-xl border border-emerald-100 leading-relaxed text-[11px] space-y-1">
-                <span className="font-bold block text-xs text-emerald-900">üí° Formatting Information:</span>
-                <p>
-                  Paste a list of student folders (one full name per line). The system assigns consecutive serial numbers starting from the designated number, and automatically computes structured admission registration numbers using the formula:
-                </p>
-                <div className="bg-white/80 font-mono px-2 py-1 rounded text-[10px] mt-1 text-slate-700 border border-emerald-200">
-                  {"[Branch GN/RS][Session (2 digits)][Class Code (2 digits)][Global Serial Number (3+ digits)]"}
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-[10px] pt-1 text-emerald-905">
-                  <div>‚Ä¢ Nursery 1-3 classes map to: <b className="font-mono text-emerald-900">01, 02, 03</b></div>
-                  <div>‚Ä¢ Primary 1-6 classes map to: <b className="font-mono text-emerald-900">04, 05, 06, 07, ...</b></div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold tracking-wide uppercase text-[10px] text-slate-550">Destination Branch</label>
-                  <select
-                    value={bulkImportBranch}
-                    onChange={(e) => setBulkImportBranch(e.target.value as 'GN' | 'RS')}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-900 outline-none"
-                  >
-                    <option value="GN">Gawun Nama campus (GN)</option>
-                    <option value="RS">Runjin Sambo campus (RS)</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-bold tracking-wide uppercase text-[10px] text-slate-550">Admission Session Of Entry</label>
-                  <select
-                    value={bulkImportSession}
-                    onChange={(e) => setBulkImportSession(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-900 outline-none font-semibold"
-                  >
-                    <option value="20">2020-2021 session (Code 20)</option>
-                    <option value="21">2021-2022 session (Code 21)</option>
-                    <option value="22">2022-2023 session (Code 22)</option>
-                    <option value="23">2023-2024 session (Code 23)</option>
-                    <option value="24">2024-2025 session (Code 24)</option>
-                    <option value="25">2025-2026 session (Code 25)</option>
-                    <option value="26">2026-2027 session (Code 26)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold tracking-wide uppercase text-[10px] text-slate-550">Division Stage</label>
-                  <select
-                    value={bulkImportLevel}
-                    onChange={(e) => {
-                      const lev = e.target.value as 'nursery' | 'primary' | 'secondary';
-                      const defaultGrade = lev === 'nursery' ? 'K1 (Ages 3-4)' : lev === 'primary' ? 'Grade 1' : 'Grade 9';
-                      setBulkImportLevel(lev);
-                      setBulkImportGrade(defaultGrade);
-                    }}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-900 outline-none"
-                  >
-                    <option value="nursery">Nursery school</option>
-                    <option value="primary">Primary school</option>
-                    <option value="secondary">Secondary school</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-bold tracking-wide uppercase text-[10px] text-slate-550">Class Grade</label>
-                  {bulkImportLevel === 'nursery' ? (
-                    <select
-                      value={bulkImportGrade}
-                      onChange={(e) => setBulkImportGrade(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-900"
-                    >
-                      <option value="Preschool (Ages 2-3)">Preschool (Ages 2-3)</option>
-                      <option value="K1 (Ages 3-4)">K1 (Ages 3-4)</option>
-                      <option value="K2 (Ages 4-5)">K2 (Ages 4-5)</option>
-                    </select>
-                  ) : bulkImportLevel === 'primary' ? (
-                    <select
-                      value={bulkImportGrade}
-                      onChange={(e) => setBulkImportGrade(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-900"
-                    >
-                      <option value="Grade 1">Grade 1</option>
-                      <option value="Grade 2">Grade 2</option>
-                      <option value="Grade 3">Grade 3</option>
-                      <option value="Grade 4">Grade 4</option>
-                      <option value="Grade 5">Grade 5</option>
-                    </select>
-                  ) : (
-                    <select
-                      value={bulkImportGrade}
-                      onChange={(e) => setBulkImportGrade(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-900"
-                    >
-                      <option value="Grade 9">Grade 9</option>
-                      <option value="Grade 10">Grade 10</option>
-                      <option value="Grade 11">Grade 11</option>
-                      <option value="Grade 12">Grade 12</option>
-                    </select>
-                  )}
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-bold tracking-wide uppercase text-[10px] text-slate-550">Starting Serial Number</label>
-                  <input 
-                    type="number"
-                    placeholder={`Auto: ${students.reduce((max, s) => Math.max(max, Number(s.serialNumber) || 0), 1000) + 1}`}
-                    value={bulkImportStartSerial}
-                    onChange={(e) => setBulkImportStartSerial(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-900 font-mono outline-none"
-                    title="Manual starting serial code or automatic standard"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-bold tracking-wide uppercase text-[10px] text-slate-505">Student Names Ledger (one per line)</label>
-                <textarea
-                  rows={4}
-                  value={bulkImportNames}
-                  onChange={(e) => setBulkImportNames(e.target.value)}
-                  placeholder="e.g.&#10;Abubakar Bello&#10;Zaynab Umar&#10;Bashir Ibrahim"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-950 font-mono outline-none focus:ring-1 focus:ring-emerald-500 h-28"
-                />
-              </div>
-
-              {/* Import Preview Grid */}
-              {bulkImportNames.trim() && (
-                <div className="space-y-2 pt-2 border-t border-slate-100">
-                  <span className="font-bold tracking-wide uppercase text-[10px] text-slate-555 block">Preview Of Allocated Registration Records ({bulkImportNames.split('\n').filter(n => n.trim()).length})</span>
-                  <div className="bg-slate-50 rounded-xl p-2.5 max-h-40 overflow-y-auto border border-slate-200/60 font-mono text-[10px] text-slate-600 divide-y divide-slate-200/40">
-                    {bulkImportNames.split('\n').filter(n => n.trim()).map((name, idx2) => {
-                      const classCode = getLiveClassCode(bulkImportGrade);
-                      const baseSerial = Number(bulkImportStartSerial) || (students.reduce((max, s) => Math.max(max, Number(s.serialNumber) || 0), 1000) + 1);
-                      const allocatedSerial = baseSerial + idx2;
-                      const uniqueAdmissionNo = `${bulkImportBranch}${bulkImportSession}${classCode}${String(allocatedSerial).padStart(3, '0')}`;
-                      return (
-                        <div key={idx2} className="py-1.5 flex justify-between items-center pr-1">
-                          <span className="font-semibold text-slate-800 text-[11px] truncate w-2/5">{name.trim()}</span>
-                          <span className="text-slate-400 text-[9px]">{bulkImportGrade} (Code {classCode})</span>
-                          <span className="text-slate-400 text-[9px]">Serial: #{allocatedSerial}</span>
-                          <span className="bg-emerald-105 text-emerald-800 font-extrabold px-1.5 py-0.5 rounded leading-none text-[9.5px]">{uniqueAdmissionNo}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="p-4 bg-slate-50 border-t border-slate-250 flex justify-end space-x-2 shrink-0">
-              <button 
-                type="button"
-                onClick={() => {
-                  setShowBulkImport(false);
-                }}
-                className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer text-xs animate-none"
-              >
-                Dismiss Window
-              </button>
-              <button 
-                type="button"
-                disabled={!bulkImportNames.trim()}
-                onClick={async () => {
-                  const names = bulkImportNames.split('\n').filter(n => n.trim());
-                  if (names.length === 0) return;
-                  
-                  const startSerialNum = Number(bulkImportStartSerial) || (students.reduce((max, s) => Math.max(max, Number(s.serialNumber) || 0), 1000) + 1);
-                  
-                  const importedStudents: Student[] = [];
-                  let successCount = 0;
-                  
-                  for (let i = 0; i < names.length; i++) {
-                    const studentName = names[i].trim();
-                    const currentSerial = startSerialNum + i;
-                    
-                    const classCode = getLiveClassCode(bulkImportGrade);
-                    const constructedAdm = `${bulkImportBranch}${bulkImportSession}${classCode}${String(currentSerial).padStart(3, '0')}`;
-                    
-                    const initialMilestones = bulkImportLevel === 'nursery' ? {
-                      "Fine Motor Skills (pencil grip, scissor cuts)": "Introduced",
-                      "Social Sharing & Interaction": "Introduced",
-                      "Count up to 10 & Pattern Recognition": "Introduced",
-                      "Expressive Communication & Vocabulary": "Introduced",
-                      "Listening & Task Completion": "Introduced"
-                    } : {};
-
-                    const initialGrades = bulkImportLevel !== 'nursery' ? {
-                      "Mathematics": 80,
-                      "Science": 85,
-                      "English Language": 80,
-                      "Social Studies": 80,
-                      "Creative Arts": 80
-                    } : {};
-                    
-                    const studentPayload = {
-                      name: studentName,
-                      level: bulkImportLevel,
-                      grade: bulkImportGrade,
-                      classSection: bulkImportSection,
-                      parentName: `Guardian of ${studentName}`,
-                      parentEmail: `parent.${studentName.toLowerCase().replace(/\s+/g, '')}@example.com`,
-                      parentPhone: "+234 " + Math.floor(8000000000 + Math.random() * 100000000),
-                      behaviorRating: 'Good' as const,
-                      serialNumber: currentSerial,
-                      sessionYear: bulkImportSession,
-                      milestones: initialMilestones,
-                      grades: initialGrades,
-                      admissionDate: new Date().toISOString().split('T')[0],
-                      admissionStatus: "Active",
-                      enrollmentNo: constructedAdm,
-                      profile: {
-                        gender: (i % 2 === 0 ? "Male" : "Female"),
-                        dob: "2018-05-15",
-                        address: bulkImportBranch === 'GN' ? "Gawun Nama Area, Kano Road, Sokoto" : "opp. Sambo Primary School, Runjin Sambo, Sokoto",
-                        bloodGroup: "O+"
-                      },
-                      attendanceLogs: [
-                        { date: new Date().toISOString().split('T')[0], status: "Present" }
-                      ],
-                      academicProgression: [],
-                      branch: bulkImportBranch
-                    };
-                    
-                    try {
-                      const res = await fetch('/api/students', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(studentPayload)
-                      });
-                      if (res.ok) {
-                        const data = await res.json();
-                        importedStudents.push(data);
-                        successCount++;
-                      }
-                    } catch (e) {
-                      console.error(`Error importing ${studentName}`, e);
-                    }
-                  }
-                  
-                  if (successCount > 0) {
-                    setStudents(prev => [...prev, ...importedStudents]);
-                    alert(`Successfully imported ${successCount} out of ${names.length} student records!`);
-                    setShowBulkImport(false);
-                    setBulkImportNames('');
-                    setBulkImportStartSerial('');
-                  } else {
-                    alert('Failed to import students. Please verify server connectivity.');
-                  }
-                }}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2 rounded-xl shadow-md cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Execute Bulk Import to Registry ({bulkImportNames.split('\n').filter(n => n.trim()).length} Students)
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 2. Onboard Teacher Modal */}
-      {showAddTeacher && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full overflow-hidden">
-            <div className="bg-indigo-600 text-white p-5 flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-base">Onboard Faculty Member</h3>
-                <p className="text-[11px] text-indigo-100 mt-0.5">Assign specialized subjects and target school divisions</p>
-              </div>
-              <button 
-                onClick={() => setShowAddTeacher(false)}
-                className="text-white hover:text-slate-100 font-bold text-sm bg-indigo-700/50 p-1.5 rounded-lg"
-              >
-                ‚úï
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateTeacher} className="p-6 space-y-4 text-xs font-sans text-slate-700">
-              
-              <div className="space-y-1">
-                <label className="font-bold tracking-wide uppercase text-[10px] text-slate-550">Faculty Full Name</label>
-                <input 
-                  type="text"
-                  required
-                  placeholder="e.g. Mrs. Jane Doe"
-                  value={newTeacherForm.name}
-                  onChange={(e) => setNewTeacherForm(f => ({ ...f, name: e.target.value }))}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold tracking-wide uppercase text-[10px] text-slate-550">Faculty Email ID</label>
-                  <input 
-                    type="email"
-                    required
-                    placeholder="jdoe@school.edu"
-                    value={newTeacherForm.email}
-                    onChange={(e) => setNewTeacherForm(f => ({ ...f, email: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-mono outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="font-bold tracking-wide uppercase text-[10px] text-slate-550">Contact Phone Number</label>
-                  <input 
-                    type="text"
-                    placeholder="+1 (555) 7622"
-                    value={newTeacherForm.phone}
-                    onChange={(e) => setNewTeacherForm(f => ({ ...f, phone: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-mono outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold tracking-wide uppercase text-[10px] text-slate-550">Staff Category / Role</label>
-                  <select
-                    value={newTeacherForm.role}
-                    onChange={(e) => setNewTeacherForm(f => ({ ...f, role: e.target.value as any }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer font-semibold"
-                  >
-                    <option value="teaching">Teaching Staff</option>
-                    <option value="non-teaching">Non-Teaching Staff</option>
-                    <option value="management">Management Staff</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="font-bold tracking-wide uppercase text-[10px] text-slate-550">Custom User ID (Optional)</label>
-                  <input 
-                    type="text"
-                    placeholder="e.g. EMP-2201"
-                    value={newTeacherForm.userId}
-                    onChange={(e) => setNewTeacherForm(f => ({ ...f, userId: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-mono outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold tracking-wide uppercase text-[10px] text-slate-550">Access Control Level</label>
-                  <select
-                    value={newTeacherForm.accessControl}
-                    onChange={(e) => setNewTeacherForm(f => ({ ...f, accessControl: e.target.value as any }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer font-semibold"
-                  >
-                    <option value="Staff/Teacher">Staff / Teacher</option>
-                    <option value="Admin">Administrator (Admin)</option>
-                    <option value="Manager">Manager / Director</option>
-                    <option value="Guest">Guest / External Auditor</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="font-bold tracking-wide uppercase text-[10px] text-slate-550">Initial Productivity Rating</label>
-                  <input 
-                    type="number"
-                    min="1"
-                    max="100"
-                    placeholder="e.g. 85%"
-                    value={newTeacherForm.performanceScore}
-                    onChange={(e) => setNewTeacherForm(f => ({ ...f, performanceScore: Number(e.target.value) }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-mono outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
-                </div>
-              </div>
-
-              {newTeacherForm.role === 'teaching' ? (
-                <div className="space-y-4 animate-fade-in bg-slate-50 p-3 rounded-xl border border-slate-100 mt-2">
-                  <div className="space-y-1">
-                    <label className="font-bold tracking-wide uppercase text-[10px] text-indigo-700 block">Workload Cap (Max Units/Week)</label>
-                    <input 
-                      type="number"
-                      min="1"
-                      placeholder="e.g. 25"
-                      value={newTeacherForm.maxUnits}
-                      onChange={(e) => setNewTeacherForm(f => ({ ...f, maxUnits: Number(e.target.value) }))}
-                      className="w-full bg-white border border-slate-250 rounded-lg p-2 text-xs font-bold outline-none focus:ring-1 focus:ring-indigo-500"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="font-bold tracking-wide uppercase text-[10px] text-slate-550 block">Assigned Divisions</label>
-                    <div className="flex space-x-4">
-                      {['nursery', 'primary', 'secondary'].map(lev => (
-                        <label key={lev} className="flex items-center space-x-1.5 font-semibold text-slate-700">
-                          <input 
-                            type="checkbox"
-                            checked={newTeacherForm.level.includes(lev)}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setNewTeacherForm(f => {
-                                const copy = [...f.level];
-                                if (checked) copy.push(lev);
-                                else return { ...f, level: copy.filter(l => l !== lev) };
-                                return { ...f, level: copy };
-                              });
-                            }}
-                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                          />
-                          <span className="capitalize">{lev}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-bold tracking-wide uppercase text-[10px] text-slate-550">Subjects Specialities (comma separated)</label>
-                    <input 
-                      type="text"
-                      placeholder="e.g. Biology, Chemistry, Physics"
-                      value={newTeacherForm.subjectsString}
-                      onChange={(e) => setNewTeacherForm(f => ({ ...f, subjectsString: e.target.value }))}
-                      className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs outline-none focus:ring-1 focus:ring-indigo-500"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-bold tracking-wide uppercase text-[10px] text-slate-550">Classes Assigned (comma separated)</label>
-                    <input 
-                      type="text"
-                      placeholder="e.g. Primary 1 Gold, Grade 5"
-                      value={newTeacherForm.classesString}
-                      onChange={(e) => setNewTeacherForm(f => ({ ...f, classesString: e.target.value }))}
-                      className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs outline-none focus:ring-1 focus:ring-indigo-500"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-amber-50 border border-amber-200/50 p-3 rounded-xl text-[11px] text-amber-800 space-y-1">
-                  <p className="font-bold">üíº Non-Teaching/Management Mode</p>
-                  <p className="text-amber-700/80">This profile will bypass academic workload limits and target division assignments, focusing on payroll audits, attendance ledgers, and role-based access controls.</p>
-                </div>
-              )}
-
-              <div className="pt-4 flex justify-end space-x-2 border-t border-slate-100">
-                <button 
-                  type="button"
-                  onClick={() => setShowAddTeacher(false)}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-2 rounded-xl shadow-md cursor-pointer"
-                >
-                  Onboard Faculty
-                </button>
-              </div>
-
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 3. Custom Staff Exit & Status Control Modal */}
-      {showStaffExitModal && exitModalTeacher && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-xl border border-slate-200 max-w-lg w-full overflow-hidden">
-            
-            <div className="bg-rose-750 text-white p-5 flex items-center justify-between bg-gradient-to-r from-rose-700 to-rose-800">
-              <div>
-                <h3 className="font-bold text-base flex items-center space-x-1.5">
-                  <ShieldAlert className="w-5 h-5" />
-                  <span>Personnel Status &amp; Exit Control</span>
-                </h3>
-                <p className="text-[11px] text-rose-100 mt-0.5">
-                  Manage registry status for <span className="font-bold underline">{exitModalTeacher.name}</span>
-                </p>
-              </div>
-              <button 
-                onClick={() => {
-                  setShowStaffExitModal(false);
-                  setExitModalTeacher(null);
-                }}
-                className="text-white hover:text-slate-100 font-bold text-base bg-rose-800/50 p-1.5 rounded-lg w-8 h-8 flex items-center justify-center outline-none cursor-pointer"
-              >
-                ‚úï
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4 text-xs text-slate-705">
-              <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 space-y-2">
-                <span className="font-bold text-slate-400 block text-[9px] uppercase tracking-wider">Current Registry Details</span>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <span className="text-slate-400 block text-[9px]">FULL NAME</span>
-                    <span className="font-bold text-slate-800">{exitModalTeacher.name}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[9px]">ROLE / ASSIGNMENT</span>
-                    <span className="font-bold text-slate-800">{exitModalTeacher.role || 'Faculty'}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[9px]">STAFF ID</span>
-                    <span className="font-mono text-slate-600 font-bold">{exitModalTeacher.id}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[9px]">CURRENT STATUS</span>
-                    <span className={`font-bold inline-block px-2 py-0.5 rounded text-[10px] uppercase border ${
-                      (exitModalTeacher.status || 'Active') === 'Active' 
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-250' 
-                        : (exitModalTeacher.status || 'Active') === 'Terminated'
-                        ? 'bg-rose-50 text-rose-700 border-rose-250 font-extrabold animate-pulse'
-                        : 'bg-orange-50 text-orange-755 border-orange-250'
-                    }`}>
-                      {exitModalTeacher.status || 'Active'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <span className="font-bold text-slate-800 block text-[11px]">Select Target Status Action</span>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setExitModalTeacher({ ...exitModalTeacher, status: 'Active' });
-                    }}
-                    className={`p-3 border rounded-xl flex flex-col items-center justify-center space-y-1 text-center transition-all cursor-pointer ${
-                      (exitModalTeacher.status || 'Active') === 'Active'
-                        ? 'bg-emerald-50 text-emerald-800 border-emerald-500 ring-2 ring-emerald-200'
-                        : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-205'
-                    }`}
-                  >
-                    <span className="text-base">üü¢</span>
-                    <span className="font-bold text-[10px]">Active</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setExitModalTeacher({ ...exitModalTeacher, status: 'Deactivated' });
-                    }}
-                    className={`p-3 border rounded-xl flex flex-col items-center justify-center space-y-1 text-center transition-all cursor-pointer ${
-                      exitModalTeacher.status === 'Deactivated'
-                        ? 'bg-orange-55 text-orange-850 border-orange-500 ring-2 ring-orange-200'
-                        : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-205'
-                    }`}
-                  >
-                    <span className="text-base">üü†</span>
-                    <span className="font-bold text-[10px]">Deactivate</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setExitModalTeacher({ ...exitModalTeacher, status: 'Terminated' });
-                    }}
-                    className={`p-3 border rounded-xl flex flex-col items-center justify-center space-y-1 text-center transition-all cursor-pointer ${
-                      exitModalTeacher.status === 'Terminated'
-                        ? 'bg-rose-55 text-rose-855 border-rose-500 ring-2 ring-rose-200'
-                        : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-205'
-                    }`}
-                  >
-                    <span className="text-base">üî¥</span>
-                    <span className="font-bold text-[10px]">Terminate</span>
-                  </button>
-                </div>
-              </div>
-
-              {((exitModalTeacher.status === 'Deactivated') || (exitModalTeacher.status === 'Terminated')) && (
-                <div className="space-y-1.5">
-                  <label className="text-[10px] text-rose-700 uppercase tracking-wider block font-bold">
-                    Reason for {(exitModalTeacher.status as string).toUpperCase()} <span className="text-rose-500">*</span>
-                  </label>
-                  <textarea
-                    rows={3}
-                    placeholder="Specify official reason (e.g. voluntary retirement, breach of administrative protocols, branch consolidation...)"
-                    value={exitModalTeacher.statusChangeReason || ''}
-                    onChange={(e) => setExitModalTeacher({ ...exitModalTeacher, statusChangeReason: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-250 rounded-lg p-2.5 text-xs text-rose-950 focus:ring-1 focus:ring-rose-500 outline-none font-sans font-medium"
-                    required
-                  />
-                </div>
-              )}
-
-              <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl space-y-1.5 text-amber-900 leading-relaxed font-sans mt-2">
-                <p className="font-bold flex items-center gap-1">
-                  <span>‚ÑπÔ∏è</span> 
-                  <span>Staff Exit Policy Guidelines</span>
-                </p>
-                <p className="text-[11px] text-amber-800 font-medium">
-                  Deactivated and Terminated staff profiles will be retained securely in SAMS directory archives for historical audit requirements and direct deposit ledger reconciliation. Permanent profile deletion is restricted.
-                </p>
-              </div>
-
-              <div className="flex justify-between items-center pt-4 border-t border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (confirm(`‚ö†Ô∏è CRITICAL ACTION WARNING\n\nAre you sure you want to permanently delete this record from SAMS? This bypasses standard deactivation safety controls.`)) {
-                      handleDeleteTeacher(exitModalTeacher.id);
-                      setShowStaffExitModal(false);
-                      setExitModalTeacher(null);
-                    }
-                  }}
-                  className="bg-transparent hover:bg-rose-50 text-rose-600 font-bold px-3 py-1.5 rounded-lg text-[10px] transition-all cursor-pointer"
-                  title="Force bypass and purge permanently"
-                >
-                  Purge Permanently
-                </button>
-
-                <div className="flex space-x-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowStaffExitModal(false);
-                      setExitModalTeacher(null);
-                    }}
-                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (((exitModalTeacher.status === 'Deactivated') || (exitModalTeacher.status === 'Terminated')) && !exitModalTeacher.statusChangeReason?.trim()) {
-                        alert("Please provide the reason for status change.");
-                        return;
-                      }
-
-                      // Apply changes and save!
-                      const updated = { ...exitModalTeacher };
-                      setSelectedTeacher(updated);
-                      
-                      // Save back to DB!
-                      saveTeacherChanges(updated);
-
-                      setShowStaffExitModal(false);
-                      setExitModalTeacher(null);
-                      alert(`Registry profile updated successfully: Status set to ${updated.status}.`);
-                    }}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 py-2 rounded-xl shadow-md transition-colors cursor-pointer"
-                  >
-                    Update Registry Status
-                  </button>
-                </div>
-              </div>
-
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* Footer System labels */}
-      <footer className="bg-white border-t border-slate-100 py-4 px-6 text-center text-[10px] text-slate-400 font-mono flex flex-col sm:flex-row justify-between items-center gap-1">
-        <p>¬© 2026 Academic ERP. Cloud Registry Port: 3000 status green.</p>
-        <p>Integrates Gemini 3.5 Assistant Services for Student comment draft optimization.</p>
-      </footer>
-
-    </div>
-  );
-}
+           xúÏ}[sIvﬁªE14FË∆Ö…ÅLÄ HbEÇ0‹âcbß∫+ÅÆeuUm]Ùb±/äpÿí÷“*lKñcÏıã#¸ÍPË¡o˛'˚¥?¡yÚRïu?Ÿ› Å!*váËÓ™¨ºú<yÆﬂ!§ˆ
+ÈGáû”pìxÙ¸ÑZ√èhxz,øˇ7ıèf◊’“ü°Ó˙^ì$∞≠ò⁄dã\í^ØQóŸg˘Úe∞◊˚·ÿÚÜtSˆ/"W∏7D4ÓÁ€Î»◊!ªY©|rwdyg42mÄ∆áπô‹ı«cÍ≈ù≈EdñK√∏≥∞°ÂDñÀÊ √ò≠–Ê˝≥â„≈>âbÎÙîÿN»ÜÎáìﬁ™˝´+ƒMC◊ä¢CkL∑g]:¶°Â⁄›«´´d‰dƒ¢}˘Ñ}”ã∏{>rbJN}/Ó|◊&¡§ª÷€ ¡E˜	˝ƒ≥©›uœƒΩ&a‰á›¿gc°!âFñÌü≥Zª∑ç L∫ì£åîH:ü≠è?[$qÏ{m/z∂b;õoí∑4ﬁsπÚU÷92r"∂öŒê˝≈!µ∆ƒeﬂ8ﬁ˘j•yÈû±WVN¨…¿m6≈‚ün‰2jÓÆØÆÆ<^%Aw#]úı7[÷êv'›G≠”0z®øñ/p4÷(A|√_˚îQÀ©K/Î◊8Í©X|˛Æ†ó÷∑±˜Ìú√N–^yŒHlƒ˛œ_dçlî´´d—{∑∑ΩìÿåZœcˇŸLE§üå«V8y∂¬oi•Ö—√ñuf+›yP‡v=çŸë_ˇö4¸‹s©wè»÷÷Y]"ﬂêN˚‡
+[rΩ@∂ç®\#π⁄z=RªõQÑ¢ìwa˚–◊	UÑ•(9"÷GÀq≠ÅK{l?zv2åâÂãœuI«#J\zxºáÿOÑ,ëÕ)FÆ®˘!„HcÎ¢;Í~˝ò +;uπO∫V¬jv◊Ù«÷±iô∆V–ÈßKdk——¥≥ËdÎ28Ì9ˆUaãïÿX≠ﬁ«r√»≤J∑Ô∫Z>‘¿™¶éo◊_$åùN∫üSÍ…ÌÀN†0F7,ö∆ﬂ-7gÆ/yû‚x∂sÊ≥#hÉ\¯aa[n·¡dì¿d*ÈÊ
+∑âﬂÕﬂ¯~m5∏¯Æ∏Cx∑∆æÁ∫±«n	¬∏®˝†›^µpyñò1eÉUcÙæÜ÷§w˙„Œ%|hì¿¸Z¸d∫ZTˇÛe‚ÿîüvùO6ﬂ¨Å´Ì?¸óø4_±•%åh”<¶“Ω∆qïèIu/\ˇêç®…ÏÊ†f` 0¶RH–]◊Xì%;s©e≥…ÓÜ‘µ.®	a¬∆
+È;œV\˚Ë	¿,Ó`këÓZ%…ñ∑∞ˆkÙqèºﬁÔ˜ﬂí£◊;á}Úˆ¯ÂŒ·¡_Ï7
+ûó±8_0ûB√k¿ÂìEóFSˆ…ó_6nô"œ:õ¿∫Cﬂç∫kdlofí3+Ë>n!ëVa˚5Ô	\êFl†A8ºÔÂkıæÁæˇ·m@ΩZ[ûªèçdÏ#üÈ˛L5V”øÎ3ê¬"ÃQ¬~∆W“˜˙…ÄÈ[ó πˆeki/`¬õÆ=zj%n‹A(”Œ)È<Ëπ–	{Ì/ò`í|˛á?pÜKà~§ÍˇQËtlJTìñgﬁ
+±iÃ‰Í©Ôá4NBØ˝ŒÓ†.aæÅã»yﬂÎı:EAÿMG¡$ºˇnÈªˆWÛ{Aç:ò	rÏM≤‡›Úß‰çèzLÜ˜√ˇ3d”ƒÙ%ÚY[Öki—b$Êò€¿Jãâi‡,¥lZx¸%|áy8ÜU-<ÃWÛ∞œ˚Ë|,æ˝≠˙7~ÆÈñ∆œø≈4`sA7˜4»æ®w«VúDõdL L#≥… 
+}¨kâoÄ;≥.2Î£˘·2aáåu«˛ŸôKâZßq;y≥ÕÇ$6˚§F„õr7 ¨ì3Y&≠í≠O≥˘){?¶èá; g∫,>ÃÈ∫G9ıO˜hJ˜”=.i˜∞‰‘ö8·±√v»œ5≈•…ê["Åû¢d8d∑û&Æ;y–ŒºØÆ*˙|ãpµŒ•©uî¿ç◊‹üπ÷Ä∫e≈˘Î:Ωôã0\o&„`‘âO?[·Õ!_ÌxA7ÀŸOŸπÏ#lâátƒ%›≠⁄;Îë˛–°ﬁê∂≠≈ï®ÄHÖ}G ãLvyŸÚGÀMË÷e’Ü’ç|OñTj™c¥[·ç{¸•h4§øLúê⁄®€b•Åívì‰{¬ÁÜÏB∑ù|9èfí“Ì§_ﬁªπQØ8èÓÌbH¸>ÏNòùæπÚä≤ŸË€Ñ∫çiªLŸG#?ˆ£âèh‰DÑ	ípˆRÑ{ÆÎ¢Û**ÁÛâ£√VÇ”T4n@·ïˇ÷ëm?†CÁîQn*!ﬁJ‚}C≠(	)Ò/&g‘#á≤qúY$ÉÅ{È7ùœ9—p&¡OA«wí4ò÷&lÃægπô€Où+§÷5—u◊ÎdöçG69
+?Ün¬§ﬁè–˜«ƒÇÂvbáFÀ$äi¿˛kóÌXgû≈lœû˚·áhDiÒh¶ïOOØr~ÁD≠Ja¸Ù¥⁄hFøùöﬁ˛E¿"dè∫l√áÓ1Ωv°'h°yäÌí∫Ég~a&Ê&˚Bc”âüDñ·W”)_œà˚1ì]πò õ±°E∑©»ÇçU˝éÜP∑u=¯B¶…<>Öà7πb∂Z{éYÑ£d¿x„àº∞ÜâOîõñ±2ÿà7ØÃ'‰M3õAlQsbÍÇ€õå¡u¡}ƒV‡Ûu»©`L≥®7çB¿pπß"IØ7‚≠‡"j¯˘z#ﬁä‘1Eú4ıJg7	Äà!8óƒ#¶sJœ8£|ÿ◊6#É	„ød«∂ô†ìÿ±;ÏÑ5¿x¯'àÜì±pkÎOÁßØ†ÜcN«4à[Õ≈¡â¿∏4é˝ùÆ%e˜3©„N∆Uu•í√‡Ñ>≠Âñêªå´I∂∑∞-ñâ{1ßà≥´xe∫ƒ¿≥7Vı√ú
+["¿|“]UÀ*dœ¨ÀY`^4Zl∑∆°5¸ GÁ£’}Ó¡ù&L–,FØj¥\@E2aaNåæÚWãæK˜ı˘√o~OÑ˘Y˝tqáFTé£Z‹π®µåñ≥ã	ÕÆ3¸¿dfdàH˛æb·É∂˚‹âM∂àX˘	°2Øˆ7dq\’ãDwv„RBäØïŒﬂ#ä—¿Åø·,8Äæâ©Ìå˜ÚQH>ÃÜ¿=‚¡rÍµœèﬂbˇÛ&‰äç00|27&ª¶’ÁfôPî]3ßiMÕödî]¬˝ΩÂ$Â…Uaˇní/.sktıΩ·+P˘BŸïmÔÀÔÉ^WÏY1ÌJ6]√úŸ˙t¶/Lwi√~4ﬁlkyOÍ\ Ú†6
+Úà˙ÖùbSºmìøMEnÎq‹Â7âÔ·=fK˚Ω…⁄öÍó˙Ã31?õxìwbı“‹3üÍ,0a ßéÀËYeŒfdlˆûŒ¬
+ıp&„èÅÊê°íŸ55”[(»n¬†ƒø˝H»ØAw-cá![ ,ˇ`©ıC§G]±ªÏ•{l1b™‘QπI3Ü“˙I»ÙÁıº)‚!w∞ˇ¢¨Zc∆˚{ö,‰›Çe•ïm°ÎÖW’á›ı¢ï8ßØÆAÚ«,˙CÉÊPßÙà£7¢c'oíÁ ≈kjÖdøºM‚°?¶—JQ9!‰˝⁄Z°ÉOR’Ü⁄NíÍëÈ¸_°s5¯+MË¢)")ã;y)õSi∆X”›BÜ—&‘,çKåI‚zêNÖœ/πÊIèúÏÔÏæ⁄?&/èwˆ_í/…¡·…˛ÒŒÓ…¡O˜……€∑Ø˚doøˇÁ”§€ƒæÔŒ;Ÿf}>…6Ø˜≠ÚO gÁÂ€†ho‹Ã‰2Yyæ97“'Ù•5˛å<}Àf«Aú- ∑‡Xá^öÿ¸[Ó)ÛΩãHü´‘âóv1c`|r5ÖiÇ™!D¿µè€ÿ¡d=∂b»Fw'ƒäcÿ%‹ ëx!ç|P3è®åtëâe≤q¿‘àúXﬂ-qÚK¿¶∞09lÛßÑr˜4ÌŸ“ÇZ≤Ÿ´BzÊÄÎä€˝#Hÿô0)åΩ8rŒ<*Q
+hÙ†ubÉˆ‹¶Üúv›*0í…K‹_1kÅ‡o]¡ÃoI†*W ,Ä@(J∆ûz∂µ^ùœ'¬Zoj⁄ ’Jœvé]jfÛua6±
+√$⁄î¨TÚH˜ìÿu<⁄ı|èƒE]Ü€@F aàí3I⁄∂•32K¡~Ê†Z	gRt•V/∫⁄fˇ∂"~EÀ6Ëµ∏,˘<≥Q8"˙)Í,@æÂ<+ZXÇ£[ıVÙ2˜˚∂ˆ!Ì˜|ª£2™∫¢~€ñ\SˆΩ3~ZΩf{$±Œ™˚R∫iª¯çaÔÿ…«˚ˆ£H8 ;.˚≈Ç·ﬂúGú~÷–]·Ä)¯»u≥@)BÏHëBp¬≥pVx¶ºê˝πˇπ>nXÿø"ÂÑâÚ”W6∑°ö€òKsk´™Ωµ’˘4∏ñ6∏f÷‡5pß€ ù∆ÅæbB=€X<îtˆ®e√\2é‘GM≠ä∫ø¿ıˆäè—l‚z≤°È¯û◊{òÒ<Rê∑Ka&‚NÜÿß⁄§ì≈⁄GR-fjﬁ8àMrıÊpﬂ∏DÎLÌ__ù[ƒ˝∑!ºãâX√–	∏ÇÎ˙ﬁYn*ñ	œö⁄e3¡]	¸Üq‚∆N‡:Bû–É¡ø¬$-ÚQ˜·„)¢Ò9›üX—áŸw¥Ú©£Ô—«©¸å
+f$n/ùqg	'WRÑ⁄âXRÄÓƒœ1¿C˚xw].§—}eÖº‡ﬁQemâx«;√Ì6Óe™“Lç}’ƒÑñ7©/îñkîëˇ‚∂‘úPãúX°‚¡´fKı˝_––œ∆œX°^Ëªnff=^¸¢ Ö/ˆ»OiËúNàÿÇ˚¿¨ú:gI»óΩáèπÜıÂ‰Ã˚é;ﬂg6Ia2„vúÿgÛ‡í/.k&ı*õ9≈i¯ÜúÄù–Ç5ÜPOé¶*lw°Ä˜dì∞îKò'°sv∆(ÛúsT·®Ê[DuıTc•ë±VˆY#6Ç⁄ÈÖÄà}uqq/5orÏZã∂‘≥1o¶VX¯ëh}ÉÉÙåŒq =8îqÈX=∫·ﬂ∞∏Ïq`®¯gm!´eèK·Õ†ˇ
+ÔF£ëO¢É42bË%^4rN„éæ¶KÑÑ4`Ô7¢ó!)6ç3âóSöŸ‘)›aëçB@‰∑HnÖÇ¯·/,HÜ»‹ﬂß¬‰ e^€ÂQZ:ß2ŸÌÉw°Åó•n¶¯˘íUõÇzóìüV+íü¶Ow™ÃuöOöSv`Ïd,cÑêÁn◊ªœŒé·6vXoπÿÏ1MÊﬁıYxP{¬Öì]+®ıÅNóÊ¥ÀzÌxâüDDÛ”à©7$JóÊ÷y@˜˘DZYóCﬁe¶}bÀc'!∏”É—$‚8‹Ù¬G=An1G∞’‹âÑ°äàÌ' MsŒêíôFóy?•¸≤»ƒEˆõiq˚óõﬂˇ ÆPÓÅµÜÏõÒ‰:˝öè>gØ&á´∞\ÁW‡Cq}—z7a?¬Y5ˇfæ±õ±Ôœ…øyÌ∆˝Ç3Ã‚·Lôèì˝ΩÕˇ{ÔÁºm~ŒÁéÔ˙gì .®ﬂ∂Âüõ3ìãΩ—JüJ≠%¸ô‘æF∂Wb[x5WhFg·OaıòJîÁm¯†s¶íÌ@÷≠Ë79uBP*§¶≈ä≠Xú¬Ü]„ZGü¿¢6”óÜA¨|j¯ÍgØms\˘CBtÚ¿N€}ø˙ùYRƒ°.;.Á–¥b»_ãU‰Áw‡Âèµı|nlz~*GvÅ≥-lwªdw‰˚lmD¨B∑kz6·|„CwÜCtË¶g(˚s˛sÔø˜çÔõ¢n^…®Ö8AÜ˚œA˝Áê≤ıI’ç™äœI˘Hô˙ç™eﬁ[a>π~∂+ó3ÔôÜˇúh\gâgQYbéÔ°î˛…(•Ö=‚±Eπ"¯S†80ó˘Ô|Â‘<uÒj	ﬂ›kb˛w^Rﬂø∞∆$˚ÊÄm»…!:^˘Õÿî∆±„m-†ç«÷≈÷¬veb˙d2=Ï0Ç£„]D3≤äB¸«j◊`ÄeFK<'&M˝qËfäÎ(ûP∆qR®ÜjF"•¿Áπ6ymAòªÑ. ô≈aé‰¿
+#˙¬ı≠∏S†4Éêámƒ√éjuâ£â©W<#´πœ€‡j6ûYiÇá˛+ÇfèÁçÖ¸¥ AKŸ[>m¯åúÍÿeLÛzøg+≠_"ªTë~§Ø1ûY¥Æ(’ÛcEºéÂd¨Å—Oà$#<∏X…Z;´ û€ıÉâÚñw“Î…Fë^^-aΩÂYãÔKV˙Ô`≠%Ω#=·%‰‰lsøø6ÙAt}Sn±∞N˝⁄(3ÁætûQ[FXAtœóŸ≤qis3Û¡±ﬂ‰ú_˝I.©‡Byp›û¸©´t:_æòkYÖ"ÛÕﬁ.G˛‘ôﬂMM◊6ZË¯¨Æg∞ÖæÍG⁄?Ÿ9‹€9ﬁSôÍ}rºˇÚ†r¸3¯„›Î»]?ÿ#ﬂúº"{?;‹ys∞K˙˚ªÔéN~FNvû◊7çÔ^ChØì.¥∏Á±¥˛ﬁJ®9¯dH4ﬁ‰áå∫5¿F¯>ƒPw+N<lõ˙ı,èõ"Ñ}∑Zÿˇ∫2¨É„˝«˛ÓˇíW…ò…É«4ÚìpHU®˚èR"G~[n#Õè÷Çàpê¶f  ¡|º±<áËs'Nd2ÑS1i–éñl*ƒ.d°Ä?â qR‡éÂJêx)4ú1@rÃ{¬8µ»Ô5"X¥ÏÔÀQ»ÿTä¥¿^˘å¯‹v¥¡£ö{ka{›Xñv-€Ó∆√Q3{-hÄ∆4ÚœwÏå)[ı™|p>
+å)±è™•µ¶ŒÖ∆††2Úë
+X€Í/ŸÄB…üAM””¬ÓﬂE4¨√YàF°„}Ë∂«â∏¢∑ﬁ¿á¯æ~lùûí#EÌqDÌ«WÌ‚5Wo„Xnor SõÎ–˙ËúâF L¥é¶‚úÁ°d!9ky$+ &ã∞”º.DÌ—*Á^M†¬Ì
+∑0â€ö®†ºE^…m‹—∂p„—ëu”±ñØn]a……(¢€Õ†Î∏Pã$0≈÷-8˚‘.ã∆µK∂—
+(∏I\_C<K≠VM≠4Å6n"ÿ…Ömú¬ê•[97Ëˆ∞A±±≈Ü'¶B”?Ê8ÌÿËÌ{˚fàúé◊üP N|FìqtwiΩ4íœó‰ü'é:e˙ﬁldø/'ö®ôNaÉ¿ÁCvﬁ0—Ú∑øø+;‡‘ÒXøô§∏cÉœÂ»ªª*Gc∫î5‡ÈMl˝e©P©Óli|Í≤ÀÊy(‡É…eµﬂÇ<Ÿ˚#[àT£zÓ{I‘éëà∞X‹êcM èX¬V››QàÈ^PX 7w(lL±ÿú83S‰ôäëOÈ..+≤æ3N†=˚ÿw)‘IYÙŸ“8ÒÑΩì£Õ/NΩüˆÿã¨∞œÙp‹¶Rx’∏-ıÜ∆»ùê#1"¢≥]Ö2üïVÏŒF`’ä‘ûm}ÄÈÂÎS(/pfâÜñvû3<$BxÙ»¬ˆ¯˚ø#j»ÌS‘∞≥oÀQ∂VåNÔ.JG` ~8Ùçp˛¶ÎíH˚#(P∫;¢√8°P∞Q¸Å[0§ÖØ/g≤âCÁb÷∑≈ê“¢Ç4÷¢z¶i–P’#ªæ1>‘¥°ÑÒ.⁄RØQ”¶`˚Ë$}@˚–¯∑°rΩô=ì}hyO?˜XÓs„∂l∏Ô÷eOF</;_ÎÆc'¿Mí„˘"xΩíÎ√›u<Ëkﬂ;{‰]dç≠y”#ˇñ˝íN?	ÿû€±«é˙Ω˚·RcâAéB'⁄J„ë≈Á¶Á|Oö·Ëâ/ãÒDπ‘Ù—7"+Œ«˘VJ/b:x^¨‹˙i≥0Ù∏ßË˜†kãG\¸‚uÌÓ˝äí Ú—6ØgùmÆ˘π¶©n°÷2ª’Z˙w{£ò)¿‘
+ô˙Œä]∂˙g~8ë 'MfXﬁt=¶¸£\™oCVpvº`Í6ªÕ∆vÊ6có$ñGEáY££™¯.Uèç◊§„n ·€nÒv=ìÛ´µd´MbQLèüA±t◊V÷Ió˝|~&¸ãB§£π' U~V+	ﬁrg.nOéÏ’qCmôÏ-§û&
+µì0L2∂OÓ—¸O-∑-‰†*®Ô§–ÜiT™¨n©D£^ÿœe≤8T)îÓ®LÃÉÑO»ãÓÆÈ¥‹OLNhÛT6À.≠!“O#Ÿ[;Öxd∆
+ÆÓ]ir–¥Ï§À˜-kv…Q]-ÆeÒê_®d∆ñÓ(cïWm·@≤ÂÂ’Z˙„˝7‰D}ènâ≠V∑≤µˇ˙ﬂˇı_~KŸœÊçéπì¨lπ&˜Ô»õÏóñ‡«Ôxx|l°Rz±±¶<jûµ	ÅÚ≠7W8ä¡µ¢ë ∏éhInCÑ‚ {=º~}K\QæﬂBå}G<çt
+‡†xÚ ÷„*Sœ◊òJ\Ì’∑⁄C®8%pÚlk2’úº–)—¯sª„˙çÂx¿ïßçºÑú*º£ìÇ’TÕ‚R§≈¶Úk¡≠≠˙p±7iŒ?€DbDÅ·îHÎ≈ªöÚ≈m©aá>I%⁄rHÅq¸1‰úMBE]∏√V%¢{çs—1◊R≥∏¥úç b H-âiiâÂsÂPÈ;BW]0=.öuïA}Ò≠÷˚¯Œ$÷–˙js++dhπCÆêo"	D9¿ÖRŸÌô¡ÑπSˆq`? :çând=ìPxFœ˙_µÑÌVÎUC+!¿I“N'J∆Àb@‚∞I∆‰OIÁêÁÓt¯˜=>zßø∫¥Ã˛ﬂj÷RÀ^ÃÛ¿vKj_ëG-Q¬l%Tà#bÎÃÛô¢2î`lçO∫<Jn;a{îM˜¬üm<@n^¸Ï¡]àoÇ'ÀG*©7˝
+ív⁄Ùå∂9©"Tı‹h˛¯√?˛/“èCà<v¢§Ûñùf–*µóZﬁO*»|∫µÔI*–ãœk*6ê›Z\B∞<g|,H‹®m^ez~Ïœƒ6ÌíG@Û˙ÓÁÂë‘~7üúø˚‰ù]ObG†ÒÏZ¡”R]»s5ÔDX[›»«–·ßbnC˛√?˝%ynπ‡„¥…k6¡S÷à»ß≤ŸòûO`6ÈpCy
+‡4ƒùiV≈zn≈”∏Õz’¯≥Hfi◊@Ê@jíèB≤≠©⁄Äíœ+Ã‚_T÷CfPHõu•êÇ¡‡@dMË≤Y!°°\ÔIÍ∏-ôîòˆ,›yü‘(@ ´>¥YjÌÇN]v˜»±mÍëº…≠hPõYc¿fÉDŒπ…àZ0)Á;gñ}F[¡≥’{¡ˆ&∂¬˙f’åÆTå/†Œ"]èSå€ﬁ
+Êñí˘”¨hΩp•ìßôV⁄LüñuñuqO|ÛÄ◊ºÊ.ã÷Äı Ê4~-Eºædw•€ÃπZπÿhÜ’ºC„«‹	D¸{‡Ô1+}≠,©@ísïÊƒïá¶eµAp≠ÍÎÂæ£È;Îá`ÖÕ∫+??Õ‰+˘Õ√íÑe>Ç≈\»C!¥!'µ§o3}—’˜FX%z7´$n∂µ>@–ÙﬁzûXåf0Â$uÅ+ò-—C€éöuºz˚ïô=ÿ€ÃV*âîÚ˚˝7G›/tIƒ†¸ºÈÚ5ÚÆl‰µíÜãŒ¬Ñób
+÷UîÕ5„≤‹ŸAn¶6…èö‚$øa“»"Ÿú·’9cπ|˘pbyÈ´˘Ì≈¸≥ÒkÎ4ûç’RÿûcÚãÀñy◊-˘&Ékü‘>£+ëƒ√ÔTÅq√ÚóŸ‘¿6∏◊&Ÿ-ª2√pë2ﬁÔG°X"•©ì⁄ ?†ºxy(NØÊä~”Iˆ/ú¯ço[Æ“ixø2E^Ä =Ni´"O€»4∏Å+s1*éÅr^PÙË§Q´“∂ÉÖíâùÿTUûN”í–
+Å·K/”Mˇ"m˘k1ƒëhZ´»dsq/YF%3Ûl\ 	ôÆg”ÿr‹∂†êÙUEú∏∏˚0ÁC◊}ÂxH+O*Q∞◊¥‡‘ öÙÿr’9Ù™Uä/—
+Ã©J’#=»∂Â\Óäπ4‰õ≈T&d?i∆πüE`;Á;nî€wEX∞68èO€S…Dô∆iÒì∆›"|£Æ§ßîÈ·Éø€‰†∫qJ:¢·©é¡ JéŸ£◊AKOï¸íπÂÑtÉ¨ß¢Œ[ƒß´WBé©ÎX«ub∆ 5≠û7JdíŸõâÍLNŸÜ∏>#Ò7ç¥¥b˘D4ïºaC¨ò.P-:MkæíÖ&‡i/dåÄéYgåvª·˛ΩÓ…<∫Ê'òMmﬁ‡¢‡hÁ>B6á⁄fúÙ˙vóÌH∞ç}≠˛‘ô0‹r%Ω*”}–∆:3ÓCπUï‡$∂Çc¸N6;>*aM*1Îçüy´à%‹»ø+´ ÒR çh$mUÛ«¶ƒD˛–i≤Oëz|@[ÙKÈ*µ≈ëbÕÄbÂ›'¿bØ™aKJ£p» F>˙Im^V…h&–∞∑ÄHkbñ‰#4î„‡Z¬ÿ∂‹Tt©EíÇ¢@ŒPü≥Öm∆˜‰jÎQ…ÊÉC[^çŒ!~…Ô∆îZœœÄ—¶6ôí˘RX∞oKÈw¬Ω˚FÃ®ÿìvŸXìâkN\LÃ˝˜‰2çÓ∏"+‰‚;ÆD¸îëŸﬂÑ◊öê”ß_≈=Á£√k 1·?†f«
+j%ÅY≠Äoˆ_—TtúnM”#«•©´ü7¸ã¸aìˇÈæ„uó…"0≤≈wg/B≤∫§pv◊zXA˝“E±s≈ÿÍ>jì¡rÏ`_*¡Å…£‘∏ÍùÏ⁄$#îzmœó?ÂÔŒmüÖÌW«êˇ'Ùb.¯FõÜ }Pò( \ q>ª—qÆ≤¨®_@πãX7˝0^&£n;qπ°Z €π˛ôD¥;£X|2ã5a˙”î ˇÉ6CŸÂ˙j@i»∂ZÔE„€ä0KYXi Ü!…•kî‡j	í”k‰Q”˛πqT3LUâÉ7_ÑÑÃ©≤Ê“@õ†ïCNTSë=1∑éO–QÈ
+Õº†ZàúÅwÓ2œCK@éMˆ◊°≈3Ÿ÷¥1˛ã0ÒBæåîY¨á-ü™3Øœı•öf‰—.Î—4¶Œb≠±≠,åW¥®YøsA)è«xO]<ÅÑıK¬®?míÔø∏‰EÀ«LaÎπ¨GØ»àk^«|ÈÍOæ«;È∂ØIhòK[àõ›ñÂU⁄ê-´™CJnÜ™µZL©S«js¥˘ŸLnzö‹N√C≥¥mëÕ_t-(8ÊπD*b˛‘≤i◊Ò2œùAv˜ywÌ1∞§«Dã€œ˜Uƒ«iﬁDNŸÜ´NE˘Qu5Es"¯køàÚîuÎiﬁ_õéx¿z2§çˆ€∂Dµ„cs–UUMÏAÍ;™é˛uqö∆ŒŸ(Ü Z«Dz,a~∑Öë°ó¢h^zh‹Œ?ÛìP—æ;!ë"-gÃVÍ&ﬁ≈ïœEÆ4ª’lçÖÌÖjÃê)
+€ß/1≤>R¬»m‰áŒØD.’êMD»xå?:Ùú'Ø…M9o°s—î¡÷"dW)Ú¬„îóﬁ⁄Áúıe"qÆ”!∞IÅDµàu‹‚˝∂2p^‹Eêg
+!èågÔπçYy≥``7ì∂[ˆ
+"õ 5©\PåÙ¢7√S+éòÉƒNAõä•
+ªüÌÃ'[sÈ_îrü2òÃ‡∏`Ô◊z´kﬂI∏ı›jÔÎØø+e´(Êp±kÅúxË˚ço≥S@"4AA[mO'.∆åÄ&C§W˝‘dvîj_n“‰{}∆öR¨ü(˚ î‘?Z≈˙LAî\¿´‹∫‰ˇ‘ﬂ≈6”kq£˙´˛^K@_ˆ-◊–ä≠À¬çoŸ)>\˛Æ˛˘Å@Ÿ‹∫î4æÈπ∫9˚ªÓ˛™Æ_À‚f%$k≠®¯ÏE≈Ì5›¬SfëÒK<Ìœ∂ºÿ≈5Y⁄Zç°fq R<Tˇqÿucø;…iËè≥ÿ:ˆ]Y√ÿåƒ¬˛ÿﬁäH B¿_œK¯OÎ|ÑT]Ù◊Ÿ)ˇ)	˙›ıRnÆ>SQüùIifõ®…14¢.ªöb79[„n÷cò≈ıç\Á“¨anGhöDaü>ŸHo∞ìêB0º’Ö6’ª>åtfq≠Ädò¯WÏ∑Üì≤˘‡™àhöª¶ƒèäÿ∂R¥B~ÕJ†¢b˙í3&5
+É/êD«‚Ä@OﬁwÈG˛π·¥o¡y¨– ÷UMs•L¬4 éQªY-´P≤î`Òq\R Rx3πuÁÓÑ	ˆ_}•„`JµQ»X_}≈]_}µõ’≈ITÿè\7Äùö ÅFd∂n`Üßˆ≤(ŸÂ√êæNdÏ€LbÎ’€õä∫ôŸ–¿N⁄f≠øÇ&5d[¡`:Q^T®Æ¿Ÿ∞Úa÷ù„Á;ªKÀÑ5kä.$*•∏(À¿~e‡
+òòy+Å'\üÒö8§÷X˙kdÈ¶ 3Í'<Råzr>#rÊ˙(DƒO°ãÜå3Ö“ﬂy”Áê¨ªı⁄[√T7ªf*|{OãníR-¨jFﬂV¡¸⁄ÉõÌ“ fÂ)hÉÕY<]]‹™!O™⁄QÕO7öxÀŒ 6øÁÇökıŒ¬Lgë©˝‰Î2Ü~öõ‹¶Ü>v˝˙ï–¥ß+käh£Ó◊¨Ñbc7Ö. 8˘©sñÑ–È“™`Ûæ˚‘‹ÓV—9æŸßßÙ,ºpJ:Ø(]4ÖÀBz–XZ≤Âza±+èì f_ÌôËÂ≈d£á,VSÇf©©Xeå-Üû‰´ÿ◊π∫≥p›Lö27ªgÚUÆ•≤M2ã∏
+ù ·Yã–ß´Y-¥78K\†Û”uÕœcÚ¥«ÊÊo”úºV2†ÉôLä¬H3˘¨dÔÅ–ÓHŒvıî0à«ê|^uzìwŒïæjMo#u∑WBÅ;æ5ﬁ£∂3;ª'?›Á/x˚‚EcﬂÙÎﬂËOÆ+æ[ÓJŸ˜\ôWŸb˘FàèÍŒrUÙ˘dÁ9yÿ€ÿ$ªØw˙˝˝>˘íÏæ;>>ÿ}˜˙›ÚfÁpÁÂ˛õ˝√ìäGgÍJE ◊••da ï†}55¸0Å˙ß4∫‡§Î ˚ª£d∞Pey\4äU_a+∑ò•0À:¯ËXz%0j©Wãfá<Z‘„⁄⁄Z#OW	Ñ›§^qù¡©>ëd>Ë%%£U.è£ò´QôïQåPÀ∏%ƒ™	FπV	€ëüﬂ6‘‘ù!#≥±3$œ!vqzUCåün—“ ˛õﬂ%ãX„ â6I°‘Ñÿa/9ﬁƒKÎ<Òk‹"ùóáKú≥'ﬁ/èÙ≠Ò¿'ù„˛R[Z37≠®\Ωû/]ù3©iÊÍ¸XÿﬁÂ¶&ïw,ÎRg8®ØíASıiî…-3©c¬bò¥QÌ`ÀJDˆ_Å—G.>?Z#Ä»>d⁄'À‰HXo8ˇOœaˇ0À˜lˆeè˝+éÑ—Ô«2ÎUêf»ÿ>ıJí0'±ê:·Fº8Ñ €u'Ïå£ù*tÕ∫’ôäjèÀ⁄≈≠¯yÌädÃÕT 	 „(vŸF®ÀúêÀù*√™ pØß WV©ûM’W¬(<lÖåO£›5ıµ!ÕÿñØÔ0( ˆ∑ˇ<Ànññ—%›ÖAVﬂZrcêo¡≥+NqSÛpûôÃêNt9‡Rv£'–§;C0ÆeÚâ@Ìù^T(¬W™Á3òa~∫Cdû"7©\¸P&Ú'n4˛€ˇ}+i\Ú¸ªE„“ÕpO„%W⁄pëƒõcN‡MÉ#ø˘›≠$¢ s∑(=R›æ)ZØ˝°Fîz–0]H±5 â?ù‰b`‚∫÷ â¥3HIãÔI©Éròyöo"›™|˚âù„˘F BÙ€¿
+e©—ÍÅ7˙< Aör˙ïÀAYj5µe§5_…Ùπ‰◊t∞êÇù7Í7å‹ie Ü‹ó°>àºY£Åj¡‚ñìˇWË∂(Ã‘Õ¥%>Œ¿Ç¿‚é6)@_óSª8´Ç¬ÔíTsı%∏ˆvú*9Må≠Ÿı0#q)úâªO]ÈH>/Ú˙õﬂ1∂z/ŸıA0œ∏·û™9”rj∂îoÆÖÓœé£:–Wp◊‰1QÆ40óODÒÏ7ˇ|sóm¡˘WÎÛ⁄ø˚KÚ&qcß8d7ù≤õŒ»'#;óFëÔ˝<p-ÔG@mπ—|fDˆﬂ»k>˙Ó=ŸµºèVv†É±Ôì—ò ƒ˛9c¸lÆ~tV—gFkˇ)≠Î…hãœ È|;≤bÚ-£π+9≈K≥ÔôùµzÆx‡◊•ZD9%
+‘jê”Ìû-≤A©«, +~‡:1Êx"Ø≠âüÄnâ≤◊îÃ¯Óôf∆_HXè[=-ï_Çb¸zˇ≈	Ÿ}{x≤sp∏º)‹1‡	ùX÷Láè©XRÏ9ÎhZÜÒQö\]üçPÛ5áON+’µ!`ô∞f©kP†r√™vwE$|â	M1ú„:ÉÃ97©e+∏EPm˚Qlò|3"á‡k‚s˛l<ÌamMa˙ıè|.‰È%É±o]é…πT¯˘€sÄÉòîåˆ®#v/ÿö£ò∏
+6©2ôc<–ªï_uèB2±†Rh¸Ÿ
+[KèxÛ∆[LäòáÙó	€¨ısq…j‰=ﬂUS1M%ÚCÌy”*‰πrÎ¥w÷+πs…Kp∏í'mcn@ÅŸX-n;Lysôg≥ÆI3Pµ\ØQ^[»\~Ø¯ç6J˝†OC€8˝4éo∆zÁülO§™‘zƒwnSàÄ3"Ê‹j*Ê»[û˚6”`íó®õÈÆyÖÿ—‹y ‚"˙ñ’ÔGæ@≤/~◊ã(è˛äˆ=væP˚õût˛.Å‹ÙÃ8ªKπ Óv¢ª∂ü≠à;∑€bÍnI]U∑‰O¬CJto‰ıw+uÆTu,˝Q¯∂ Ùf˙Ë0;VUÂO–øø˙r >ôtãâú‹!.ÿ€»ÒA1í⁄T3Î%Çf∆OÈ}„8ŒëÊ}Àqø%3‹ËRNÅu—u>ŒºV·µ¬0,˝ß3='–∆‹z'!»i¡¥ƒQ≤ìæ$í®ÓD‹2Hm≤ï>RäZÍû„›ƒ¶ºÄóõDVB£Uó§aÿÕﬁgqA£i d·s£hÇ…Nï?⁄‡≥¨Ï!F⁄’/!˘rsÙ¿ø¿V?Çk(ñeÎ2]!ƒ⁄íú`V/ BßÇÑÏI{5Ë‚•Uˆ-íTänAøﬁ˜z=¯{ô(⁄˙Œ†6\»≤Œ”t˛U[∫ﬂÒ07›¶˝5∏ç	ó∂UÚYrC<,∏ß¢V[A¿
+€FT√‡ï1åÆë°4¯K5°∆’Éë∫Pku’*.cP»˘5FÈTSIK}ÿ∏Y˘Å"äÿF˛Äk“◊˙ïã à˝•_IiÒá° ïµyHJAõ!Á`∑ù0&Ç∆`âè &Æ9DËW—XVYUò«aB–yjı±h.=mµé‡ÍŸΩÙ©A∫ƒSπÌÀ–
+√vÍ«ñ¨√ÏÄÊÏ¨Vôq\Û‰U*∏¯Ã·\¢Ej-É¥ïK"j!àÉIÛîfVNÕ¬Ÿ8ÀÌêh`»ú.ß¨€{∆≤ù°fbÌ0±í¯¿$c?wS˜kkRì∑Õﬂ•∞ä±÷nëŸ£¢±q. ÿ]ˇsMbWsúe√O@!kΩ‘©Ê°ÍµPNõÅ‹ß√Z≈$õì›™„9ÚË q`÷9◊
+©g∫sq£æXG•˘#’Ù„Îºü≥°‰Q%`{Â«}¢&µé¶N≠h=á⁄gqVôß4Œ:0˛-Æ:4V’V ç"úË(1"	U;»j∏-œ“`Ç†ç
+X TL‘∆àz∏≤R∆36ê°ãÆÜ≈Á&	÷2ò$PîÂM•lÚ·@/ë≈™Ù8ã◊Œœ2Î{1G·¢,|NâÂÈ„˘ÜM_1G¯J_@„.E¥ñÙLÆê£ÒÔ—	Úç'e|§µ«ö¿±Àﬁèz=ÆÇ N}-s¯¨&'LΩ±˙å◊∏‡öoÌuÙ√¬∑æ«N˙÷;ÇÃ>u˝Û wN*»U!¸v≈Í€µ|Ωt˘µa9t1BÏõs˝Ûì–äÚâ⁄Z%‘Î,xﬁv[kπ¬>⁄˙övM§ÿı^Í8ªóbe÷ÊìÜäsïŒ∆9±iÇiMiΩõe†^Ø[Jú¸±H∞≈Å›m	V¡hﬁ	6õŸ{	ˆ^Ç≠æÓ%ÿöÔ%X˝∫ó`Ô%ÿÚÏ√ä’{Q6+Ã”$…÷«¶ÕA§m*ü÷$–¶ª¯zÂŸ
+xÑãD[⁄›ñi”Ò‹
+©Vü›{πˆ^Æ≠æÓÂ⁄öÔÂZ˝∫ókÔÂ⁄ÚrÌ£^..^2-Ä”Ø°øÁ-‚Dúõª1µ‹Fa∑!÷8(≥∂Kπ(1y¬4aIòÊﬂ6
+”¸Hóø^aZÊì¸¯DÈ‚¿ÆOêÊíÆ¢Æ€ ÁfCøór?)wN≤ÌÜôl{/—ﬁK¥˜mÆô°Dã)KR˘k”o $º|ïÉJiù(4Cw˘íÏ—ÿr\r¯$u`ÌÕh)OkEäÀ9û›(¥FÖã:kÎï,SÕ∫Ö-_£Ω ÿÑjÛîÅ±„uG›˜lè2È§ #üŸÛH¡›ÄÓ’‰Í‘ùXk):QgÆJœ¶5o»ó3Yi•Ï)%Ãg£G5ú0≈˚Õ‘UˇIB«˚i°NOJ¬y∂2z‘Ú“÷£i%¯C/)äR…DOàOâê”ûvö*x|P"Åı`ødÈ1$ØCm‰¿:˜ 2VCÙ[6—ØHX_Ùìè±•êTK¨¶üõ•Á:Jh*Â‹öD†÷V°)˘!Â%$√ä»àZvmqû∫Æ’pï«çL%e
+Ì≈¥eˇùhﬂfG±w÷Œ˜ößQ}ioår>_Eõ◊Oæ¥◊<™Àãhtƒ˝·ü~˚ØˇÚ[®ì∆z)I·»
+YªPı/ã6"¬U¡‹à“:{Z-˛v–«∞ØE  Û,Ö“‹≤IF(æ1—`i ¯)∑¬)å)4ÆT˙Rìå{<Œî∫*”µîøY@o8ëßÈ’k5π÷ï∏8ö‚ââDÇ“‘hL,uU°
+ÌÎôÇc©´í•B◊»KÙ‡P
+r{5l#f [öiCHÑö=yúìXJóÃ6
+gJ]∑ü÷ç û≤´H˙($-u5“˛,êZ‚¬*≈∑éjÊÓ]/,’Ã›ªAx™ô˚zù0UÍ¬¿Ue˜Œ qoFπ“?IB'≤ù!ƒ/}˚=ìÖ´»dE-…πpY—‘ç∞Ÿ¬æyy∏∞]®ÄônòÈZ<Ó/lóÍgöµy{pJ›£^C§P{2A‚ÓzÍj-)ã8Âƒ¿9Pvn‰4ÏŒ©ÂFX!U7“…Ìàoïªs£÷hß˘∑Úõ≠‡‰ŸX-!»„`T≈Ö#†]∂ùaA‘edBü~Å∞Æ@{êS`z1ì
+:K&–cñK√∏≥p‰R∞ DÇ≠¿Ç˝…iéﬁ@E`n„Kﬂ[0	@;¥+yü9ΩlÖ-çZù¢≠aŸ``§õ§j6ó—mp√•÷áÒèˇπˆº`ÙÿŸCÆ“·ñﬂÁè“}nÇT∑€aêÖÓx¸$nà¨—&ß8ûë«Jﬂ˙Hgv∫q[oi*√ö·†N¨kÇaÀ{à¢qV5ù˝›Z5}ΩŸlä±’’	ÃmT`Ñl±l3Ω¸^ºB÷WØ,†!O⁄È?™p@ÚAPJ•‹…Ê¨/W)úÚÂiör!]:óÆÃ‰	¸õµLë|‚äû0Mb#E–¶	‘åÎÊ¸®p™€xÖ˙JM|≠‚‚CV*ôs w
+Ã√I0ÉV›ÑR6éÒ v@Z]I÷ØE†âÿ±s6ä°ﬁ]nÏ2J®©∆FÓÌS∆ÜïÏ€ÂNHÖeãaUOŸû‘çÛ
+¡
+4d–`…Ø	®ùf/(hLqò‡G<uàìÓa+I]˙∑O7tﬂø::÷Ú(fEamM”«‹≥
+(∆vAlJ€àôÇï^I[Hsú:¢ﬁ–qÛ2‹:ó·÷d8%≈ÒÓJU√à)Œ?jJ˚Ñ8ﬂ¡t¶5Ï#eÂ•◊ïVD§mı[€ 'QóïÏÅ£«}~ÇñLR¸-òæP(»w^“˚USˆáŸ˜† 5µ… Ù€a}‘Z˙ﬁf˚:H˘%ªB÷ûíQé3IÕ?yX”áu!ø∆(ÕÖÚ¥ñä‰€'~%≈„ƒf„j.‘ﬁRïU¢‰\6¢`ª∫dŒÅÍW°H¬Ø™ƒ]qh#”*Pdå#‚;≤‘≤Ù6€&ºú"◊⁄o◊r´~©Âéaπ„ûÃÒ™¨˚_~Y˛R+PQ&â;I$çßÂÏ(˝déﬁ>_‡e5µR/∑ÖRÚÀõÇ–C™PπHõdı¶VNIçG;«'dmìúÏÔÏæ⁄?&;Ø_ø››99x{ÿøâ«2§v1Úpö∞ﬁq9¥@l7G!ödJBAæÑßÑÏZA^åû¶Ú$oìÀÕ)wza7ûhLìøÒ ≠r«UáÁ≥o©∆ÚE∆RºÂ∆¯ÛlÉ˘⁄?Ï™¶Ü ˚¢y_%I„á~∂&Ù"`]` ·D[0ü"Ò»ëq˙DFz4«sÛqœ7≥Ò˙V!cPA!yé#{®ΩÏS)LY[^Xn˝åmXn3éñÎ+ Ï÷\Ïµ©ÕÛÓS∆éûÏ‰u&Ì«ï¸≥êÀR‡ºyõ%⁄pƒ◊÷∏7Y·N‹YEáÇ¢ÌöjBΩ™fX;”R°Ø}iïîµQz’/∆óNù°(¥˚Î_ì≈7Ω}õÙ¡SmAF»¢IG¶’‰VºmO‰∏2Ïƒ]ï¥_H”JñôCmTr0+Ked….Ÿ≤EL¿1˚©‰”/B,≠µúK.W)¿¯ÇaM‘õ¶ùSQπø)sD•&XÖV∂Ú§®V‹…®‹ÌçˆY£P∏À›gÎ©;Ëe11uö∏nn4µU≤…U„K⁄	à≈≥Œ§(c,]Êè‰Gÿ#y6œ˚C]†ﬁ≈nñT5”Ÿ£¨2J_P˙√¥wÎ	‘èCjçŸ‚ÜÙÃÅaô
+Aè≠ø&ñ2·(t.0pSYEöT>:À˝‹4˜2ÿ≈¿48ˆ÷Â˜ä‰ªr"ÿ¬π›/ >\∂BïÊç¸Uƒ£Ò»<Û4*°=}8ëMO-FÑ?≠Û©IWàí] ∂Ò∞ˆmô++Áæ◊ÎôÀTSóŒi; Íì» ﬂ6Î;∏˜r•´¡•&MhF\/íQÿ¸'ï‹j^åÍ.∆\ÜçR∆KBS˘ÛEc!6€ i–;£ÒæK·œÁìªÉﬂ‚K‡TuÚÊµ KŸŒ1ŒãÊ∫†.SWÊ…°CÑ∏'®MRÛâ/Ñ=’X•∏áuŸ´Fÿ$-, „*ÕÍÍÊ„n!Ö%!B.Yˆ{Ë∂Ó6±	9u¬(Fá‡b0*8!œ•À@ñÚNÙ∏Òy	∏òΩ¨§ƒ^ù[Qœy⁄∑◊7Iˇ›ÛüÏÔûêΩ∑ovÓm€3ÿ∂ü˚˛á∑ıÊi÷˛s:!ª>ˆeud3ß–‹,€'÷Y$∞0L’åL_8≠@ÜﬂJ9™›Æ˝†∆ùƒ$Äf“ıX™uõsñ;Ü1\ÎFœ◊‹`-r≥¢Œ∂?∂&;Ü†4ôÙC^”x¢öÿ`Bv£?f,^Fá…0NB=∏9˚uÕÚÄÑ’aü6°WêMmnÄfO∑Xüı®˝úö´NÅí!É3nX√
+4∏Ú2¸gZi˝Fê€£2Ö$Á±)SLÜÉ<“•ñB|' ≠uD@\H20F|”≤o‘À+“oÙæ}jD∏rJf‹Óöa¢05*ˆ>ﬂ¿≈ˇ˜üëˆ≥€äË÷zÑΩ√1òœ◊db07ùIR˝¨Lg◊b0[ÿ>ÿ9¯!X §<≤«è®y⁄…rÜπ#∆¿c± ª¿Œ∆TãI<Á‘°Ï%19‹r˝≥ªg-ª,≤Tfó•bT≥+Ih)ô•—K+€Eí ˘∂îi~òoh:4õ[bŸ+¿Á^C˙p—V∑›Ìí]°œµ “ÌöüRjCûFD9Mõ5:¿7ö¡œƒ»'Õ|hhqÂ}ënËì	4€Í“aÖÙóârÀ‘ï1^¡ä‹Ò÷=ú¿n‰e
+„UÅ25öDŒ0Z&;!≤ç{ñSœr¥˘›¨B«√≤D~
+bb¶0'[—ƒs£2[+¶ÅhBf—„m¬¨º!XºXÜ˘µ™A`™xˇVÅŒZŒÿÙr
+úuXnH-{¬`˝Ä^+¨Ú∆ï≤√ƒ°ÆÚuÇÄ˛∆‚±©;QƒÙF£u°¨°Ë¿ì≠l•íaL"Íî‚R±ˇ⁄?ß·ÆQ <vd±.|˚Âó≠gö…⁄>»wœd5„pbp7[˝sÀâ…)çá£Œ‚ä8+j&M@*‡”x‰€õdÒËmˇdè.ó@}ç6…%Y‹e¨àQv˜Ñùã¨9+Ä‡KÌ±Úã»˜…ïY„ﬂûlíüÙﬂˆÑâÅ)M≥±)∂ÙfÔN±7*h¬¥%M\`”2Ù«  Ìá\¢∏∫Æ∞ê∏ø˘sƒ¥«‘®ﬂ¯Æ@˘éH«¿ﬂliﬂ•=Ü~ÿY V!√"Bõwj9.eîπ∞LL“Å±Ê43±PΩÔızø‰˜z ¬À‚"÷A7ãœPÜm¯!
+ÆïöPî"˛Ÿ8
+y#B¡˜|Ó⁄ò>†£¸©RËÓ™+Ò·&Èüº€€?<!«ÏŸ?æw%÷π	PÓ©À:>rlõ∂«Ω?{ïj
+ÃÊWLSveä'9ˆπ<’ôCÊÁ“ì™{Ä OW¶ÚPfı‰†û¿®˚˛!/ë-¬DòÏÇ_åkÜÈπ∂$õG7ùd…I–#°ñnø(Î	”π…pm∞ÉE1âg•È∞i; ñ„∆sp¶ZKnbäÌ)ºõ±=kzÕ∫vvÂ◊ò;+Òô6∆mWÂ‹<a<ÌIKöM òµ„ª5˜f¶åX≤[∆ç”uf‹àyﬁ±πöœÑ˘CSL&ÂáhCá˛] ¥1H'k-o¡î¡–rm.µÊWçëø˙q£:Û&ø„’ÕkÂ:ÙSÊ‰†ó„∆≥qDx¶‰ÿ*<S∞‘e≤¯.;TÁîÜ#H∫*Á±»√"kùXÍ(<ú*Å*Õ¿òhEE∆…9idÅò6u–ÇÓ]Ó¸µ‚‰2~ˆh◊¬∆GäÎÛHˆŸ±m})îx°d¶id‹ª±pÉ…>˚È¡CDáÁø¶Düc*2ŒAÍMs∫‘∫ã
+dÓÑ‰~8`˛›ã`ò:ﬂGN«è!ﬂG´{øˆt5µ8›•Ïπ”eˇ(
+≈∂+ı¨’zÆAcì∑üßıËæ~—A»◊ÂS∑ˇgùÛ”∂ÕoCŒOA®º€9?Íò)Á¸d•/?Øƒü{˛úRÅƒa/…ËXÒ€Õ¯ı7‘˛‘\Ö¥¶6qmj[´Fôºî)†˝dpböfÍ‰Ü_ÕÔkÀüNa´¥·<pÄõA\ﬂaê”ËÇË˝—±¥*#~—åïA67ª844›ºÑ>∂3	ù˝›*°7!›OWj~∞$%I#`º.r#°Óãv}UÁudw)=°Õ¬ “ m∫DÖ—Úø˘=ÈSnNÎ~À∆úFÅÓ)∂ﬁ˛‚vß_æ2|˛xpºH€⁄¶íA:≈6≠≥£ı∆û‘¡ÎŸÄÂù	©k]P≠∏d•ûŸÇÇ#qÖÜ&÷◊˘®‰2√J{Y√–á™iYïÃ[ÊMî ÒœY∑¢y'#’8‡OH#b*cEŒê…H¶;˚!§Å∆d!Ô\Ó¯˛áh9r\60Ò∫±ò‹ÿSÓk¨F›®RN]Û^ÿ3Í/yn5Åîò’}dÃæJﬁcÔ˘®ﬁW;∫’óf-î´∂ÔqÊC¢yVºsΩˇˇ)„PZ@gY>Åt»Nø¯wbûˇ¯√¸üπ⁄öÛùË‘⁄[?œu!Úiyé•œf)
+uDÁª¢hÀîk° ô|>kQU0uÆÎ°¥∑ç©$-Ó:è%i>¶ZO˜L;}÷÷˘ÒÛ∏aij‡8±˚/N6…nHAûê2ê‘xöbìyøÿU÷≥{˙QÊ‘‘74uV◊X\cGJE\Uõ8è.\)îvóAUúF[ˇFctñëA˚»MÊo•"ÆÙJ•C(™¿yR15|jœ_7"<>…≈U"±æ‡sŒt+mì⁄∆Ö{µ˚∆ûù¬ﬁ=6)c'ﬁ∫÷9±ç‰D]Ui¨Ìny\hE%	’Íqç»¢NÂ˙…‹”C¥’)ÑuÊª‡ ﬁVÏ3®•l‚Ñ9`‚úsxJÿÅà∆z¨Ûﬂ¶ù140V7e∑"*C∂˛òWNëﬂNTÕ+N·c™çs≈‰∫ˆ6J≈ñR»NÿV!∏ï™∏úcZÙCÕ/ŸTù‘È‰óf˝ˇÙ◊ˇ˙/ø%ê÷Av≥¯„ø˚Ñßiâ{qiçÜı'[ÔkÌˇºs£e6áç∫πî’2è§FN¬≥Ê4VÄ‹ ]ßàÈHòD˛ΩPv@œ47“Ø ≥ñ˛PF“6=u é0µ[ßZwéé˜˜ˆ_ÓÔ˝ºˇ≥◊ØwûøÎøœHÅC'2%bª8√È
+·È°ê⁄ñˇöz+t) w}◊ñS¨O¿kjπd'¥årv-◊uŒB+Mp≥rõy&È9Ø‹T
+4ÓhBJùsAÕ¡-õM êa–"˛,mŒÀ0î\⁄811∑ãDâœ¸6ÇÀõ E∫jiÚïπÿêÂE»¨,sÔ˜uÏ∑‘?>ÔÛ˜Z¢ê§uLU˚œynÁ»µ&‰Kk¸;ë=Hñ5
+∏)ºI⁄˛™îù0õ<›4öÂ©5´ŒÚ&v‚‘Ì;l˝«é≠ˇ’?êÒ…∞QÏÅ}˚˘õ“è≥ÃÍõ‡r⁄Î¶‚u9∂£5V√À~Ã≈Ù‰ûbÀdâˆ∞k˛˛ˇê›ÙãÃÚ6ıÜü,⁄˛·˜‰≠¸HV»>êóÛë~≤çâ¥Ú:‚Ê∂ˆ®$4√¯≠í˝ñöûêX
+‹ L—”‚nµO?D‰+é˚“eNZc x∂fÕŸì¨ü'ÓÚ⁄Á±ï⁄©0¬D"x¿8ı∫¶<fµã`=e%]€äF &)[,⁄Ã>]¸≤"e;á¬âOŸF≈∂Éq˚è?¸„o»±8v:œœ}k˝VÈŒ-˜T%¨U†$™àèü÷1Ï©ló—â L‘-'Jl≈\¸ã•‘ ¥pÜâõå#	≤…nÉ?q3Ä«ˆ{2√˘∆ê1--ôò«6ﬂû¿§biqN¨m|j,dHÇ€"Ôqf'	y≥p4Ú=(«˝%9M∆4ZXVò6©ËΩú«¶—èL,XO˙∫}+dqò@>‚prÕ/ìJ¿À]˜∏î;ŸA'Aº+PA”≠ÿaˇ  ˇˇÏ}mo…ñﬁ_©·Ãµ®åHΩ“ˆhe¥$€ µ%E“‹¡Öa\∑»ŸÎ&õ∑ªiYó∞_Ÿ ª{ìΩ¡YÏbvY ﬂí/˘ê_3 ÛrNΩuUøV5I€3„∆#í›U’ırÍúSœy^>ò§∞∞∆1LÇì`)í&ü>$∏s»Øpm·vc«≤5…˚!E¥5±"◊J®µ(Õ¥18~1YuÈ±ñFçïKã51eá2gÜ¢3ÓÎØ `pOm**
+ÒÊåoH}Ú’åæ¿]¬",\B¢F”^œç"Tfo€oj1Ò‰¡.ròÂÛ’*˙ı›Î8«ï™&®‰åHÏÆ¨NmÁ€1◊ë˛„#«#ä`=Õï%”PÒÍ∏˘îò·¯F∑&\E4äÕL-*¸/J1x‚¿ÜF.›ﬁpb†nj¬SV≤©Ynü›’„i[ËEœs«=w©>«‹G–EhÆ—R´í™¡=Ú‹u¸xHé˙S&÷Í’îíœ™¬gU·≥™`uœ2UqFYUXé™«ˇ)T—”FUH∂æ5rˆ¸Ë≥¶ê{…ÓÈ4å1y‡K˛Gñ‘59ÛZ‹ñö∑q◊3è]ˇ‘;cÃ¯N∫=∫¸A<.˘ÂûπGgX÷ÛY;¯¨|÷¨ÓY¶vê9‹ˇ¨&,GM¯€?	5!ÈÎ£(®;ﬂ5'kË
+˜˝¨TÖ7W†£œ›û3ˆˆÊ•ÛÁ0s˙´ n'`,ã‹»yÕ/›QzêuØΩ?,ªÍÁ¡R÷è€%Wı‘˚˝ê4ß(Ù¢Iàd#=wŸoy·∫°ïüÖ¡dË∆ÏÌqE∆§Í˙˙“•3z˝‰≠¬0ù8ñˆÖ3LùÅª‘Ïæ˙ŒÔ…=“Ì;W…{≈ﬁÔßnçÏg5Ò≥öà◊g5±Œ=ÀTJâ@>´àKRÀTD—›FAdZ«a*¿ÇïC”Ã?˛éà≤Û„gœ/wSÍ
+;¡ıpâ‘2‰bjÍF≠?,ÁIﬁ‹»ÇŒl„œK~¢Y$\'Ïaó}Jπ"Kx\1Mn~t0¨òçi
+]Fô;πÇ
+Öt6¨–suËEjì¬Dø|6ú”ºÛ‰ÄA√å"œM–k;¨ä1®UÑ©Ñà(ü—;œΩ!P@–Û˛-c[b‘∏åLiÄ± é]¡Yë`)'»Ç%J'-Ö˙Ô CÑª =Â¡. √xÚÄÌ©Rjc⁄Ä©Jß=ÿ(∆•p˙2.∏B;j5Úw˙A"⁄;Ö¿cõ†TÉm»$8¶â{√o∂»Ø∑,V,"bûQ∆€M®°SøÇ«√,<∆rø†Y…û˙È›Ÿ¶j∑	…tEÔ?˜»∑Ü≠˚[eâÀÅÒ'⁄_L∞À˘Œ$íò˝jA£Ìa0àqX∞∫◊ÔwrU-∫G%A)¬GUQ+LæeF–’ñ°å(4Ááà8>‹[èáã*Mr¿0
+è≈¨ÖDÕ[¨ö!
+™†ô"»:Õ;¥Y˘pWXΩç¶–^å∂®⁄VX%0Z∑ÑˇëËî⁄~a2™)´“eçú^t≤ƒH@È_¿Üˇh∂só°áZÚÆ¸§`uí¿–ƒ^JÄ‰æπ}Ì¶!•ÿY÷T ⁄Ç2ÛÙïÇ1•ûfv•3Ü>ƒ,k"^ rhòîåD®N˝Eªe=65f”Œúô†∆‹@Bá&<gÂÃ“0õ≥?Ä<eˆ”´tV±î˘"u®¥UnëàNGm
+n3ë$ ÁËNÒﬂ0n8lÆÈHñ◊oÒ
+V‚≤%öóñ∆ÅæÚÿòDB\¡¯â?-CÂìKÕ°Æk„V)‘ìã'SGÔ*˛èfm‡/fó˘ó]jZ]æ}5g§›∆ÏÍkI‚fÀd∆xŸu≥!¡ì∏tÜÆ©âÉ˘~3Jà˙õñ*ÒΩá—ñö)õI‰^ä¿-«ÊL≤‚/ ◊SÜëu∫)#vq}å’o¡Ú$Æw…˙Ì¢øì´&ÁErï/Ì8(◊Í∂^A^XÍÏ.ô€u¨M„r„›Ü9F\63Œ&&›é¢©†¸Ç®Ù:eõ”;%O,bIÎ6áMÉç9HkƒkÂ‰.Pr6f<Êg/»IÌòó§ ìﬂ—*…™∏XfG EÑ#ª∑µ Û»ü±Ãˆ»Æ‹úèá0	©«TGãÏéÏ O#∞Sê◊q¢'fî™4ΩAW£/˚_Í≈s4≤◊ÃP√íßîÕºÚwÀ€’`;Sˆ.C'“S@‹¥∂aéÒ_#∆[≠8´úé‚ª\∏b«Ã*ƒÀ(aWıMdb‘©QÂá§ﬁª˘=ë«0E!√Hù±≠è∞`!0"ˆM"©K+ˆÀ¶Œ)£b~6&Øÿƒ’£"VƒCÖË¿6µá8˛ª1‚&69Kã‚0ˆπ¸Ù‚[r4ÜøzTÎ"œ¶^ﬂ≈√vó\≈‘É¬u$IDBó ;Ú+§R ˝)Ég∏Qõ|7t«ƒâcß7Doº|,œá¥&ÚI‚Ô±7ÇlX#ì)MgBøîIA÷–-#¥„O`¬s”`ZXD_ jé°°!M6"2rIøáûK0	›wx{œâ∞¨ëçú∏7$MJH∏Áéˆàóå{Î7±A=Ú{A@]•ß~Ó8öÜËïvù^!ÆYz∞˙X2⁄fÃ∑SÓö€Q_A _ÚÎ≤Z%ÙøÉ¡ÏΩ≈$∞•)Æ‰‚~(¨†ÒΩÏÕ—£Yﬁ∑E¢ r„ú#<:Ã˝°®˛ÍèD÷«'˝#Èì-nsª=°â(ì≥Lˆ9ˇ©‹Ã|∞`UE¡¯w4OŸΩ†˜ù·m≈c„ÀõCÁﬂ8˝M…òº»<úÛÂß=lvÇLπFGuÄ:4À˚v)£IÂ'ôﬂÖT∑*—K~/S√JF5÷o|4K}Q2¶óÈG≥ﬂ}∏õ¯Î”{"äxV4hi˙õ‚wGÙ≈‡eÌõSrÚ‘∏–#¸Ø¢;ÎKÇ`|‚ºÛ–UóÃI0ü`Ô_√aÜO˛&ò]Ã4Ñ[Ò±jUÙ≥¢q•ƒŸ-Lv JπO˜u=äR+[P‘N+cëªëgoD5∫5œï”úÀÓ≤≥Kûùwèûúû˛zç<9?Ì^<?:∫º@x¯19?:;=ø$›Û√ÚÏË‰Ëº{yzûS÷\mÀ±féò l§ib∫"9πwÓFS?é»uÀóAÍª9Ìd≈≤±4ŸsÏcﬁ@ ô*ûÄ/Œ´2âfK‘LöâV{a…E"ÎÄo#7îR2˘™‰πöñﬂáÖk&u>náRÿõñ90Ç¨üôS˚*Û]ﬁì™ú
+éC∞q<?ôb≤ø‰æì„˜hüùu·ÖîOyw◊ÜwÑu•ø)xäCíîß¥oÚûr˙˝Ó¥Ô≈/ÇÏb…á‹{km{l≈uı;ôaøµ±u˛yêu.e‰ÁâOv…¡—…Ây˜98=π8}q|ÿΩ<>=ë¯‰$!9?=}IöOOœ…≈∑gÁG/èH˜ÂÒ…EûcfŸÇè[ﬂcd“EÚ*^ˇQ√'-Ñº∂ƒ¿µÜ”´ÜQﬁ‚\ÔGû∫£"íèJB¯Á”+‰™AóhÓüBÇ–otR◊tcé€ÜOI„ÛÄö9ÂÿÎ≈%@.w˙î$'æø±±æùˆz%ÁT¯õ
+xÿNπˇsÚh%4éíp=ãq©˜KÙì ù7ÁA0‚<ÍÍÙ$¥◊J‹!Âé≥º$¡IÜ@ﬂAÜÔú4¡l⁄åb<r¡ 'k(k#ÊÔ·ﬁIlyyÇ‡ Ïà;<Sdcü “ﬂWFïãq9»ÉåÅ<W∑äWmƒZ„Â°Sä)?kœÒ<ÿ˘ÇÎkèrHà‘Ω¡çT÷wi.jv‹©§ˆï	|)^¢üJ∞Ì%ﬁ≠2œ
+ÄÁÔç‰[∞Ùπ•¿:¯¶–˚õª”Ë:òÎõ$çM≈•∑â°ì˜–ª†!¯WN»“Væa≈ÅQÍhà*É|c∆√
+Ù¶ãÓ≈ïó{ÚJ≥7e…a·Ìz"ô•› ∑e–˙ÂGC‰´2{»—^àm)…Kïz?ì]Ìl§ƒPgCF·¨'«çòÿªº‰]Y≤zvØÆ±NG=Cì˘≈≈ﬁΩ)üí•~	ı‚Y¿∑˝`ä•eåÜ°7~€“ﬂyß"?#;%8É©ã< „ûK∫¢∑π4:ßk∂"ê¨ÍÄk˛ôÕD«Ô®Ë¯9MnÌΩÊùﬂùüˆ¸~
+õ…%TP=ªŸÒòŸ‰Ó ]NLÈ≥0¿nëÏıè=≥ß—œi^+oıü’OÇ‡ÌÈƒWœjÅr1õ◊…ôírè«xH»Ê˜wA¯YÓ?˙‘vﬂ;£üï¥f/Ùü–éÔ‚©xıÑ¶X°ùé…l>Çû„Ç*Â`v†ø¥"ØƒÚÁo‘ÉW˝YM`˛Fø|·cË\nrs}É	ÏäcÙi¢æ∏çp
+†ß·⁄Ã3Éﬁbsw>Hº.æ}B}ëõª§{–=<zy|@ŒéŒüûûøÏûëÓI˜≈o/èòÜù—\î¥hˇ#}Îr´±‰0ª ˇN∆€ò ‹TÜæ*¯ö¶/ÇIﬂoç›ÓÓ—ùQ/‹˛ ñt1-«!YÃ(°f4Ky&%Í3@§Y§œdr+å¶¢)uﬂUÉ—™QŒ‘˝“ÓTáÌ^=◊Ô”ÛZ] ÿ≥£Ïcä“¡ öbû† 
+ù4ÂÑt'G£∆>=πi}ÁE.ÓÇ|B¶1}¢0%èM!6i™π)Lrô¶^“"*πSë“SL7¬¶Gö ÑéÇ˝iQv∏Öë	ù1÷!ôŒdÔˇÚoaæ‡´Bò£dÔ›Û\Ó.˛DÊátÔœ˙Ñ°„*ò1¿É–—êálé?-:U√¿è‡ﬁ¢$Éj¿îü†pØØ{¿rG°Ã™¶-d¡m=©
+˘Èn˙¶ﬂ§	¥{mØOÖa^mzˇqø4(ÜíÄAÒ´"*s<ı˝≤DÉ†h~òâMg Z‡hÈdlB•J`È
+Á:¿TˆQõ8`/@o¿€·ew·WÍùñ_≤∞º{˜ kã⁄WÙÿYãbe'—xÆ˚Ö¯ΩÍY›1‚®ï∂Ω˚nóh¬OâC°ı´w-®Ç©éï¢u-'ŸX1-ÇΩ	“.ËjŒ¿ïÛO6È0´ßÀÕÙ¡qìWÑΩ<ª[]m;ÔaZ¨˛8àˇlﬂGÈ¶¥C0z.Üè÷0$ài˜pÎ◊Ñ
+ôçä
+x7 X∑M∑–¶¨lù};rﬁ77◊2≥Y--˛Œdñ…Åùö3a CVı"^ ÅbHÿZ»tTˆOƒﬂª˙`Õ@è&ªIsÓ0÷À´ÆüˆXó u∑œ&π>?Ùr|–6∆·‘‰•ù∂æNûª˛ ‚aÒ†å
+B∏ëØ¡„˛ó ñ„eè2¶á„1Ìz\•X‰	»eÄ´I$Â°⁄Åõ$>”G∞õ≈˝Ô9ÂëÚE§F9Ω!ç™∏L±˛¨G¨_÷Wè€ØDΩ∆b¿s,ú¢;V(™o•*0ì‚Ìhç8y≈4ë•Ωw5m¢Î√÷™v!FJ”G ∞∏d®™∏+ﬂ"åe¸ —hﬂVtñïöè“ãê,YÆÏÿÍ¢Sìz_m^W(v]ÆÿUî'û´ûÂ“”à9¢,Ôk.†a3ìv'±üå`)e’/ÜW/}*-öéq|H∂Wms%≠3‚)∆Üvc âÙPÇBæ…¡Ñdë a^¨®a(¸‰V∑Bør"XrËFoM^ÿ8˛3/3Ø`‰òùÖ ¡9¥¢¶,Øïu°1ÜènYªàıgùM¸jfpÉtïÒìÀh+C;îá˜iÏœ§Fb—8ì¬∆°ì≈Këz^m¿&‘◊é…Ø⁄lˆxq}Ωë·àxÿ∏o`7m˛}Ûç¯≠löf˚úõ⁄ËuVq;î¯Ë´df=&ó»ÇƒÔ‹(1¯πRß$J∆Ë9ÊÛùÇ∆1ˇ≤ã¢⁄Kà˝¶bOM˜ƒî"d˚îÉÆ–h1Á¶ ÂìvW$ï0c=ùAô¶Y“Æó)Öió«;Ô1ïsMŸ§˜°˝≥;sN≠ûgä⁄∂»:`Z‘˜„DØú^Ÿ2~tjèØâ™b®}3rèúNXH…ïûzqu≈¶WêÌƒú≥úêî]µKç*õ“˙˚Æ%m4∏ôµ∏µo”ZT¡§∞(∆ÇÒùêÅ∂FÍº∏Z¬ú/≠ŒUõ6üª¶”‹bí+)¢∏èIÒk√ñ≈Í≥1`»ï{0µÜﬁ«YÌ¯«ø$G„ÿ]Èª∆à.|eˇ#CW®†˜òbâ!Ìâ´∫ˇÖÈ&gH7îœ∏r_≤x(_>–ÅÍÖ,^≠(w˛†H!ÂgHÈsh˝î⁄D´1TEsŒe∂ëÑ√òÇÉnŒBπàF:2FÍ¶a¬CzÛOD<g€NV‰?0Öè©n©©Œºdìﬂê#≈ACìõ',|6mú.
+ÓÏhJyj™Ä¨©üÜ»
+•˝Q≠º1G=ÕçVQÆ∑’,~QJ[n'H≈ä5Æñæñyı˘˝‰Uµk«è~¬∫ZÓ\¯ykjôY˙YO˚ z⁄?˝5sxN_Aê°'DlXT@àS ÎºC¥9u3	—â”~*Ÿy„ydÔfµÏ‹•ásB!£“U÷OT1´£íM†aÁ>Î°&r2≈®Ü&WÀ`M‚f„àéÊªëúπ!é=∆Ã]aÀ‚|aÃS;®tu6Vwk§±≥—(?àV/T≠<…ìf“†UîÇJ˚ˆî®è´pô`"[ÂjÙ©Ì∆ƒ7*Ptm
+èc)ãX∑è\≠Ü…Ÿı·U6.Ù1¸ö™˜S≤?∂y~:HÀ€SÁ&#§ﬂÓ?" 4#-≤ΩjÀõÕıaÔ˙⁄¨ïE´∞£˘Õ{gµTÀ“íëˇ˙m¢ÕÛZÄç˙äC¢4å÷⁄Ùxı◊^Z‹njDÏ `GÃË‹%oæö!∫D˘é¢VÓ»´ãÓÀ~$HœÕvI˜>–$ÜIg›q"˝ÜÍI
+∞Ñq‚ÅáÔ!Í±˝˙'ï∑sõ≈÷`1É”IëÊâ‡•Å<˘züÒ>$oˇä.]i (©∫;^Fíkâ/DîèÍØ@ŒLzÚ∑;ò-»MG…¿1yD}…rø˚’r√ÑB!Q˘wü≤r(9zaUêØ7±GøﬁNCé ¢»ïÎCùò›Ñ˜+Ôj∏qË˙¸eDZ†Zz1Å∂¯nî£ïj∏É≠ähıÍR82õ}œËÏ{â/¸ãPP%’în"ÿxAC!	õ≈—˚âÉ”ïKà„æMYµ÷ö°Ä¥≈ódKJ•k·K/¡-nÊΩãôÓ@VÛ™˙NJﬂJædº¯Œlô U⁄”#ö3/ÙÆÆÇqè2≠∞(ÜeBÈµæ‰¢†Ω2Ç3Ÿfµ-OµvÖå≈ç}é–ó}Å·∂»¸A.Òˆ™®≈‚æ»¡üòëÚœtkÄöT6ñ@ÇËú¢ÂSÄÄ•iúÃ+ö@WN 2√}‹–÷Yj%åt√<Oπh:òÇ·@m¨fõPîü‡°lÖ¸jK~eÿZ*ìFBÊµJâßôø56ÒÌ§£‰Sf∏Ü≠3∫…6ÛŒ_ëzKÕª5{3a¥Êkì?(–h
+±o†ó%ùu˜ÊŒÇ?ΩohyCMà≥<ÉgÌ≥bıgx;˙‚Ü˘hKÄHÛ‚[ÙL1âi√ËÏ≤¬ÛYÂ0Z·wπ'ºˇºÂD.€n.¿»ö‘ÿmò¬ˇA∞mÑ⁄Òh7˘»`≤&Ÿî v±‚=L¬Vfë7CÊnoy[Z.˚Zcˇ<`iœΩ?∏Ãt≠≈°ç„ã˘SgyÿÛ;"æ0ﬁ5ÎÅ;™CƒÙ.b¥‡AJõù"æôtçƒ≈¨,ÆhΩã1Eoæöâ¢ª_ëfÚâ≈&›≠Fk/Ùyz‰Æ`é2"Áhb-x~dpDiêŸ5K«›ëuR  lÍCœÛÕá∑Yû/b∏Ø„çK£ıe-Q˚ dìÇCØıâtæŸºæı∂(5	ÍÑÍgïì∏@cKÑLÊK`_ÙA¬NyîDwÛ}ﬂrzÔSø¡Xö8 Ã˚ÄV[ãy≠@ˇ>¬ÿısó~∂úZï˜ÂŒvª$…ôºC•˘éµ∞¸≈%'2ﬂ∏˝∂°t4M<◊Q≥:ΩHä∞G%Å†fVéöÃçym·6µë{5äQÆﬂûy"r´õVüõ ·ócÁEŒ:ﬂˆ˙ÜÎÎÑÅ7¡&Ÿ°£ÑáîQŒíxËƒ4Iî$â`§"ƒ¬‚°RaÜ+ﬁÙî:8⁄<ØS> ®#∑Ÿ§´k‘?Úö≈íÁè¬3V'UπW¶Yp,´¶éX}Û?ùw;uº`n„fãîº#ÿ]…ê1t£3lb¥’¶⁄f1Y*∞2∑µ≤dSF ;aôë—(4ÁôﬁûQ[MÌdsûﬂ◊ˆÜtp≥yçæÿ\§J<€Ù£©≤oZ»˛K;w
+Ω˚Ÿîπï©Rπ?–6ô‰åG¢áñuõkdkµﬂ‚ƒ>ÄÕØiôÃ”29§Ë0Î4ò3;ˇ’Çú3íU´ü{ŸÏcX’kñ∑‹ªGæPtèBä0É¶Beïº„"_3”¢VsﬂKo∞tìß›¡∫WΩ‘∫;ÿæ{˙·èˇõ%a∆}òÅÚ2ÆÎ:›Ssƒ¨S€V?Â>íCwıMªì=jÏÉŒEÕòàL„ÂüI¬≤“Æ‹ë˛‚øín‰—|"x´;F“wÑúÄ2∑æÈæl}E7Àv4ÒΩ∏π“ZYmOÇ	¨˛7w÷Ø`-L-ÂâÚ™Ã*ﬂ°U¯„˛ú“úéÄÔ^S¶É∫©∞i¡˘'Äﬂ‰ Ê1øÑBöÄ9QoVÁ{\“π/
+|ßˆ2Øÿ∫Xàú”∂P≈è®Ò@î¶˘Æ)©f\C¶©ﬁuY®∆úZhÑö‹àΩ>[•®K∑ì¯ÍCä5C≥:Sﬂ”v-∫Sgy÷Â›Íîº5£[¢öÍÀBˇc,¯çÁﬁ`N„ÿ¬Ø^3E€®≥Û(W™œ≥”«⁄y0óˇJ!€á7F∞]ãwKçyåµ¢ÏﬂøVØ◊[ry}ÕOÈ;öZñ!ª·jYÁcˆ2Ërﬂé±Mâ˚°zªñ3ó¶0r@iΩ⁄Ï0LO8c
+q¬=Ë£˛nΩé\åË‡q±2vAöÉÍî˜b«˜zièºÏ⁄§⁄®eÄÂÇßœX5}T»|ËÌïOy˚Pº<.uÛÄIì≥0ò8,(‚f˛ä:Ê¨ SΩÏüÍ5W‹∏zi°<SK}≥
+W&>V1ﬂkhÅ∫OÆ¬ËFﬁ-∆∏X•∂+Fœ9†Ÿ≠∫æù¬_Il˝ÑEó¢Ÿ‘ZL8¿„#1≥ €IÈGI&&É'ıpJPgVÍ’πKÎTÈ3Rö“}åüGÆQûÏ Ô*ŒVPt’êŸö¢πÚÁ&:¬”§…Ñ!±€ÅúzÆÍ∞ùÎûï©!3œù7”ºÔ+?¸˝ˇ¢/ˆ√ﬂˇﬂïZ¬∫nÀ€≠é@‰äX#∑Ôqçﬁˆ¨sjıx¸n¬ås9ˇüÕYâ⁄°ñn–êÅ¥˛◊7ÂRéÀ93IñÁXﬁVE”‚nƒ≥~∞Qù[¡Ï˝l∞ÁÂ%->î™cÿ©r◊g°ÔÂ¯˙B˚pË∫19!„R⁄ÃΩıaß¶OﬂL≥f…6‹ë«`¬“_¶9ô“(ÓÅó^&Qí∏Òj*‚5œ≈ Ä>G‡úëô‚d‰„W›yå*ö∆ØczduØ¢&.∫,œ∂”W!‘Ωz!”(éÇös›∆igÒ˝ŒFÉ°—Î:˛í˙Ëf;íÅzfÕ¯†⁄´∑…∂’Ø•Ò‚÷∂^ík1vLr’∑hí+ôÙ∂‰5- Ûãœ€HBËz‹≥tçÅÀ}sñ:œ¸®i≈%◊Ï9•mÛºZ9Ay>*Sz˙t0ç©CµÁîµgÔMW}˘&ò–”S&'âhoÏ'Ô≠≥ªX—!nÇ¡¥õ∆~Ú˜*'Kç}Ò◊¸ïÄXßrπn	5 #‚™µÓlx=5O«ñ¢íò∞ƒ(
+’Ñ!µƒä%]C§ÜXd“∞Iëë’zà&-°ÕxÇ·w¶òÇD‘kœ°æv*ùG^≠öèF;ÛBA'˝zMJ¢6≥Ì“2É‰4åùıf… NµQ:6'’ÓıZöõ∂¿∑tïvN6e A-TR[ù|‰Éƒ‚	H‰ukëöÛÍ∆Ö∆ÎCvˆ§ÿŒäµöX◊ÏÜ˝4∆Dy>S⁄ìâ7ø˙^_ŒÁæü´¢πöSñ∫ñ`BñÕJ$ı¸˝√?ˇøˇÛ«,Nç∫ô€ÁÙâ[kß“ÛéF—Ãﬂ.õ∫„~rŒ§»åπÊ≠7ûLÁ1Íƒ1‘òr‘’WÒy„Gçç9Àpﬁ?j`$‘\•pS5µŸœgí,≈h’x⁄N¶£ﬂ`√a#bŸËºq∫b-…Ms2A›V£A
+Ê|LÂçYúΩ+:!õø=:-Ï¬,hiCk9w±ÛÕÿπÕË%“sö“ö1}É∫MëEùﬁ¿Úlk∫ÉÁ<úOYPOd/£(‚©Dcd∆GU7~
+6©˝È®}`FçS'≈í2∞L‚údüÿ #U!>üx’;Ò‚1¡"‚ò<s«•¬•z…„˚g!zÈ˙†Q|◊x⁄˚âû\a Z˝πUa/8°Î‘X◊‚¿!óÁ≥Fy’‡•*Õ£ •8Q‡øØ©0,EM®•L|ò´HûÌÜèóCóá´ÂT|B.Ké¥_a¸¸L9ÍA)≤È›ˆ|∆©é†©(zÏ"#lH-9¿)∏ê€LID&kûˇÎ†7çv1˙êïÚÉ<Hﬂ@ª¨5lΩzà”˛jh0π[D~⁄SïÚÄâÙZˆp]&^Û·0ÒZ/≈ <t£^1°@mÂÓ1y#	‚»«∞≠æöïƒ®ãÙ¬7_ç÷ﬁ±®Ù7_ÕFwƒã‡·wwoV€Ä…∫≤FVVÔﬁ‘nﬁ.y#ÏΩú6iÜoñÔ…F·wt‘ªCm8’≤∫6À\:	›æ◊YX≈[Ò∞ÉQÁÈê†∫mFóˇÄÈ8nˇVÊ÷©yÊ¿˝⁄ãÏ?"ﬂXréÎW∫mî◊õë<˜›ˆ˛˜Ω;ŸBªáI¶∆1ãX#Nåå=îäx
+∫üáDﬁåÄ¬ÈÖAÇúı!ân}ﬂπB…É:2ä⁄$Ÿÿû–Gz
+è%Bb–5ÆBœg‡§«ﬂ=BLŸ¶±ﬁ^‡˚Ó¿CT~œô8WûÔ≈÷è<Ì⁄≥Ì.9√Hw˘√euπ‡ÒÄuﬂ'zÉ°ãÌ	,BÁ w9SπÒ‚!q˙#/§ﬂ“1ôƒS3åa«¡–¥I∑ﬂßxd¯÷È¡™¡^JÈù—±õ8!ÏØ8:Pã7Nºaƒ©Î7r„È$ZÉÍ`„åúkÓõÑ¡ñ©ÿÒqî@ùËN2aô4Pt-•Û,≥ÛëÉ2Pa˜G¥À◊$◊ˆÿ5î=Ç∫0¬$‰›‡Ü#Æ•êÔÜË$∂DÿXı∑≠Ë˛ åPlGÅÔıAr#|ÑyOº2˝~äÈCw@◊ÆºïH'6“´ªÔ–-ËóÛ˜ıR˙‘}?ÙÆbãYW<⁄ãh{˘x‰é≥µ7âyÒÌÙ$ˆ)Ê@È'|]x—!t–ÿﬁ®¶¡ƒtYÁ≈a0¿åt˙pß€◊&|ËÚßáÿÒlSäÙ–Ò–:∫^HaÅ´ü®ùâ¢JÈ◊qRÛ¡ËÀÂ1GW◊;û\§cx>áp ‚—Fænü‘ÌÃ•˘FY∂ÑÕñpú5`‘\WrH0ÅEÉ|MÿƒØYuMwl>PºìIÉ∞ôâ^U~H√}≥1Ê…È{I¸VIBÑ≤e&H_ı|ô∆ôÓ´ﬁ°∫cvŒ”ûh~≠∫û`´Tôá?Éåôb|AÒıIúiå`-ı\A∏ÄAvü√ûvKó—›s∞S¥÷^bvUÁI±Î0Á[N*9„êÊCøÍM≤Ë+ûõtÆ	eˇdñÄ⁄.˚•=`<°OÏ]ySe€⁄TyKIcÔVë,´g<y
+ÀÜ<CHËd]Púx∆ •ªs≥ÔFﬁ ıgF∞¸j[eá%≥/úúl(USióxﬂBÈbêÔ¢¬Õµ«Ã≠¨˚0a–·%¢˘ÈLPßƒ'Z◊ﬁ{xyt˘›¥^=Ëy‘ˆb‘Ë(R„∞¿úKc\Ã,À€~e€-≤Ω:Í6πiÌÏRÌCèÈﬁ{ÎÒ∞fq5+ıı÷\¬ﬁ¥òr°…[ëËYê∏.¨πJ`î†_L…"©òJ!ÿLÇ5eAΩ—ŸjÏ#—÷ÿ£NLÔ’•|\ëYpWXMm4’˜‚´ ¥•πÖîÕeåÊ—]åTÿç«Q’ñ/zÌ+ÿË{CÙv ø)]+≈åª˝'Ù+ÊÌô:ù9Z•¯Eò≤`˚Â-†ÑøFP≥ßz2=x˝ëÁ†'3jÛtq¶Ÿ^ƒ˜Æ@EÛØ®Õ2◊¨æ®∏+∞ßæøõ¿åvO÷cî˙∂áq6Ÿ)„û2) ∏6⁄=Çõ4 ØV*3ãú¶XÕO∞jj“ãÑÍÈ Ïñ‹Qˇ÷Ω’O1&ß4ÃfÁíÌ·'ô∂∞Ôk¥√HØíco<≤á≈Wèi1m∂Uµ*c≥3æï¡ÁËplHÏmC¯ÕÓm!krÊÑöy|+ãñPﬁÙÀR≤cãÈÀ«:MWHÒÃXìDÏ\LPg[≥ô∆n4∂IH«Á
+5Y˘·ˇà¯iFEë“§ICMVçŒ}íE.´ïIæå™2∏Vj¡‡HD1,wÂìE‹LØ˝%ëÀL≤hòÜ%g;Ã&%Y–ëNFï+GÀÆnè®‹±Õﬂl6ÂuMn61ZbFhq7∂›£œ£9¶
+tÃ]9æd[©€±Î¯ré–JG–œ[9˝`˚Êy ƒ<KÖ
+*S»Ò∏uÿ8¢⁄ù†[ëiŸ¢‰à¨◊Ê[≥L p¿S±A@Kb_î!DÊ±7‘AJÙ5ªÇ¥å‹,å2˚±ÃÙaü8√»AQ•/¿`zînh<'‹lF”—" o?‹˙5~ZÉ.4´àwù†ﬁò¶¨t=	®ÿ\À4ÄóY,≈ùÖ⁄'≤caßÁL≥¶Ö%¢'⁄¬+Rui√9Ée6öÏ&∫K“ã4¡*V=F40±óN%ëNg–Yﬂ6ßﬁ€ã˚i_BÆ´Èt(ÕzÇf>6qV†:+Ú»ﬁK2*%G ¥5t¨0A‚Pÿ™
+‚È≠>QñÓHH”FãkÇMFê¢9k≈Se«†IIﬂ_Jµ›ˆhÃ6êΩÑ\c:RCU¯∑sO@Î≥lkô˙2â˙¨<,˚Ã¸ƒ„#L¬Ù±∑˘YxÄÏW3E± ]ã±Øâ"eëÛ∆2%Ï«ËGÎ”ﬁ∫gºŸÑ>π…ÏgÏΩé˚ª‘·∏ñºÊ.w7Æ*~vÂﬁií˚6πÚ¢'“xá≥¢‰Á¸Q±≈Hœ29Íﬂ˚ähHGCß‹¥¢QöTÅì/''–èﬂˇÁøaŸÓypçvg1€ÌâÕÁª…˘ ^äXı\Å °Í∏îûŸï›Tq¢ZÿéÚ¿ öxŸçCÿœΩ´´`\rDjókyKÁx‹©‰x4çE⁄¢¡HeÜõÖ%ï™ÂåﬂL≠”‚»¯Eoæ8_#†VWKÈí¿9âÏ4Á°ŒØ-)|hvV˚¨òµ≥fÓ1êÄ™°Y†“TszΩ5J¨√¿6Ωÿjö≈ÅøI7<ÿäh≈Â[aFı
+≠OÒ¥ªπ±z˜´äÖVΩÖñßBQTË£ﬂOΩwx|È¡îxb0ÙÂ´∏ÍÁü‰y?!Ùı<ÄÌ«0ãÒ«Z"
+ë¡±X$Ëû÷ñB§ÆäÂÔ»ì©˘W˘7dsc„„,ù’µ±/d„ΩA¸g¯öø˙ºLÚñIL∞qüFòºãp#!/ºÒ€Ow©Pü4]'ˇæP—˙‹â0bÇ¯wå@ÅæréÂÛ Œ†3ﬂ#‡ÌÖE†…=G©˚ÈŒmıåöé¢å≤°Í”∞ÕWtÔ1|ßxè·Sõc†ˆÅˇ›ëÁaπ]≤–πÕ√—îwZÓt6∞ 0owÏ¯∑1˝P≈~;@S¸∑IU∫¿¬∞irwÓåq∫G‰LnÃÃ‡epŒ˘óæà$Ù™X–Öy≠˛^AóÂ£"77:¥3´ËL2©Ì∑≥|2£BÁ9Ò°€Q‡Vªcl<Ãf∆àZ˝gs:êKîU‘π<‹ÆlUN ŒL‰;]DO©.ƒrä”√(ˆ ÛÂ∞D
+Q‚ÅuˇvÏ`¿!Ó®!k#ÒΩs5U‰„4¡9õ'@Vx?™zaŒ›Aaîc]√«]3ˇ!ÁØ∆dpVé±{s ¢å÷TÌ8K®78ÈF‰∆'J	i>≥Íçàî7sâî)…ÇíH'ïú”éKŸ ó™≥≥±ŸÉ¥mŒ!ú[PG‘ô≥†ÕQ“Ê∆ºEm ¢6Mã2#BÆ\õ’Ñ8–˝˘q˘B(Ñ/èo$/R:d h3pè¶q‹∑t!)¬wÑ∫†Laö@˜Ö v.ûÌya•‚Ns∆ÇœÁ¿‹gäÂá¸t=-¨P≈ÍÁ¿gÀq˛˘I˜ôºÅê
+QU ˝&»}·ß1Ëæî+'A¿´õ©…il‘1%qH˘ƒ°|‰˘ÁÓ3∞≤ª‰õ<√)álªÚ¨|Ö‹•q$“ïeÉ¸qíâáMI>&+«
+ﬂ3~≤]Üº·öZÖQl∑—˘w’J∞>◊»’_Æ⁄Pı·µà#˛6∫&ÍäkƒÎøßÖYbi·6Ì¨fˆ&ç´Ÿ»Ü@ìØfP3§Ò}IvØ≠ ≥ºbq¥ù>Fæpú“$Ë6XµπÛ!0J"«S‹Ôâ„¬6Á=U∑¸˛øˇ˚ZiÎË#_n⁄?[Œ":vs!¿õî/òm	–Eæ‹ößu[i]Ç3÷[˜»ó€
+îF%}IÁ¯◊d”ö)˛É l‰íñY€2(;M*Õ∏”eH≈¶U∆0¨l/_`•EûÀéùËR[ZÑ“Ô"w}ÇÔ(wø2N,:Áã/	5•‡!SªAbíXÂ¶ïΩ„s+Õ4≤¬˜±¢®ã,ˆF¸B3ÕÓŒ€Ä'¢W`À⁄Èál’ÙÎ≈‘{ ÍïiJQó≠YF^¨<π,7o:Ø˛êL»k‹X[X\Í’>EhúÂ
+1ˆn
+˚)%ÕJ—(Aód_È¡ôh»wß≤Uœﬁ‹–◊j(5Í˘*]#Ã,V:sn}∏ëöﬁÈâªÅz™eéa«áõ0ô~⁄C»{˜HŒˆÒ≈‚”îØ∫@ä<,ñ"©åtíûINøÏºøi]{±≠B›E˛û/Ï•=o[t⁄·ø£ê6AœÀ§jÙJ≠D∫19˜¢∑§©x@éG∞„•¢†¢. a*é-ÏÔrïÉEáF*[–Òò<Ç>:}(%Ê2{rÒÍê1.‘†ÓYjß¿’£≈Üô&Èﬁ3k.IÅ¸hˆ‡.3üD∞[òô0	√n>	$P	Ÿ"9ï	íyRf à·$Ÿa@üÛ≤¥Má≈h ÕÜÔSÏVùOÙÊ4>ˇ–s„ ¢áÛÀ>Û6”A™èòÁ=`Ô~ÊÜ◊¯ gÜT68I6?GV8rô<<8#
+?ö¿4¯¡íƒUú€:…éØXh≥W+à	t)]]Ñ¸’=œÖN¡?è∆ﬂãÜ‰Ö3L°ŸÙÁ†áa…xl‚πÙÅ'^‡É[¸Û 
+Br˙·lxaôØEjM⁄Ô.e§ì~`IaJπ#í˛CÓ& XπEÚ∞∆°Á˜Yà©BHSπ¥ÕPò¬[˝ä∑Ë5Ω∆5“ÌVÔ˛âœ=ST•úΩÔ+öº¨¬LR}¸˛XiU—†Ot8˝Ãa◊Ÿö´_~óåAüØå≈peı-qøÉÁd∞≤Q!∆¶Z⁄Kàªº%∂iA√T`πï•.0‹)Û≠µ<o⁄Éçç${§ï7∞ƒ",	NU§"éŸ,?„–ÿÆJwp:+j™†“Îv§<£z}
+‘Æ0Ìx¨œPô—ŒQXÕ)s÷XOUVyÁöº5K{–Iü⁄H≥8±ìÀæ3ˆ/FÒ≠3#7^?RO•:Uﬁò≤ÎÜ”…Ë∂
+È|∑*6ê˜(/ﬂ”}ÅJ≠≤˜©ﬁÚQìSåLèô»≤∫æ rç0£Ay.ØÌ.çvJáb^=á|¢\îZL‰å:VÆnÂ õú£>	â°∆%]µ653¿…A“7F»€ù Œ•∂7ŸˇÒ˚ˇÒü~¯ãø˘Ò˚ø˝ºEµ3$:k¢F§I£æŸ¯’*¥å›jtpC†Ñ
+‰¡Ô≈SëÒ 	C∂“™æ1¢x∏õˆéΩïhE˙<eÆh¸S§åG‘L˜*BeöÔ«ˆ∞£∂^LD$¸Ú¨[:õÔM&àó+aå(¸)•í™z·>nÏﬂ–ﬁ4~SHW≈œøW£†Î:a«∞ÖAf£`X-@—5L/ãÿ»bxqZCI√ç?\Óè\æióÍËÊo[ß≠ﬂÆÅzÔÛê√à˘(‡†Ñ∑ã3ˇtÑdLÊ0ÌÅﬁ	+w"Í˚+ÜÖ›wﬂs£◊È;Øèπ#§ﬂﬂ)…p2ö˙±◊¬îUP„Íôœ J•/Õ·∏,1ÔÀ«»±iê&/É ≠“oòsçìL∆≤©0ÇE¬$èQ¶PΩUfö¥Uƒü´ØƒøØÿ À_wYê·B…Æ[ºklÅÆ∞¸SΩ+≠OÅ∏eÜ≈ˇ»Dâa_Ê>iŒ∏°z∑*A∏:M∑“{•M√ä≥â ÄíQ?Pbc{ï˜/à~.r.∏ˆù◊áπZôZ’@!”îØ)Î∑+„®Ã¢8Ïb+∞ ,|˛,]:ô≠L≠ø¸∆¯ÉÇ"Qô"(vàî≠å^mˆâQÇQ‘ä	∑≈¢l,‹Uªû^Œ≤;*b≈ñq≈"Â,ÎÂ:vÍ“#‚ÇÚöØííÛ¢¸îÈ7äÈ…kï“#≥159
+ê4∞ ±4`U/Aâ√6DŸØC„u¡≥«G∞òyƒ†Ùıµîπî©/h*}9CFCû≥	[Ä©ŸÅúA9Ûeµç±dwÂÚó∂áiΩπ≤òÖÛ¥ÉÚ∏Y∏:yÎ…[¡jöûŸ†S≈àº´J$Æë’›ñƒV›—≠ ipƒ“‡0úÀà&a	®ñ‰Ω{§Ú&ı¿’Qeë+¥≈@⁄ÃÕÅé6»√˘pÏ.Õøˇ”_°;(ﬁ°‚ÙìLC¶#eä√0Ûlï%úØÓ÷ƒ›ù◊´µ˙ÓÔ˛!üˆÑá/≤Ôó®R1ˇm[rÈç¡%}#[≠åá$à;—¿m<É√ùº∏˛B'g·TÑ8‘ùÄY«4'”¡0Ñèh˜÷á;Uç™%r≥|säÅí>[)
+ò⁄"BA1âä˙X"±∫HÉ>û529∂¿ëÁç¯†vÿ8˚WuñstÉ+)‡∑Ã±6EÔ≥R)eb‰≤O€fÿcmÙj›∏§ãj´¥R˘nå¥Ûæãa¸“≠÷Ü0∞“9GïM„vÿ°>ç¡ªUËç≤RôÀúuÆq!vÜÆ⁄ûƒ˙^b÷‡Æ)≥NeC™#æ¯«ëòMé›3Ø◊.„^ÕXÖy"Ëª1¶Wf†ÇÙò¯#u,3 dsC‰§àGº9Svñ–W^iy‡|„q5æu’ Î°©FòZæË÷SmÔ‘“”î„XbºN~Ó@)˛Ëy¬*Ø=ÃÚç©Î£€ÑK-Ms–˜4ÒH˙NÏ–ÁZW∑Ù<¬wiÿ∑PÿlèYnëILÍ∂aZ¿π˜«“Ωë∑ÁõN⁄≤~SÓS£rµ˘oß†∫nml›_5ﬁß*ˆ $˛LüVß„AÄ∆í
+d§…‡+Æ›±ﬁ¬™7Ø—b‡º¨±wUÓZÊ7±oYb„-=ñî0ynKIºH‹ÕBÏ¡*˛„
+Òù≥§‘˚˝©çÏÌ8∏Ò›˛¿«º›béhü¯ÒßOz¬~£{¿éîF0ñ~‘.]Åµ∏õ˚#?w.”≠yÆÇ&^|˚Ñ\vüê≠]rv~˙Ï¸Ë‚Çúùùû_íÉÓ˘·πGéOès|¯m˜È^\¿/èN./»ã”geŒ’Œˇ¿Ll†”´KÁä-?∂†~◊s¬~¥RuQãNF ]CΩ C
+•E	"Eü^–”ÿ $Á¡9s∆ >j Qv¢¬PäNÓo‰+∂J6›ÑœŸÌ —':∂$mAhôUUlI4û`π*;ﬂ-¨Pd.«ã‘Cã!¡Ω9·€à¿ı¿dQŒ¯ë∂ßTTâø¢æ›Çjﬂ∑Ü≠W;È÷)]8∑,˚t‘Aºr¬V<,ôÇx¬ ïb≥Ñ	D°‚∆TVájk+1a°Åá@˜F]Ôi–õFÕìTåòb¬;
+√ |öZıP%VûMÒá1∏f6É∏$’3;Tõ§rD≥Y4Mµã<ÆS+V™í≈M˘Üæ	ìN\‰å˙‚Øƒº]Ô(L®UúÇb(Óa'…–¡*O/jI8ÿ◊€’HÍ*µ	‡£æ’íc±ËAÔ£O ÑåÏ≠ÇŸUcˇ*u¶ÃìUçﬁ‚u]„2eíH&Õ¥/k§ºf¸FU|˘·µV>§ÚÓ‘ ˇŸ5$¸Câì_«vÃcø~{ÿ H°
+À⁄0ë•›bÑˇ6»S≥;'{27BÖy@ÖxbÇxŸ∑Íö∆9,’Øz¸…ÛÄLj.≠ù∂Ävè`§ëÅÎ$1tU·¡`Pä∞Œo¶¢›ﬁüCª5B„-ÅΩ•iƒ&ßfh¿øF^Ç9}#¶;l'ï°™£:Ô’SÃ(Vœ7§PäU•û7∆ì€ñçøDâ»M‘˘Dõ_‡Avæµ·ä§À$A"•åéQåq+'”ëÀú≥,_:íN'Dâ|Fõ–^õª[
+¸fik%{éF·›–D∞
+ZëÛcC∞)˝[t_\at2f«…{hê«Fis≈]FŒ/√œÒd∆≠íc‚§-a&5%ååyoúdë”w—âp‰Ñ–πb;DJL–w'–◊`*é·OËå`Ç-H9u⁄ÑZA84£†¬ÑïnÏé{ûôDz|k¯zÛ‰Íf= ¡Ü±èDøfß4$∂›B4\≤˙æÛ‚!RËN”’UvÍˇ
+˙öe™Ç/„¯Ø-ˇ’„(&s˙ØûÈÔ(@KŸI5ØÓ&¡ìÃN_¿˙‡µÚX[ºiuö=kæZm 0tΩè¨álm¿"ƒO/∆'≤ÚT+å—ÅÔ_Ωf£)NXÕêøáuÆJºò+√Úî]uS]‚eÌI_,b'tﬂyëã1;ˆ%“n∑µÂ¥V£åD Ì÷jmÖ≈äØ”FBP@ºﬁÂÍkî`;5àC±~e|_|tyòµ¢@% d¶*‘.Ã0˙;π“ò-¥*É≈H°MS.≠<äc˚•"˜fv3˘Úÿ∫ú¶ä˝ê¨˚—…}(ßívlë¸Rõ¢àVçUO6EΩ…Ü∞/∂“~8Ö¢[;ùîôÅ»ï’M_…Û“u≤~=≈©'s ªÃIÿe≥≈·Uk„∞MÑãó	EYRæ¢ÒÕfmX(¡ÉÜß–î®•éòùËüóLÔèáÆG,”^EÃ‹\õCM#œ°.(≠º–•ÁQúÕu|cõ°ÜEPïòÍØm€a™k¯åÆ®BªGŒN}Ù⁄J]bJRµ#Ôcﬁ—„ô—_Œv¯’xodÂzë®G¥é«™5Ï±üVLã4&Góˇ^íOÈŒÊ)m3/8ø2àÔ—O∂,˜§ü-≈sööÌ∑t8|˚@∫∑ﬂG+∂ïÏjßSËè‘mi¯¶›éeÖÍ-9ÕüÑN«=«(†¨‹≤<ˆf$≠¡(dÁÅÇÕØíBÛ±…_'u“¯ 9hHÊYÒL~(u·ƒKôóè†2·Yx„T¨
+˜‹f∆«z<‚}aﬂµ:ﬂB˜aïX…Òöox≠nïP%Vmqø<T»æá¨˙«∫wjRûõßGLUÁç'SÉlÖ˙≈\1„)⁄5∂ÆA≤ÅÍÖ≠≠;Ú∆è∂5éú˜èò/ŒﬁidGÎíΩòÊ2q¬»•ˆ0œLÓçõ–ûµ$O9¸Mo:«ÈéH@≥±Z√)Ò©∏¨ÿâıB‹U•ÍkMWnSØwÂ˝ÏΩU÷¶`¸ƒüÜÛ∫N¡
+p|IJk8§ø‡IØÙ◊|;ˆŒ~”ô{A}/πuóŸÉüÏÍ¯$∞çõ÷Ê)ÁI(%§˜÷“êTÃìé∫FºÂ.ﬂ¿3 –Lc™zR-‹ÍU,“‡e}öÆÎ€ç˝uÿÎ§g≥\¥π›p≤‹}x◊\¨«ê‡B¯¿&°6ê≈‘=hÎÅ;ã°ÚLs˛I¡â \"&!ù¶ eˆÍNIöÇ§W]T‰U≠Ï`éÄÅùµêY†iz).c∏‹1s‡^ÄÊÙ÷á]]ìÉ€4£˛{Ì˘~Q∞-∆‡i©fÜ¥∆Thú72áΩ:µG†æè¡œcè±b∆ÎxÃ∏4≈ª!—ÒƒÌy◊`æ
+∞d/Ñ±¡å£a–&
+««;Ø¶å§èiD∆∏ƒ£∑0
+Qcç4é∆Ω`Ju°◊á€Dy—P£µ$ﬁ∆Éj›qÑ¸ùÙ%›®±ä»ò¸ÙzpeêFïõ‹ƒEæá˝ÊÑÆÅ˜q‚√‘“(≤Gç”	'La‚(≤'∏(‡xI?tÆQËÅÜ≈:Û?å&C'¬ÅWvb§òÉw.Ω^ˇä%~†∞$WˆtAèAÌ\û)˚yî$ô Ò)[Ü+´’[17å{jhEı>ì1R3—){≤∫»V˘NûC:√äÇ8±TuƒD}Åπé9˜Ò‹∫™œ÷´·sé91s5ÂE[´	Ωä2xiøâoTÈ,E43ÜS!ô∑Ã‰laÚ.å-€ë˛AÈ¶4ƒª©\5Á»è¶€ﬂ‰pøs†£b∑?_Ë6›Øÿk5ˆï5ePY∞"f†õTfåû≤Ö=I®àÖæÔ>cÉ·v=Ê>8`Ç–DÅÌ{RFıÕƒàé÷Ö‰b©S¡K˘·6`Q„hK?c˙b6Ã©‰\,•
+m…7S2÷Ô$ÅK«-oÂPôq„°®˝Ù‹Q=VF;]oúØpØ.]è–À¢	ÏÅZ˙–Î» E¬O¯"éÜª¢Õ-J¶–qMáÖÄ‚v:Q≤W%1!∞w[qµ¬<µ†yèÊ´∆∫º∂Ó§C‘`P•QS{Ic	=c-fÜ±1ƒº'QAb∂√*mÔñ¨∑Ô°ZUeôfêÛ°∂zjÈ).ï¬pêB⁄Í˙ôì™È<≥åz
+œ
+àRÚeö%Û
+ÌtO≥y ¢å»X$ß´‹ä¢fXÏ8Â2§m¥&Â0π”‹¡+/wÄ>·Ã|äµúò◊{:È;±•◊ªæØ[{ø›Tä√Rå=Ωô”˛Æ¶;≥˛œ5|ÿûVhı(Q`uÀ'Â/JéjS—1uM§Õ-	Øj;	Ø“îm4æ… `±ç®ÔØÎœ=/®wÚ‰†]÷l(íR∏Ch-˝v√∏0„£áB•:´¡ö)⁄;T—V	—ã=â[äÀ67œ€ë\Ê
+Üﬁ¯k+T(¬ºX®ò¿¢«¶Ñù*eé2˛û?{ﬁzz|xÙ‚¯Ú∑‰ùMv]¬D/9¿ìÉGâ"≤ûŒ´ù£4mS≠È>f-ô¥ÊTÖT€DßÉ≈“™bËvñm\í	*G´(sc®ﬂÌ=ı|˜Óœ≥8R˙M„˛î±ÎÀ Ûº!7¡≠ˆ›d“dû^_{4ÀÆûÒç î^ËM0C4/VBÜ›^£Ÿ‡0É |ü–3ªNoàËX◊Ìc@Æsêlª·ídã‹D+LmM7–Ò¡M{2*nö8NÚs-MXÓ>Î€zíãTÑ∆bW Iø¢íõâ≠…≈88~¸˛ÔˇsÓùaœ∞˘£´L¿è`~¿ûé'-k≈6ëß!"◊´≠Œäd$â0ë¥àÎõ©¸v˜YóéùÁﬁØDôD´˙‹Ë=e≠2êOï7–-¥T‹ı›Uj™_=˚Ú*O†Ã*ifÁ∆¶$"ÔìŒÜB4Pp&Ks≠QÕ'ÙÆS0Â' 7‡ıòºeúcáã¢ãﬁ0|≥≥⁄ò&îNBÂK2IE1óé.Êºî“˘úQ':∞,YzøC√†◊LŒe«h»Ê Ñ$0üvƒt"#*ML
+˜ MÍ("L'æ( ¨•a®ÿ˘˚ïπ¿7Z	Ú¥’≈ˇ√é6úsf[≠UëIó•Âg€:á‰@ÌQôe74yËbè{Ã1◊Â∏uDøbâv^%ö{µ F?õ2S 2
+Ú¢±DÆã”€?ô~=>$Î§{¯r±}õØ¸nu«Höà™◊IÄÿÂ7–Ç8∑NRDgmØﬂé&æ7WZ+´ÌI0ÕËÕœrH(êì–‰Tãç¸1`$o?«éº‡Ír°D∂«fΩ©†y5È”ZÑhLÚF∑±åÓ6›•ÏRÄ≤ò“j3/ì#Jÿ"_∏◊ÒÆ r>ÙﬁÊ£ßˆo§Suë».§Êè◊4⁄@ã√ÈvEXíNõÕõ†Ì $u©H≤ºV ë2õe™SaSyèE`µñÔˇ¯˝ü˛)Å~^Q`∫-’Án4ıc+¡ÑW.5’5ïetWôƒ(Lãí@	˚›wÉ]¢3&b§{c¶œ•Å«%<ª[]≠óJ≈8 ÃÆ‡öÁˆ≈tQä∂h1áƒ@ñ\©‡tΩ¯ÑﬂÜèâ 8•Ñ§[rSN1|IuB ;84môît»ßsE’°óıf∂∫ö˙D¯ èÃ≥ŸÕîzm√RÀ»[çÏ*ùg⁄∫∑z≈ˆµÁ√Ñ‡<	v	‚ZQÇ∏8ª¡¥xG¸ø*†mŸÿe€Ql÷ÒærÒ2:Ö‘Í≠^ª5bÆÀ◊≠∆H≤¿∞˜Î6Ÿk ≥kvBcyõtòVÔ¿nƒ£©o•3Ë”….—o]ÖyC'[N˙≤µDL≠às1cæõ€f⁄2∫’i…H√-åÊÈÿøÖn`f_K¯ˇ–âÑ"MMÀ„>‚¯ïoy‚™°öçDÇ)]/D	ó™∞)Øo©ânï‰†\µQs<Íy#L#ãã‹sSB™@üD⁄≠SFt6“v@NÊﬂ%öyL≈¡C∂¨‹Ó¯Îˇ"ßÚw–uÇ˝ÊŒßhbCà>7uú&Wæ≈a±*®≈±ƒ±Ωﬂº‡
+ªCô«í»’⁄¯H∏¨Í‘¢L”ﬁ*Øgöp’ãﬂÎ±(ﬁ,∆ã)'Å\1c·IÆh{C∑áKø_ûÊ*{Ÿ*ƒKSâ£/_-ñä1≠ˆ E/Æ≈"&.˚˛Zên\•oöÿ∂µ4∆RπSdŸ.BG6÷íUz¶È…ISÆØ+◊“ñ≠Ùe+B§•ëeZ‰∫¥œ)⁄ùt«é≥lÛJ¿≈Ò∏èËD»ÃÎ¬÷¬
+vÿQoq¶	M•≠J*ß5`~%6Ã`—D¨ªí8NtXD.¶£ëZql˚ÓK‘)efN⁄¶±9›^	≥Åè&–âÌÕ’f6lÛ≈îfÖ…»y‹!kE±ËtlTî“ıÅ&W1´áefWº,≥ªÊfE*…ÏJöF˜
+…lAi+ëÌDﬂOt˙QG9w∆o?ﬁÙSèã-&‚ó≥ÑîäææE⁄“_À#IZm#ıÆ⁄ˆ‰xî<r∆O\ìyö`åÿg§¯ƒg2I2z}ôJÈË∂èHªü‹ÃNâXGæ(4ÿ—Œ¿AY≠®≥WË÷˜ı˘€<›»Ö¢£’Oh⁄∫_ï˜F†ß≈§á!ﬂÜx?Zcñ˜e:¸+•Saô“£ÜΩa0∆dˇ˘∆Œ¢;A4œk÷ƒö$DE>YK˜⁄èﬂˇ›øê≥ Èò¶>ïÉ ƒﬁCﬂ¯.9zﬂs}˝·"I5“[—YH"X‘–-∫éoô≠MFn¢Ü h9mãâjÏ•±Û–dz[≤é§ÿEä{:!$±ÁÃg◊ˇœ«W:õèÖ∞KûÜÓÔß¥≥ØÿB'ëÔM‰ëƒ$`·ò€Ÿ}œ≥∫·#t;eƒAƒ	rÛπ7ÀÈr√jåw3Ö`Y ä`Ï"◊B5ËåIxD∞{P_,ëˆIÊ≥òD.-“L|ıÂÊÊÊ√≠Ø•ï(ñgÚ˛∆Œ¥∆K¡ìÙâE¨y1<W‹&'π‹}´¬≠l≥"æ∂Tü‰,∆z}5J	)õ∆«RÑ2Ò"ë√¬ø%–ÅË$eå §Ô˘ﬁ üvØØ©òÛ∆¬ÂyPCD!^ƒøÛ`g•Êy©ØYW—∞+dÉq1“T@—î2,&WÓ–yÁ°{C£ΩÇèÃ¿®sV$n≈¨c;•mDz∑=ﬂmøπ3	˛\8X_ïı|E2Ê"^?Úc\_/∏ø≠G“5vü§µLÆ…ÊEÄHÔh·:≤”ä¡CLdnhH¬Ïu”⁄ﬁíÅF¶Å∂<ÃñŒπ„dŒ]¿ê8Ò4¥P®≠P ünWHT1∆Xëò†ø∏.‡
+£˛zﬁC≠ñ6I´´.®¢ê*u0g„‚èr∂“f´D<w˚¿.3h{!ºÖ¡àÁ8BÓ∆8 …›√H)∆/»Œ¡Æ	˚Jx-2Ü € O"ã9– z®∞oÚãCYﬁöÁ*h‚≈∑O»e˜	Ÿﬁ%ﬂûü|˚‚€ó‰ÏE˜‰‰¯‰πGæ;=ˇıã”Ó·Èæxqz–Ω<>=)(kÆˆlA3aƒ\LØ.ù+Ê
+≈˝ﬂÎM˝È®S]‡v”ª◊˝t“.É-ß‡k +πÔ^9!Ù/≤i∫‰ƒΩ!Ú»ôÔîEìñ¯ã:sP
+WïîeÏQ°˙Â$Ny±ÿﬁ(ﬂ i4û˚¥k@9AHz¨*˛æXıM‹3NßË÷˜ù+‰â:SÚ–≈AçJ3Kô]˚RGƒ›Í&ﬂ˙Å”/5≠íí{xÜFÇ1ÃoêZFTGn˙w €›kgÍ«Õ“ìÔö4øª7ÿÉD–s‘\]≠¿$p*ó3ïàR‡"êÖ2»Úrh®b%°î›S¶{2⁄∆nøüÃÄ&
+zY#˙ª±DÃó¡ƒÎEO¶◊◊n(Ô‡’q9M“˙:FÄ∏q…-ÎâVise•¥Ã‰ŸÉGR/“|ı∫Ù>^(`§Î'ïd2ΩÚΩh≥ßwt;Ó!Èær«ø-…ªª<q∞-x,*"ç™„ãˆ`∫æ!»»  à˘F1»ÿ.))aÒá/pmoùV\—80œqæW(Mú¯LùûUfU_ÒâÚº-]qYqöhÆ
+):”tsÃÜ¬®ír"†º‘ºßËgFy≥ã÷ÙVk{£ÿ≥ﬂÓ≠≥'Õ*¯ˇ   ˇˇÏ}Îr€HñÊ´di∫GÚîDÎF_¥∂jhI∂5m…QÓö]G≈DB$∆ ¡@Àlµ"Ê6&v˜œ∆DÏ∆˛⁄GÿÁÈÿ}ÑÕsÚÇL ëô )YÓ6£ª,Q@"ëóìÁÚùÔ»¸nã∑±≥±K[÷~ù≥I∂vvDÎŒBÕ¥E3ÌÖöŸ⁄Ìlm.÷–ñlhÀØ!jü‡ﬁ∞Ó~∑•@‰Éz∞˘IØÇaåÃ:ÈrÈ"Ñwg!"®ÜbD„íG2˝£¬kÜL zª]Ø≥$q‘® ãÊãtÙèª‚Ìú:VK˛€Y€?s}Uq:››·'ıú÷n°+˝EÇê≈è¸:†äZ>SÊ'ÛÊ7úÔ+C$mÓáù˝@∏,¿(n≈$‚/˚7¬Âæv|∏Gÿóﬁß¶´^˜rŒ∞≤/¬—$I!fƒ• πDuŸE4ò÷:≈åπﬁ0_7˝ UÈRUzHı§7ˆL£Ø-≥√6π…CŒπfc¨ÌŸˆ-›g∫vΩ€≠ƒò/#Œ,ìêWqÜn ∂ôíÂìUÁïÿÆ§	åh≥Ü∂An#90≈Ó‚˚€Uú\”˚=â¬™›G‹zûL÷I‘ˇ‚Y/@ÍÙÆ[£{Gèµ°@R◊áj¯á¿ìÄ=T:ZìEé¯¸+ì&˛ôé&ﬁaz.å¨7¶ZeÏøÃíx
+¥Ä…
+ ÃE›ß‚@e4Ä¯eöda©¸Sôêª^›Ò“ˇ˘ﬂˇõgîﬁüUµÏ´ï(ìtÍà–Q&?í≠€Ù…D~¸y.∏[Ú6”¸ïKäpü»JAHæø¸ó=ˆÃ¬∑‰R&ÓÂ„—ê´‘	HE∂™	⁄n$|Ω4kíÊY`•F≈,"≥ˇf{{˚óí⁄#5…Mµ∫Ú >?K»Eî«~Üv¬ª∫≤ø¡üBıD·ÔÁ#/jTOŸFÛRQ&√ÈÌ¨ü&9UŒ -ÿgß≤ó ±Øóè†°.
+gÚï„|Ñ3DÈWŒ‡U-7$qÆû$ôã/Òï˝£,ßSœ{U7Y◊Û‘
+/≠nÏ‹úîéÕÃ≥¬Ôa]z’^ıw◊-*œ:cÀXTÔ¬ ≈∫Éoí æ€ÖÂ+2+ÀÍ}q¯.º∂ä∂Ê[`ö≈¡#5pGÀ®y*_ﬂ–*ıª»S_o¶©œQ2BÂ9)√âÓHü¯∞‘Êú/ñ=ÇmyWjÂtè®]´”Çä,Øm<Œ◊4ë˙0á[€~-™j—èb’#‚1í„^ÕB¨≥Y)∆l⁄]0√}òWAõ]ı±’¬`Ò∫k{QiS”Ñ¡J√mä∫Ÿ£ÿáqGK'p•ÿGπ∫ÓSÕÆ√˝é;_àùbY‰⁄ËÊ_’ª†ZÂäCVÕ⁄ag§≠hπóé˜uÀñÅ≈ê6Õ6èP…ÛDò!Ô¢Ã≈ÜèüEÈîONpüRLteàÑ∞è≈√ãƒ•
+4˘eÆˇvi-lÎ•$Õ…≠’4>óëŸM†b]9•‰æ≥Ω§}JŒX0ü#∆ª≥qØ*≤Nók÷_<XJ›ﬂÌ”-≥≈…Ô£z˚%\≥È‘¯O OÒ`ØP⁄îR Õ°Z’∂›Dáe• ŒXäS_IÑ’¢ à&x)d¯d†Û¬«À—Rlêß@ÉÔ™V‚UÆ[É˜$t(¢1b£Xúæù∫‚Å?Ñîè|©p3…t@—aπµ∑åb~ßÛ≈õ=iªä ﬁ\“ﬂ[+„Î[eå≈f¥Ü]^w'NlNc{äã·›¿ù>n∑*»8°_%Tyì1(§®¡ ƒå≥	≠∂r/ ñ§•Òä†[á¯ï€ïŒkä¥ç®HÈL◊K$5ßªáz∆MjºÅ NgÏ*JGk+∆	FÚ!O¶1zl†ùöWa<„…j£DMp~&,ªÖŸO+NaÒa@æ√0¶⁄ØÇÂ„SÁ[π–GinXNHãÏÚ8ÅVq¢–0@`â!ÛŸ◊x1F†ÑKW)ÅNïå˙8ƒ«ø	∑∂˙ªœ~)ÎE^x!‚ö(ï…¡g˚r•ÀÊ∏X‚YN!#üòF°á4v„,VDVA3/FÛú◊r)¨ê≤≈QC]≥•ûQ‹ˇ∞© (ı]=˜Ç–!•&µàîD˝"∑ı5$7⁄>+˚¨Éú«Ï÷ªäP#ñ¢Nôm
+P;I•2'3ë:¢≥hôuñFNπf˛
+«C€øƒD©vr±p¢fƒuÏ∏Ç~ôè5ÁFUC~RïFê∑GËô'‡¸}	≥°∆Û’’J≤˙|Mÿº:Îe´gΩUç"ƒ+œ¶Øl—GxÖõ'AﬁÆ¿¯ûÖchótÿ(S˚ÿs`Ô§\um\uí≥¬êãLå1ıª∂Äã•”≥åWc˛;†ŒCUk•a⁄◊÷Ç^oùÙP„£?íIèEÂ◊…Ê£[Øjƒ0bKí(ô'&îÌ˝ÈoµwaXôuí7Ä (›e0µ„*bFGm©4:&5M)˝`‚i∆ÏÜX<3˝√8 	ˆ1¶ìâØ‡≥ÿàÙ¥g—÷¨vÅπ`µGWˆ!Ö›h∫‡n¬z‰ãﬂiJC±îÀ|∞÷Ï%ÎÀ›Ù*æN¡Îƒª9ägÍmë[M±ﬂmÀÏÿ&‰Qß	Oéã§ëê8 3¬U4òRÈ‘"Ø¶]Ò3∫xy™-Zëa_5,ôL∆ò<CV$ÌA€OúÛbw˚aÒÂÂÓÓë£Íúüb‚-9Èúvﬁùù^êÓ¡€£√ÔéŒkZ∏∑l‹K0 ññàª{â∏<‹ïÙ@çÒNG_+Ìv.Oı◊H¿=ÇôÖ Xl–ñïy´{ìCzDH—^õ¶T
+$*ÈC-WtD]á‡òQ#®ﬂFﬁ-"¬‰xòÇ√‚˚EÚqØ¢8Ü∞
+ÚÄSç¿F§_áq?ªØ§\xâ5ı%1Ÿ~+ísïïø“i]gÅ¯◊‘àÃE?„$„Ìlö.∏ J«ì ˝ƒ„ıõõÀIÊï/‡ó ´ºìÎ%+&(b’î’5.§RˇØ é<&ùãÿ—ªK≤ì”>göR±lñê`◊'¿ıè”Ëè‰,IÛ´$éí{ ∞˚û1WY¨*Ω®ñ7ŒÎ÷ﬁEÍúîú¨«øÇºÒÔ9ÿz3A9ÿÍÆ„h~–>Ä£b±|lUiX¯∏8	®-M-$è\ÇÔGƒ›È3E©ràdÿK^£`ˇ4[£–ç(‹˛ı‘≤º‹55ú°ü‡›=%ˇ£aE÷~˚»3˝¿7ı†Y>ãæTYß‹ÆaÀreM4O3XÓíe”Ñ»ëíTúfŒ.y≠kg“Åq„ÉYïhÕìòÛhY>ÜÖñf—ÃÉ[ûjA>8ß?1$<CÊ÷7x;.!¥Z>ÅÇßG0I[ „•
+Û√ƒÖÔñ†ﬂÂ4kùâª∆Öã˛Ùô≥≤ƒ@´O„2Í’˘@·;(ºÅC}|®”√VÅñKi6⁄√ü”‰∫Ç7ß”ÄB¨^óøìﬂS¢7
+¥K° ÙL˛Àå\D£ ˝nÑysåπ!È"ƒúo"˛Ã¨ôB$âz£Ò4ôf$À∫Ëåg˚úï^»ÛöSW©Æ˜´¢uJ∏Agpñ£∑1D#1È°:Arà\æjdamylzÈ˝ :Bwìf§@äÑ_àp*b‹˜ªJMÏO<x9π®›¨bÕC∆ä@…ì„o}Dn3Ã∏Ò£ï:˙·óπ·G¬{0@pÿõ
+ﬁî2FB-8@·ÛÄ`’û…Ò¶#œX1›∑RYE‹Zpèm#p∫“SúäXV∞y5≤⁄ﬁFWÏ]Æ!íJ)MGA∑”ÙA`)ÜÄ˚`$XÄ^-¢∂‰QY⁄ ÔoºÿìÑÚ§kK0òf·s˜GO†FƒuÊ ﬂ´—R§ç¢’¯Ÿd›+p¯8¸À%\ÚÆU÷…EÌò
+û†ù9=ë›	õu~äz–{ñó˜à°fΩœ‡xÃB	◊-#ã‡Á›√m?5®Yi~hÒ@˝|R›.∏HW9anø/YÈpÜ‹ÑäÇÎú¨.,;<≤(“∞é $5ãV*ﬂ#Ä∆≥öT¨ÊHf-“È˘:Sõ¶Xé	 ë:*-8…åÅ÷\e·¸®ÀÊæﬂµï¡™áh%º?∫»uAÆÈçùÕ`ïã2Ä°´+ÁWR⁄’lõ,“\*¶Ïú¢l'k˘¶Ø¬˛ãˇDi/u7Rõ—g hä÷aÔq‘µ#*·aåVígä›Œ≥f~Ê0π˜)]U¨2]Oo¶V/‹ÛKc—œ"L Q≠sΩ˛¢süàÚky æj“Œ3~:Ä¸˝ÜXA†W#±ÇLã`ZÖÇ˙#¡`êÜLÂ	rÿK=®GW≈o°ö´πÜu≥[Ù|‰8eeè	·Á çÇÀòv"O»ecqGô±N≤Qí‰√xÊ¬(/íÿn˝Û7RnÔ˘˝˚w‰ÕyÁÍuˇc˜‚Ë§KøÓº;"á«ÁGÔœèè∫5-›X9óc¥Ú<i‰Õ±À5ä:ˇlûGZjÏ-˚Øô'
+hQ’l1‘Äjµ$KÅm⁄ÂlF¨@bÉÙÔc)}äß ‚œóx*w®›xÄ∫¢?¬^%Ô∞0Ω®ﬂç¢úÅÉ_¡[ ÙôÇ∂˘%õ≥^ı£úƒ…5GÙi˚'Äìùêê"Gv0è¬¥E>L|ôÆ9»ù â%™íùceKÚÊ¨ìëAúP˘Ceí\V2ß'Ω
+SÌg∂déTá“¬íÈ\_\§«/rÒj∞	ì8ƒ∞—g–≤1´ä—aìT›	˙é#)O=£ëéÚë≤éπKØ¢˙¶ÆAÓ®ÿ$∂ª≥˝ı≈„|∏`sÔpauë+L,ÊÖõ-øÒôªy3,ÿ†úÅ√+#ktq?Z¬–Iè>›@6ıaòı“±qÓG–+R˚1Ì\Ä/ÚÀ§?SªÈ^ÙNrÙuÒDbŸëx:≠ìÃ7C6:ªÒF‡Z˘”ü˚ô˘•¥äïe/5U∞}‹”yø<;û^î ·Ñ<<»»SeÎ)ªÈJâ)•åŒ¶Ùlaﬁ®C„ÂÌ5ÜsáÙ¬´ÊHo?ÎñN”ÏÁxj@2:≠ÑW∞—ß62J ﬂƒ˚
+¬¬7æ HäË”…KƒK¬≥◊Ëä[Áø_÷Dí	–AñP∞ó6y∆#ä«MÒ–Ô”G˘¢≤≈Òoâ∑Ò¡/rƒhì¥g˛≠da˛¶x¸o‘˚Öº¬'—TÑ≠' ¥í3Øm ^5˘®MûV’yCèRŸ{ô†ˆ¶ﬂzmR∏∑±J¢ñø•í:πìøﬂ•ëÌ£K£‡Àwi‰¯î§±Ô“Ëª4∫[i‘Pv‹-ñáìó+õ≠≠FÏÍä¬…¨¢9…’}•å*cî‰Yì,Ò›xÀí#∫QÜ§ô YHåx
+ëø(‚ERˇp˜h„ÇlÀıˇ¿ΩlπeÔ•ˇ¥M}ˇ>ÿ≠b¨≤PáRWpê[ƒ‡Ä}Z-ÎÈ*zè€¡ÂRrE∂È˝‡P≤≈Ü–ˇ∫ØØƒULr,äplsÖ∫±âæòƒFXDÏüCu+ª N»dx#∂Ï…¶ıØT‰?]∆OTFHéã*»ùTﬁƒ÷gcvµ∫-aıM
+$4ª2RÌäI£6xêåFQ.√¸82∂*∞÷.zk{jÅEõlÏ4^\Ω."¢<zq|rD|wD˛ñºÎtªV¶¶e>o$sS‚ù<Ó]ÚDIı_ÆÑÈd„s^o»;VL:sÜÖ·+ˇt∂QJÖ(#Ωl»q~‚≈pªÔãÕ∫ŸsàV!«Ê8‰$¿
+-úÖiîÙY"çBv	¡∆Ì⁄g{Ñ!◊]@Ëã~äy®A‚≤u2
+∆¡ÄoÊ4IF¨úÜ?mD
+äS¡ƒ^6¥ÇñÄÍ5õ£5VÊ·Eê9µ( ˝=ªT·Ïµ2á+Ñ=V™V†&Ù¶ÑæC˛9}0AmÄD∞§`¯)´GjN™C€f›H”•Íã¸÷ô*~∑E÷:∫-v6v≠Ïkø∫9+Jçù•!Ø#¡Ÿﬁÿ°möæm‹ts¢êÖ)Bñ@≤0-àù§ˆ@≠ó
+sq¯’H„ójr†¨IJŒÄ&“N÷wWT}ÛïÄ®Cû[A<÷Ã<}€?≥ Vˆ_%…'qFu„$∑c`Í;T‚∆ìtobÜÃTdÀ""3·Áz`“9‡"√O˝`Fÿ1É∞Wv`SÚ&1:ØÈËµË≥Êd·PõYªB¿iµZWÎÑ6∫Wrê[7πÓR≤…≈‰ZüÂÃZ¸∏zíåÈk¨Æì’ãiòÒ˚c˘À≈êÍ5¸Á◊T®–ü~A|Dﬂè5ZàODFÙo≈ıo˜Èˇ}©ô\£zoúKw≤∏å  È;ﬁ|“Ú∑kwØ>^ˆçÌã≠u≤ΩNv÷…Ó:iØì'l≈OÊXÒπ‚'∑b¢·Àµõ	˘ë<ª›€Ÿ$7k¯Û#≤ˇílmìü»ÍŸ…*Ÿ#´ùì’[5ã}˛≤˜ßÍ<ïÆ]rgƒc⁄v b ≥Ï'ﬁ<«ãïúlùú$†…—ãfÙI˜¬UÊµ%OŸù,^Y¶ÂÇπÓX À nÀ_ò≤Èo[Û)Ÿt+˚ßI17~‚ˆFÿÉ£!ü„h»ëÅœ!˛≤/*Q<0ôèå?nﬂïÒ«ƒ˜È
+Nöü˘©|∏QN…%Ú˘‘_‡ï°(^LœaÅiE€”˛}à/¸)/dÄâ[´”<aBêÿ¬ËÖqâ@ƒ)
+È‰Á…ï≥i2⁄¯%qò„™°_*k»úaÉUáîÚ£∞`ÿjS[{ZpJ$⁄‘#C&∆(∫ä*ƒıE«™»º˘W‚ã.U∫?ÅS\4@Òø"ˇi2ç≥–a1¶?ˇ˚ˇ&›ƒ `Ê6ÿ‘a!cÜwkÔcV›rHtÄ∞´vÍbéÇÀgr>°rÅ!ô©…=oœÖö%|ı;X'¡Á$¬»§üLÈ˛¶K(Åc>≥Â ˙A∞˛—7Ñ¨úõX&≥T◊9÷äÍË[ÜBKïH˝[T´,ô®¿5∆Àª`ŒúﬁbAèRÅQ(ä+Ecpß˚RπÇì¸F¶øZÊÕ2©á∏8hW#T◊	`ìÛ…≥IÿãÆ¢…®»#ôpve‰:Ç,õd|EoÀI/•„ìFÆ√Îåùü!π;W“∞Xû“ƒPïáµA!ÀZGF ∏$§—Úb±òä\ªj›°ﬁZÒœlcp⁄8à{•—yú≈A¸§πÉÿL<WÔﬁı‹^n^ã…%=Jd^h˘¯uﬂY7ÄùNO!ÖÁÖrÇ„øGÃ1∂9Í≈ËŒnã’£rv@é®,5%Éo“®_¬±AVeÈŒQ4ﬁ∏ﬁ¯¯dè"ø™∂∞‰8füÒ{Gï”∞¡Ãﬁi\Ω\Â~güjønã®4◊€ªˆÆR§∫fÚﬂ˛x„1èÃ/Ç¡™-RäÕ=¡`úW≠ÚîÓ,oL‰„«§©ÜHê8Ø¶íŒ}J◊aLÄbcÛÚÚ:“RVò/ã ¿ºd-\µÙ
+¯ø`æc¸ﬁÃ©ïºP&vO÷õ5ñΩ«kî∫˜dèå©mÒ|H¨ºwí¯‡zºñp_1}}ﬂƒ
+’F∫˘u@OŒIAê8QLú‚(’ Œ∫-cgT±8‹¯¯¥RÒ7˛96DŒ ™ W–=™îú%›QûÒËWÛdw‰›˝  ,T≈cd‰4TêWÔ€ioÆzøÿÌØæ”‰ó/ü≤¸0ì∆YùçäT‘F†QU£h¥˝Ÿ‡ÿÁF¨ˇ≤≥ı·¸-2ö5®ÉÀ≥Uã’OúÁ`;•”1:| ‹r(S
+˛∂Fıb/¢çñ˝*F¥‚π(Yi‚Uÿ6' )R0ÇËÒ	?d√˜Ò,-À_†I’Z⁄6ïã,ãõaƒÎ)k#Ø”0‰€°iOçƒ?Êﬂ	ÁﬂÀ%[˛îPﬂÃ5w@t*Œiˆ∂†YÆ≥√∏…t÷”∑nI˙V¯iı˚ÄÖ3kÉãbQò[=î∫Ω£|FW0_©‚8.§›»Q‹‚∏1"ı»ì§{M)`’Hæ\¡—‚Ï^Óo(ö.Rz≤mó¸‡˝p∫ÔJy∏‚Ùè˜Ñ7ÿ^ùΩn≥ˆLó)sá§Â3¸≠Ó/_;ø'qÚ§s–9<:9> ¿vzÿ9'K∫G›ÓÒ˚”.˝·‚√ô°âªF“ãZﬁ@zq√ä—˘$§«Úà=äÙ…∆≥Z‘3E?5™/:úÌLzå´Br¢1ÇΩÏÂM˘ÛRÃ¬ºSπ’•˘n‡‰£◊„?µÌ_∞ãƒOÊÎÜI˛zù¯©∂Ω∑ÚRÂÛ’X’˜Äéı â:_ﬁîæ®}∆Q˘∆Íwñ'ä9⁄Wö≠πí€æÁI¨‡›£„ÉoM∑‰˙◊ñ ØèO;ß«ùw∞À/éOﬂtÈŒÔ|8<æ ÔO/Œﬂø3ﬁıŒßv}0ÓEA¸œtr»xÀ yÎÜ∏ıû§¡kÒ‡.ÆYÃµp@ä¿ uYl·Âç|Àé˙Ω˘÷dÃˇ,p t`^{ﬂˇ‡÷,y≤G:«tunúΩ{AéO/>_ˇûbÙºÍ^tN/»⁄¡€Œ≈£Ø∞p!2	¨´π˜zïw,7˘´∂Pú0ÇÀ∆I[t"é˙S∑
+b“/C~N“O¯ıyZ~YZÄO¬ÕAw–Rû¢¬BΩXÉåí~gÎjQö†®	≥Ÿ0sÖY_‡èAéYJótò÷ƒıÍÜÜAN–Ê∏¢o]∏ó§éúBºpí&£IûÒZ!˜ú Qü¨±úƒ`FzπG∏¡ ?Í≈>™VCJ"åd0ûqNq2I&∞\â√K`œ∆PÏt¨Æ¿^!ÀËk ˜([ßtï‡âg{◊ãgL‚~îú5_÷MˇÇ—õ wyó™Ωk+t$¢8$Èá9›Maü¥7¿ÛØå OÖC÷÷S®†êŒËh¿@fü¢òéIé©Ÿ>C–*'jø¶„öÆìˆ&¸üæıl≈jA⁄òSÀÓrPb£÷ﬁ|º]Ú+õ}€
+∏Hq“1c¨∆Ω"ÿÿL_1æ?√¯Ò,⁄V[!ÂPr⁄.Ø¬]/´√4†”–=SÅ¥;ÓJrîÛC •∑d N∏PœH¯ÖæCØ4ÇÌát„…	Ë’c‰f«e5ùÙí¢D ~ï©Hjj_∞“»*¸}Ò±èmÒuä¡Â+è°rè√ÎåœW&¯/¿≥4æYÚåJu*Â√/$à·e‡≤…S:¨„dÇc7tƒ¶Ùøà¸)ò§ºR’≠∆î˝6œ¥HM%†…«z%˚’∆Âl˛‘Õ6 ]Ωpx§S1j}_ëÏc[ër§;|ˆ^Àœpf£«}Óï∏ ∫
+ï∆›¡ÄU.…PF\èˇÓ>a¡Hk¨xnº3ß†õÇÆàå!ﬁ¸´êrƒÖÑˇòNëD<
+æ‡{<√˜ÄdÇR\πXı’ËFöeÔíßäeÉu9Y¢›ò ƒD∑ˆã‘»?Œ∆onhZi3≈Í4äëü»™¬+ÑqtÒ;Ú{¨⁄√ÿú∞>¯7ø¬‡^o||÷˛Ì/ïÇ0Â™/tÍƒò_Àq”™ûNPÜÇsrp≈4a?Íq{FÀ„1v˛›`±√Ë\83NËy•T–î†mì™DWh8¡¿6√&ÙE£√R~C˝4 ö‡ÔvµÙó2'äqW¬6„wÇﬂØ®°Ùãü1¸j&ç#D„æø∫äzÓ∫Ú~ü‡ò3‡•€•∏‘ÿO“pÉõLíÓgÜŸ≥˜≠^€qKœoX89áèc}Y—∑(©<
+.œEÏb(XU&’Ò†a.?^$\dìh,Ö:p}Áó¿beoxbÿÒ…Mà}¨Å/k¶*NÅòFµ∆ÈÜ	≥V´Â≥‘^Hµ'ª≥t˘âTå0”◊V÷¨Y“T¥ºV}íì}Sìµlﬂä?Tı3‘UÖ”S˙¨Í§ôÙbeŒtaû»D«zv·fJ<Ì∞˝©úXCøgá…ıÿõ)**á-™g±#&nıë—Ãs §úUÕ¥I∂+„ú⁄%Ö •)'ˇV1m]1yn'Í¥'\{§zX”é)¶ñ§7Ù_œñ?˝â¸¿ó\ã⁄›#WkÛ2NV›—˙Lµ˘LU¨V—}•È]âo≠ÍûE’¬e•™¬ì3ÙI[Eµ;;’^>œ7•èa≤∞é OPıc-˛;ÌIœ~–ˇL52ÂœÅs§O%H˙v¶ÑtBHêÍƒ◊êíAˇBï	L¥Ç‘)íÕ‚8∏úfJ%√˙¥æ9À}}kêÚtètè>úë≥Œ˘—È9{~—y˜B•ÃWÎ'eóõÉ§ïÚ6Z¨≈Éß‰õb÷lîúY- Öõ∑÷ÿVr¨G)’tYäÊÛ‚1πgWì$Xb^∆\ó€E1U
+¡˝|qÄjô’eÒ/ +™Î·ùi>L“Ëè@æç=†%„ C"i äˆ õ2C*)˙√òÎ\Ç<@s „Ë‘Ä˛4…ËMúaüDóE¥XmÆÉøΩ4Ì˛ªÍ√◊ /«™~—˚ÿÙÓh|¡ûµ’Uø[`‰è“4I]è±hx¶dÏ≠j≤	®t&UoßÍØjúo¥ÃX0/´E˝F8˙Â‰u0äb†‰√@ZÌ∞©	F›ÀÇç¯¡¥ÓÍrB*…öËpı…àÂyb»6©†∏,Notéså^eG÷`èÈ—À≈Æ;rdCñ|`ÀzÆIF–ÃF;AG5OíæÎêø∞TÌK/Zéπ(ÇZ1Än¬
+°≠é]i¸fŸ˝Ñˆ¯IB
+ó iEå2ô√≥≤œóxß◊£oüìn4oèóPõ∂‰ÿæ\ d¡h˙=îéS)Îyx˙¯B”B]%PÏZ5ƒ©≤ê”˚ê∏kòåB∞‹◊…8°ﬂÄ!±∆À(FÉ´Rì˙–dÁÆOã1ò˛÷5µÁúãñı}≥f,2uÆ;ÖJßÿ*lıWæ¬‰R~È#ª„–‡ı+¢èOÎ∂Bï0£`Lí¿ÕôÍ_q≠÷¨Hyóo≥;å¬∏0©÷dPÑJ˚⁄ìﬂÂˇ˝è˚7ÎL˚–º∏ú’ç√6Ãì
+úJ∆
+ZêbÍ¢yHaÌÈEñß…x∞oÜÃ“7a^'≥dJ’©1Gl—˝∆’*ÑqÒZ–´ôÿ°})⁄≥\~tçíh
+m>ûa ëÑå¸a
+¯ö`⁄è@˛ÕÕcKvd{◊∫°ˆ-Dä*≈»qàÀU«™°ò¥l∂≥ú'Aﬂïï≥{tΩxåOÛ‚¥s∏ÁÊ®¸√R¡≥Í˝Y‘”“E˙∑ÓXtg%Å´ê6˚»+”ﬁ§ê“õ[l5·Ô^âP5
+1Ù√ÛˆÜJÆ¯∏¬QŒDﬁ’á∏∏™'˜+C=õ˚=Uî£µ€çô76»˚Ñ≤z<»8∆ÒÙﬁÿ&îk ŸÇôJ àøx—Jd,∑ó¨›p∆Ü€G‰œˇ˙_πbª(ã÷'-Ôﬁ…
+Á˙s}Vn-Oº«!m£Ê™’∆K+)€Ìäá-c]U11n—vè«WâõlKÒã{á(œ“p£'j©Ù©f1J»˝	`Al£qùéu Eª›6sõ1ﬁ3«P05K—÷≈gÍ˙®bYãº¶Á>Äƒ&P~öÖ{ˆÒΩLΩ¥2/^µÁjâˆï}∂Q∑˛~ê‰√`‘
+˚SÆπYQs'H%¨Û^˙r;ÇÊU›§F	)3Z
+`÷ΩôR-ç™`TëwƒÌ+’ƒ?ã´†A@Èó´S‰GùîîâÊ’ä:Úu"´nÂ)∫Z˚°¸∫<ò◊P˜*îû∂ ÑTîIéÈ÷äó.≈◊úÑääÖ°¬LWSc:JBQUé›VûºKÆ√ÙÄ.˛µG|4IRe§Wzi∑kºC≠8Ú!∂æ9ˇàü&öJ…&SQã¡ÌÈƒ^µ˘aib-®có`ëÅmJ˜rä5AN•l0
+Ü≠QÎÙﬂÙÔ¯Ê‘ˆÚö [∆TÜÃ˘bû˙s≠ÍŒG˘„Ê/À–¬óIòõÄ€\ Î˘ºZ:cÛ\«°r"ù8¥zOü§—œe:z¯ó ‡·∑[5ˆçP  ˝≥#˜lú2Õ≥Ï[a!Å|¬ÿG;V˛¿sﬂoGz
+›yÓ¢¬÷∂^|k÷ÈÎk©«[Ì*Ôx	o§ Èî‚F¬q.Kjªk”{?å1/\yØQiµH€;®[ÀËUgZÿCs∞Ñ`Y3ñK–ó~‹˙ËÖ•M3 Æ£â⁄®ñ+∑“0»»hÁ—(†áQ‹ßK—$π{±#ƒ…>Ÿj>	FóÙÏ™fÏk9—‹ıÒBÅc)ë‚{çàf÷ÉÁœﬁ˛â|1∞Ñj üË‹#£8¸S&Ô≈KMÇo@Ñ®äÁ:&¬}Ã0∏q±˘∏}0öAá"∂
+~DÁÂ%u¢Fc{ƒ^jQ•='¨/d©(YoØ«‡≈Sj¿àhÅùΩ¥$‡Ÿ∫•JmÚ÷¡˜RÖÑ‘Õ6Ífuª{˘î¢√◊µRº»‚ÏN‹ªqœ*©ÅÁ!UM"Œ¢èµ»´ §äá‘UÔ˝©eÔÈåÙß·‹bÚÒs≥§¨Õ01¬A¬Ïh‡¿í–¨!™Î Ok‰B[,WˆÎ≥MœGlá˜"•›†\åº√mÔ≤ıŒHqm®ìÁ]ÓZ„¸ÏÂ/¿óˇÁˇ˛?ˇÔˇ˘œ‰˝49÷˙‡©◊ØC™=ü‘T8§„Å/w®é≈xõ#›æhB;ò™˙8¨ˇ„≠¿“G-áÍˆAéånéCÑå04‡$ò±àRÀπI‚q™W~	°√$Z∫7ZTIƒX0®Ã2èÚ)ßı°#&YVêè°7#)À3ÅõÆ(iÅµ0fÌ	zΩ0„§:\Ò‰6 ZËÀ)õz¡`¡Ô∫3›ÕtÆÀÛ\ûì‹ÉBÿ$JZ¨ó∫t¡h˘9"8ÊóbYV~ÍˆÒÛ
+™PJû¢ŒÀs˝‘ÑsN’Õ¬Qx•ï¥K÷kÜg{Gﬂ"Ï˚•=:œ˘fÉ«ñ(◊·ø°·„=Óe,ﬁÏ+ç"‘†Œæ•·{]¶@à¡:é5’æ÷LìQ¬ ◊ﬂŒù~ÉØ:~,óﬂ⁄j˝^Ê .ö.["f©TÊrf]HÕ2fK1YUfQó›Ü:VW~»°aè?'p¬ÔôóW6^€◊O‹ÅÒu¨å∑TY£# B»ﬂ%≥-@ÉmÊ∫∆[Z{œ9‘\µ
+tã`‘/,s·)f–Î4á≤ ™©0L¡úgŒ TF-º(EèÃ7™V¡÷Ó æpGûA YÜP8pÑê◊ë≥ t	.‡‡•›¿}¥U¥åMIn\D´@PjŸ?pŸû˚Y”´ØÌ≈0˛◊ˇEŒìddLËi·Sù+^{4N©~>B‘óŸÛ¶Ú¶ ‡ƒÿr(€9M ‡Ω⁄9<°íc˚…∆ì›ùÌU—ø˘ÄUWgâs€ö2gn¢ÿû5¡œgU§ñ¿kjññÇ>À\v+ë¬ó÷•VüG’sC ≥í¸G˜Tƒ}V∆8õ	ﬁÌ
+$¶BòUzﬂ˛÷µÛöa}ﬁaNyƒ0 Àôå#rÈ7∆	†v|WòÒÙ@L
+?ÔÃ∆¶ãËeëS“ù&¬≥†ä‡ +˙kBﬁ3⁄›g§ùÊv«Jsü˙Ë?∞%ΩÆÚwNN˜»yëOI-"xÚ4õ∑<µÜ;|ÿi`eS*øÖ ó∂ÌëGfÌ9Îª÷›åßfÿûñÀÁfr3?’rÍÿk`é ¿KU ÜPX|z’<CÆç©l∂¬h§ ij*\‘h§‡cπΩä∆È≤∑´#xç]√PJã)PÀ),£Ö%µ%÷‘ ˛≈—˘	Ÿ~ºC>úü|†;ÆÅêWDM∑0}|nÓ‚bÜc¡ÛT˝˙O¥öz~ıBÕO)ò◊‘‘Ö¥ŒM[§qH9ì4u¿í˘=¸»’¿˚∑Äﬂü∑‚W(»‰ƒß/í•cSq‰◊Ì˚T! 793]Ó|ÏéâÕdKÇè±+Ô>ÀI¶J¶‘™:ø«òwò{úﬁ	ˆ¶rFâ¬0$.sN®Mù¸Q&˙òw
+#”" BP˝7òL‚(ÏÎ%ß	òÛ¥wäN"b~∏d
+J∆ûqÉ4L”j÷¢Ü_S x∞ıa¸òo]Â€§‘¸<],Ng};ürRdèòRŸ[¥_”8œ:ìIJiNâTÉœ¨ã5ﬁ±Líë9Ñª∑*ï‰´|bÈ2qa¢»‡"DÈ9
+ú~C;IËqë/E’ï&®» ØAΩ–•ÕëQ»d“&ˆ¥¬ﬁÕÀ¯BÿÆ,(	l‹R ô8˙p´§¸gÃjGì≥h[úîôÔ%r‚Æ‡xÇ™∑ 0˙ √Ûw',3!úâÈπE Â_„>&πí.&T±pñ%2ú≤¿ﬁaí:1rƒb∆òÒ˝ØzZ-K ˙+=O7†∆˛P–ú‰íb†K
+f^ÍQÖ∆∞g¡÷õ˜X[µE_*x≠ô^y∞◊<”Éáö∆7∑$µˆë~øé!Ò_ú‹Ãïq@Dm@´ÜûiVy„ﬂî¶ıœ{äË†/-m›3n~µáITÀ†Q˘gy∂Oñóµ ·T¬%¥9Ò˚3y8»Ø∂‰W´ƒ®{¯!làdB•êxº<≈4∞FªÑxT¨‘†.Qÿ∑ÂhT@⁄∫–
+åöÍßŸzhR…”´<®gÉæÂ|Î‚>*çÈ˛äÁx‘W<NmÙ8ÿ´K~√rCètL\∞∂û$≈êÈ≤
+”ç
+[8áVˆO¢1ÈÇV§Õ [[EG5sW/±UVß·< Jç≠6π‘Û‰k◊˘Œl«üzXz#°’èœ8`%j¥„ í”Ûf„O2Ò·§pÎÈtD^˙ﬂK¿3√7è–Ìì«>,ßyÒn∆r@_‚∂˘÷NjÌên~(Àw©ô^É≠¨Û´á„”å—8˛%üùîL+˚ÌÕ«Ùtj™¯=–‰.T ˝›àµrª¨.‹¸:bh-t√‚¡TªﬂHgÅè\ˆ˚/…ÛMoï≈†π4SY œ~&ûùáA,åøTüä_/¸»ßõ^*RES*íY™n≤ÚM";“__ÇOCù	>7’âdGI∫[iˆ«WÂ?>U˛xÄ/zF◊(9\ıW…‡”|O4^I Ò)∂Æ<j÷ÄﬁÀÅΩ`Äˆ’„LP˜¢alôT:íÌEãÑCπî›käF∑˝úTº√F°™‡c
+†öõêkeˇ`äƒf‡>ys÷!™fÉpQÎo•$@/ãNé.˛⁄“ëPZ˝‹ÙÇ∏áål¥◊›ÂQ+¯<∏˝-YÛøÅïãª5ïÛ≠y˘ª2ç¨Ò\≠ÕøÚE°OtË!ä*ıc≤AGè|V0;©vÁZ¿¶%òÛ˜Ä†«√Øc∆r®ó›˛
+g«á1å√~£Û√<*‚SÕ0)£\ÇqFFq√˜&‡≠Àhƒ-à˛ï⁄ä®ﬂ¨u…H=·RFˆ9œ'oó©´ç•È ˘æ˝øÚˆ/@[Ü`Œ{ÿ˛
+Ïm…†xÚ]‚0]W—£}ø⁄eBqÁm>ºŸº°hX`JÓj_y_ÍÎt¥∞®àO}uò˙üÜ£ ˝ƒã∞Ú2Zùcè≤{5+àÖ÷í–ºR$åb•ËjŸ‘“ä÷1o√ép¡º‰Ûm,ÑÇ/g6BÂIÆ‚~n¬ÜÂ”ƒßƒÇ∏'íVé≤$•ãÁ›œ¨ˆàÚ´Ò]1l’†nî1Ì†6¨ÙjÎÃ]PºáÔÜrµ„àÑzdz8†íø…Ñ'Ó¶8 ¨U·∞ıØÉó¸äË∆êV˜~éı-µx#√4 hF99Aˆ…∆¯Èg¥#◊å Aú⁄¶ÌÔ%"&¨é\ÆnXÓÜúÃdÈ«
+ö](n*vö‰g…˚Or?"Ù…?˚xA¸˛À{¿i„3 29[·^{«ıãÄ¬yìu%úU2b€ø¬’±ÙHˇ|πV∂Ê-FYj’®Z8hÈICáñ‰¬ËÉï∫¿∫‰€Sú˚®“NXiÖ⁄àÄíæΩÃXË¥aGõE/}ãﬂ©®ï¨™.T6dzO“À˜ÙΩ?·ﬂC{°òÁ¸öér‰”å.†&Bò3∏á‘œl∆ÀMØë§dj„/§†™A¥¡œÅ1åùXÆŸlΩ¯¬¯´∫ÀüFéÂÁˆí…ÏÌ5yI>∂Z-£cU=,?˛ÚËˇoÒî®ˇÖ>Ç=Î0”1ˇ≤6ƒ˙üÇ^	Ö∞w¿Ç}Ä`3{cÀè®VÔtÈ#m‚⁄¡BA˘ä≈¶Ÿû∂~oõu±YDàç◊t“Gæ:ﬁ%√¥’ˆƒ6ÏWAt√y»Çœ!oÅ±Ngs6 √–⁄äT¡ÃƒyF‰êø%r˛‡G€,>ŒÇÍ«hQ7™´óôêsÛñm´~ö∏ÆNËê#ÿ¿°„CV|öóv°êÊÉ≈]ƒuíÉ3È¯Õ€"ÒTîÔ:H∆˝i/g4fÙ˜ﬂΩ5‚	›I¢†Y≈LFJ•îylíòX‘AıQPvˆkS—…,8{Eä¢≠úΩ!i™6x≥£FÿÆ(Ñû¶yaç{“®k]UyM€˝ôÕvgyI,k—Ò<c¶Å¿å{Âˆ˘®ùÌÕ∂n[Ú≤ßΩ8ÄíõËU◊Å®f%s Ú)
++eÆ3w˙≥`¿‚u—ºìuNógÀ4«l—çj%°˝”0◊h„x>∂ªh˝√™ƒ,yØ≠˙pä¬ÖR…ùBtIπúêìQï'πBªœQ
+ŒMN„Ù§◊I∑mç∆Üë‘[|v "Édô!›4ª∏k§cÊó9S„q*∫|Ωîvπº∫±; [‘9ß∂—Ì§ëf‘Í@Nq∑ª…◊j0‡‚°ø4˜–õ .’sé‚√Ã≤Så∆ñ\CE±o≥õ¬;úZâ˝¶MP‚’∏ã)+DÊ¢ÒwqÑX¢VˆqhË‘K#¨ŸÂÔX∞GmT7ÏôêÁ	‘0ˇ0•*p√¨6r»,‡◊PX≤§;{ÅQ7ÉN°Áo]ÉÈãÌÕØF≥Bù`R}.gAƒ≤k4ß…éÃ‘Û/Wa)ïG˘ZTw2≥ﬁ6ÅKNy—¥9≤3™2%WW≈È'áÛsü“vI√IæO6ÁÀ0.‘Ø⁄Çu‘ÀÂèm6Ü:∂˚]ñˇ-_Y—µ<∂UΩ¶–Dß"^µ¡ƒá’ÉÒ3ÂµRa¿P¿~&–cø™Á£:,DQüjÇqπ¸¶_«˙·U0çÛﬂ≥Rf¶’ÃÏ¿S^r¯xÖÚÔuÆË+ÊAg{dwkkã<£†Tìˇ”~Ò{’Eﬂ°Œ˜ÚfÎπü§’∆y{“Ü
+à€ÙCûÔ<€˝¶◊—”¯=´ àÖ¡.˜Èc? ÇÀ8Ïøºô§	pwPÅÃ©ãˇ∂œDJ◊~êÕ∆=“ƒ¡ÂsÃ^ÀSØ*«ºïãh“	Zk]‡qZ"£ö≤ÔÔÿßO£7≠{_/]¸L]
+2ˆ˛LË}{§–Ú<oºı©»«>ï†@ì¡0ºÔ◊¶hØQxELßˇ√©™0{d”˚~_U‘;P≤§…Ç#ñ=}ƒôÔ¶Êµµ∆ÓâÖ¨qmÖÀ|Ä?H~^ÓÎÎìå]G¡Ã≥X&û.FÍ:Äæ÷I{ss”≥Ò€u≤µÌyµW‡«U∆´˜ik·g%$4X†®æ Â∫*·qtHìg*(◊}˙¯(Eu«XäË7ÊÙ-@˛$*C–`‰Í˜˚iQ"Càh≤¯ËfbX`aÖ·˚ºçÆ>Õﬁ¡¯ÅVÖ±<•‹_&T3Æ‡9s#ñ ö≈ƒyÚöòﬁ|ô¸
+ÀçÕÅ!+M¬viv7Yùß÷x™∆‘9ÿÒÒ„¸˘ﬂˇã0Öx¢3»⁄ô%”ær¯êπxHÉ~Ø®(
+ÛhLÖÒ$ÏGâZ)sZ€_–™◊â}÷^2†µZªﬁfmT∂ûêWisA:}DÇœƒL9H¡XÁÁ;©	Gå˘Í™	??/'ﬁ‡¿nkˆ°ÖEJD≈@Ï á)mÚRÓêIíÂ>PÿEbbx¿>°?7F–õxSÉVQÀ7|≠=∏åÍ≥îwÖ˚bCıòAZ÷ï}á<¢Ú∑)”ëÓÂ
+@µ.F1ƒ[∞#}™ºõ¯Éq_ª-«)„‡8R0/˚q¯;H÷Xék‹yÅ„∏{1ï4¢ñúz›“)›‡PbcL«dÅ‘çár“-;u+ F˘ÏR7NB®&C˛{VÃ	√¶,xÊYÛ÷∂ÍÚ÷,IkE!z˜ÿ˘ÀD% \	ˇ*…t^™ß∏DÉ3Î· çêmóO@DèÓ«‰0
+sOòâ[T#¿‰iYR◊dèq∑ÇûıS+ê=ÇPÓ
+”Ñ¸Ã7¨o8◊KT=¸	[ŸõÊ0
+c:†Ÿ“¶ß»ûÙòíÎÄ	#Vr¶Ê ;uSrñF#,'IüLHíŸeÃéë˝Íô◊4]BóﬁP96¡˘yˇ„òúEáø]èF”qÙGF‰M∫”L∆“vEa@*Äé≤
+Ö &ß@˛HO–∫∏⁄Áö°œøî=ƒ1ËKú©Ö(˚ﬂm≠}¥)%ﬁxqı¬ñ£x\2
+p<c”™ŸÉ'Q¿a:ŸÄkÚéì…˚ÑÍÜtG”iø
+˙!ï%ñ†.–m|„í6|jËE2ﬂ¨5§+öK≠H#ìÀJ≠gµ≤õ≠í[y∑⁄ÍYŸ† /Ü€%à
+c≠â&ZŸ¢¨tÆ‚Ò+’GW¨y™¢nsD˚€•Lˇ∂óÏ:ÜΩOQ⁄+W†fzØ4Ì
+Riõ∂Î⁄«›ŒIóºg®˚éXôy;Ω¨›p√Ì⁄â0îÇ“ñkÂ¯:Ü·Áiø'”8è6∫X{K@≈Eè»ánØKÆsT‹Ò∞¶z√ JGb™xù˛‘ˆ¯TkRZ•GΩì◊ï~∑S` d6Ê|’*Ωb≈Iø•óπt˚Hú\t¯b≠Áï‹C!ä&” S∏≠+‹-˚7åﬁ®XNÇÊà∞B£¿äMŒ¢Ià´ãn0Ö%≥≠÷Zi^?âàYœÈÊ!ÿ¶éæALÜQè’:ıïÅÉ“∑Ÿ⁄œ6—,/ÏÌ
+7†∆‡∫ÀdüGô∑RØn~-ä„“≤≠LE·v˚Õç<öŒìò]≠¶º4l*xƒã"I˙Y∞]bñú|Üÿ¬l\Sã&§F7‡j–ÀHﬂdr´±îeM[.ëÍ]”˜ŸfM∂∑ña'ÛæãP+º∑ı©Ó@ŒdÄ37–Q¥i∏ë }π*9…»$ƒ(ËúGãΩÿûY“z¡Ÿ}‘ä⁄§∫c“mÁQëÑ‰‚¬fV~(Àªﬁ˜~eß„˜Õ 7Îˆ<õUêıñ
+_=‡≠zD˘Ÿ™\ó‰≈2_'ÈË.ˆÈk™ª∞¢6o¶A⁄èh+Ï¡ﬂ»6•Vx?gkﬂ˜*ﬂ´;ÛÏ’œ”ºÿ≠¸˜á±_ö∫PŸéxòÁ+¯$Áﬂy~äªÿµíuÕ>,7ö‰·|jˇ˝oZac~ﬂ±|«ÓŒ≥ck-Œá±gﬂ^†∞)› ≥á∞SÑü„Lx8ÓDF'J'¶Ê1”∑yx¥œƒŸòÈ∏À∫◊Qé"(.Î¬·∆Õ°ÒiÒm?)HI@ÄÅ]∑9n>÷‡m!˜43XËI\Ü1˝£∞LR*„«aº∫Nßﬁû™Ø1≥Ö˛%¢˜ÓëYòfÎQ±"U± ‚Æí€:PπÏê–Û´Ω·ö◊´
+X—!°ú	ﬂôÏ`_!§YÍì®©Î”#M•1t+ç∆Ωh—Cjª]*éÇ¢£Ï†`_ìRﬂ¯IÔŸªBvWª&˜+éxû$ ê)õÄÇ≤sX4ª‘)-	’åÊ`y9ÍìNXFƒ1˝,RÚvD[w÷rÁ!tûCfC¢4¢Â ¬º£•k‚	\;ΩØÀ©”Â˝«˝µ’U«}¿ò%°ôƒnÚ¨«è	{§1_—ÕCÆ¢4w≥jzë ƒ1¡õ>/◊Ï√¶ì∂AEùL√q4Ó˚|ÆT xyˆîGu»˛Ïf"ª%!8}´√©Ós˜òÚ7g™Ó€º…ÀµgØOÛ·K´&—ÜgmÂmŒÙ‘h◊~-<I—8>Ö$‡•~lãjô≈c∆êJ≤arùV±ö`USVÅVΩ‹∂~uvÀél´ù`)*ŒÓ¡∞…ÏjzVÉY=÷/mqÖ«Í∂¸’öK£öhSlÅ6∫√
+v)±?-·¬€ Q2f™œóÚiEΩ™ãúWfØ(…;E0¥ñM
+CÖÓ]p*:#K*©™ä"i´vEÌü⁄øZ„£ﬁ,∞.∞«yº™ì*‚¨ø¡£w⁄U†–¨i…îå‰*á6QÌ X∏ëŸIx÷éûƒ√;⁄é≥OÆßöMgÆΩe∑gT ¢ß@¬ı/°≤Ö∂–aKzlf·∏÷h˚r£d≤YKˆ’ãQÇYb¥∑µçÈ¶‚ó77$°´/ g{dsù–ˇByã@·VÌ∆-º—z[¯% õ?Lwïòò«îÕƒ b/)Ãv1T€‰ó3ôœs,WÌŸ ï⁄É• ˚vŸqîmkì{ˆ~Öiö§^Ωµ˛‘≤~€Z§¿ß3Áëâ¥¨¢Õ-Í…%y≈ûmz“ù6îi“]˘5.‰KŸ¿r†ºyŒ∫≥[HVÈËñ0î=˙‰xZ]vWô-∆Ò _¶K»Xµè√+{ˆåÉÛ∆q"{/$ÄN˝~ÚÄpW¶oØzœ˚jq˚|Gé∆»L…™∂CFå^#ÚfJM=H¶<8ßw€ ≠	,ıπ2£ªÀ OÕ3◊x¸FtTÇÅ’û∑vÿ°Ö∏›
+æÙ"%ØÇÍ7êo√≤Ë˝ÙÛrv^EY∫…íÜ=Å	®Ô§uZˇ©gÂÄÁŸ5™èÌ√|MçnU—ÑjÙ¨Œ¡≈ÒÔè»Ôèè~&ùÛC¯œ˚›£wûÓ◊
+Æ)(∏¶≠mÙª>Ò»æ3´j¬3,É·:fÄ?ıì⁄ƒ©rgiﬂdk⁄µ/qÒÎ3“ﬂÖúº’d™'µ˚≥Œ=iG\Y9^‡ $cÊ&yy3∆˝&\ÄÏ¥¸Kø|ØZ‹Ô‰Ú7µñì“è9Xf~¥Á…G˙Y<ÕL'&dàâå)ÔÉ>¥—cr§ÒåSg9…a>)ìPmêü
+J∂‘1≥6¢?Ü,Aò⁄tD)q±!$¸GŒ√åLÜ≥ìw˙Io X˜z†o!zˆ*…á°Ã∫ß˜Ç&ÃøL¿9AeëÎÄsfD6+úºmÜ◊µ)cπT;óö‰5ãUMcT”kCi+˚9–⁄ã«ÿº≥(⁄úû∆&4ni¯áiîzp‡f¨utµ@ºà˘"ù7—Ÿ~Ëâä#˚úµ∞v≈H≠ÄüÈjù@{{$lQÒ?Û>¯°‹œ–HË^CåF»îÜQ‹w¡B<o`M‘¥KÕy÷÷È›ËñÈM≥= ©”¨¸R∞È∏∫Îr2yd€ÿw€JnZÖE6”Ú∑”aÙ9¬$Äw‡˜‹N`Ë¢èÿy]e˘£ﬂ›ìƒNﬂ~¸aÃkNüB^ñ7Eêë’1’I√t∂J˛DV',ΩŒBzc~Û„èbèÈáüﬂ∞∫≈Ïâ†b»'PËw[d≠33≤≥±˚¨yï|6Ωä5±ÉV˚yk”≥µRáü∑N0¶±Wt÷ì<n~⁄´∆"`9‹T/‰†Ê+nÖOƒ ˛)˚ÅCé_<fóÕ—"ü¥"1t·Â≤√2
+Ï«∆≠æxÃ6„ù§~~]ÈtÅ˚°
+æG=U¸5YSŸï^t+ﬁ‚≠"‡X—ÎNˇCûo·yNy¯‹◊.ı≠%T⁄`H≥t &-∑7va^BÂ€&[≠ÚMØÏkø.÷6oiw£´ø6ûô˘:´\9UæØÚá∂ ˘—æ≤œXh…±6∂Ec€KhlG4∂≥Ñ∆vEcªKh¨-kﬂ›n˙æ_Ê~y.Ê˛˘“÷¶‹}õÀhÆÿÃÀÿÕ[r;o5⁄œ˙8<ó@⁄’ÃEµ˚Õπ®Ñy ”ßæMOUìö
+˛B´hu	^´ì¥Eìì4k…¡~Hn´˚˜I}Õe/ó˚—(à|]Iç÷{ﬂıÇ«ﬁ/≈c≥KXÚ¨µø@s≠^2˙⁄ÎΩ»*˙æÚ…Ÿ0EIo\œÿßÂØglv	Î˘«Ìù]≤ˆlsÛØq≥!Î‹l¯ñª˘æ¬+˜zØp-Ñ´”i++æä.ï2uªk(s »°u¿œH@™1‰xÑñ	·ÓB‰]zÖ`yßæÎ∑U=ø“˛cx˝en=÷be◊Ad„Õ)2Œª´~õ∞…ûQ‡ìµõ¶éÃµO<VN…X:•7∏û¢Zêµ7ßúl•∂Œª+˚Á”ÒøDc“Fó	Y;Ôz∑Êgw›ÅΩ§Á<PcI2¬Yàπ·:m´”]-÷Wì<œ”ià’≤∏∑7+;∆¨(‡*WÖ«÷1G
+d¿uÀ9$JRYü*ÑΩ<ûxôî¡1Óâ˛F/M¶ﬂb5¯ENÍ%S’Ùmh¨$ò{ˆÊOÙe¡±†ü\Õí≤ÂXSÆ¬Ÿ^ òjë!∆…µMçTÀ¶¬6Ou >-ø¸	rˆÎÃm%î Oça≠r§¸h…;ˆŒ∫V qñM√*È ÈáéQwW°q!:∞¨6≈√@ù…>66¢yÄlåµøªs$õG}dî_◊i0A	„*bl£´î◊‹=>TûŸÌB»ÒÃ|ëÑëuü»7GbÁ°‰«5Ü«©Ã]ó3ùap¸ZûHYK∑Ó($C˙síŒ÷9ˇL@Á2∆(	ôÉp‹õâ∫óÓ¢>ut˝Û◊‹Ö≤!ÙhklEïhëX©NÆ'°Òf’¥–˘t[S~©Æ—65"√÷†E:ggP	|„…ñO•R˝D≥[ãm]Ò-*îÍÍ/Nw±"®uÛƒcSú⁄ZÇì‰ªÂ2ËémLø˙ˇ8çzüxˆ>H£∑a<A*me  ’5ñ@√ÊUç⁄¿* » +”ZPFñhç‹t@Ûâò aqYˇU+üóyb‹«O-√9„˛ç„h „ãÂráé}&ã>LzÖoÅö¬T˜¢¬<ÜrUT–G)ÈQµHjœK®oV#•ëB¶’.TèXh]Qºπw&ÔöøÕ´˛r~Ë‘vÚ˚ÖüÒÀÌ[=≥iÄ˘ÊWÃ·/$f©0¢Êúö?K_}Õ ;‚:‡Ô©ìåïX∆ô’!X∆*â˝Oãƒ~i˚à”√ñîØü%=ø¯¯EíŸ¢akrπ
+3¡«ø®¶€ù¥å∏±G˛fUæ+Mé´jÈ8ô≤Ê/ßâ‡ﬁ®Âß…Hô*ØPuïÄAèÜøXyÃˇxKËÖ¡%’]ΩktjmC”»‹E“«_‹éπ‰äºä“|Ëèv˜SæÖ‡áµ·#ˆπ^ÕyÙıìÀπ∞ÒXY¥RÚ”6Á≈=ƒ∏äSÎ˝&ÅŒoBpKﬁ]˙Ö≤∆¯®•/3÷¨)4:ÊΩ.∏;I'8	‚pe˛ª ﬁˇu8¬fÿø_‚ˇ`è~„<Ã"Höå†Ä]øüÜYˆ’„Î f
+XóÊÛÉ‘Ó%ﬁÍ¢Îg"3ı-xÂ¯ ÆìnÚ)°fﬁYö|é∆=ôª§ì@sÜË«¡◊˜u4S¢væ9X¢®0(Î@>§çƒÎ æ-yGïõ_¬÷:Ö5ú§}¬z!OßyˆËØaC=¨≈}0Lì1ùÑ¢pÂ\›EÁÓfyÌ/a}w≤|8
+ síPCñ6Kœç0ÔµæØÌ˚^€¶˙£wÉ\RñlQat…kµhxæEz?6Bc(—˚Wˆﬂì≥úóüC≤ˆaLˇI≥ ûù‘°Mvdìs7Ûä6ÛjÒfﬁo¿ûÜÉ`°f:–ùNÛ˛|5¥’_Å Y~éíi&Î@Ê9òÓ˝át^NxYó,ÄÙ∆ópR¢ﬁ«M*YÜÖ˝0˚~Zﬁ˜˙ÓNí4œxUç£/–ƒ4M£ﬁ4RV'ÃÚ•F¢SK^Ë≤›e≠Ò◊Ií_qºN√À «±i¿tNjYûL≥®˜◊∞‚ÁƒÏ
+,ï∑díXπºR¬»uû|≥¯Œ¢“6Gzråß®zÌö;◊Ü}EgŸﬁg¯F¢’e˘¶ûZ’ó9`ûo/XÄÔ@œEÅûZ≠⁄≥(û#SX.È~Ë˘Â∞µ|é˙SfÎÅœNV∂‡ãª(ÌÉuëú Û†Bµ¬viÿ£À!#°,4DFaNè]@|“u=gè`ÙeÅˇ:EÒå`#kÄ%À¢K(õî=bQ˙‘   é$ã…“„ex—9¯é]:ZÙ˘ˆ≤—¢õwÅU≤„T)ÛÙCåæΩ∏–®≠Ëº»Q>æï9Vä¢> Ï(ÔÕr¡£¿ÈåC†‰qS¬è&¸èx—~B'
+Vc:7„o-j^Pﬂ!£ÛCFÁ/„• KºÇtå<⁄¿‹å¬0WôÅ-ô†Ê4Ç:æaÊQ‡ã}æ#]ø#]Km˝%"]UHk≤äº iÖ\ØÉ0\!ìh¢]ùARZã@—xZÛ@I^S
+=“ìbí&#∫_ÌG√í—∞~∆.!&ùÏnk›Ωàm7√≠è–f˜ìµåOït¯‰˘Î™˘gy∂Kº±^£C~jø$TüñOf÷ˇ€Zπ_û≠˜ÜIéπ°˜FËÙ∞tX^ï_‰mŒn2æ«ˇ  ˇˇÏ}ÎíIvﬁ´‰ ∆l¥∑Åæs9ΩdS ‰¥¶oj4g<^M,´ÅÍF-∂
+vo/#éê~ÿ+≠gweÖ‰UPª^…≤Ù«∂#‰?ÕºÄÊ|Œ…Ã ¨{fMrÜ¨ò‡4Ä™¨¨¨ÃìÁÚùÔ‰ﬂ©+,H∏WÏ÷•À˛°§ÊètÇêåèÊÖËó®Zõÿ„ü˝å’Cù4ﬂwÏãÊ‘?_∏A,?ú…F_Áâ∫‚a¸íÂrÒ¢DΩ≈áMw¯√°€è∆z˘√/`K*≠q+è˚F∞«˘ï_ˆ#V5M.⁄î‚k†ÍQä´%≈äÄSê=‹eh3π.ÍôñÏÚN©"o,R8˙Q?Õv«r¸/wK+ÉË#ê(ñ∞S†ı'Y;voíã˛!ﬂ{Ö˛o¸¯‘è®†˙º]‡<ö’˙@´lUr5Õ€çoéÓ0A£d‹ùi"∑W‘(Æ¸•£’÷íuˇåÏ2ÌDÉ3—+ DªÛ˝øÓ
+gy	t◊b±ü ÍKZ‰‡dÒ`8Sø∞–<Á√
+°’ÔÉÏ+ü
+~éÀ%:1AÇÎRä•ÚƒóÏnï;	"'{¢'´w◊–Ô^Óâ‘omz.:“∑å&ŒC-“VÒØkΩ¿¢C•|
+4$w©êÆpïöx÷’°œøU°“™âXóµE~k[&VÜxÄ’¡ñ≈†g˘‹3¢⁄ëœ›‚!yÔ°
+Û\ÀÚÂ˛w7Óï«=qîπ¶ ÍIT£ŒÊ9¬=ΩmX∆Á†Û√_≈ômÒ¡1óê¶2àNNHœõgZµﬁXÑí,Û5°î´>g6[ÿ·åÑ÷zà”º¢‡í¢•ÒÉÏ4≈◊•πNüÓEÊ8ˇºYZ5~p+?
+1g[˙J!3≥…∆7üñ7EÉO˛Õ´_ˇU¥Q¿º’"øyı’ÔŸë˚BŒ“ßcoZX(R?Ãb&Ú\”-M‘¯õ¡>“wß<N#{~ËL{É‚z Õi÷XÍSJ©◊]€pfzL«Óãíàq‚©-ô∏æÆG˙áóÊ˛ÔÌÅÖT[d¿.÷n69°Vñ˜vé=Áæ˘Tóêßs7>´ˆƒdCO<ˇùÀoÅE'itÈM˘,z)E{=\VM÷ØDO∏0ë—(Xn˛ÿ˜∆ı•∂¥¸rô…”≈N#|BY]‚ˆ5n9RëÊÁòo)v´õüoßY8Ò˘aÔ ÁGE˜<?º› vŸ≤ëòØ_9a“€¯˝˘ÒíπCÿ]›LN¨Æ}Ò0r∫‹BÔ3Óßng˘@VgSCIÈ∫⁄ı¨nké‡Gñ<è!∫¯WπÄ.]’ÉÿRu ÆD‡ÇZ·RxÏ‘g4il‹oI*;{·¡V»«÷BòÜ‰˘∆B£ÿ7≠‘h«ÊS÷7W™ ‘7p∏nn;&Aπ7œ¥ΩñäÍÅ¨mœıÑƒtHDπ£N[k”|jÎ 3UTArÉˇO~π∫±&!âW°Õç¥ZÍ)˜f¥ÍËî[QÆçi*‰¡w*Ùí¯6’òfù˛~lÆ¶ ∏nˇAë)`#Ê4ÃêÑÂâ⁄ä“ST	éª¥"§rÓòèÇÖÊò\Ï(M-=^Ü<¬frÖœ¡‘gÈ!»ÚòXXÛ9Ω(ˆu(_ºá$˛ùÅ=,Mã.*÷8å¬ï§á◊!©rÄ`¨oVﬁô:mñ•h!æ£ô«∑^å‚ªùGÇ⁄©›)yã∑∑T¶≥˜•◊£øk‚ΩÚñ±ÊMã;¬EÑ˛∂≈˚cÇÑpyŒÌ2‹h0J√¶ê¯‹.C®OQÏm˘uzãñçUˇÃ≠52Ó∞(ÄO˘öÆå›àE.÷9|ÇQ‰ãE;ÏZq`F≠<ô…‰¶Êñµ≤∏î¬ªkøX"íÓË˘V”Ftÿ¢≤§<8{%7Ì<Eê{M[#Óıc	yqHΩZDzû$¯˙|‚‹Œ)ë xØÌ6¨=}òeô3ß—∞´)èõ¢
+Ω≤ï˝Æ¡¡4ï	&
+>ÿ˚-–F…C-Åü˘Õ_ ï >⁄ç!?ËZ˛`G`äoháCiÒMá}˝'ø¶SæÙéÙ}w#ß˙N¸Ãﬂ9ál¿‰µRﬂƒ»TöBåŸ∫=≠ñæyiRuÖ˘6än•bQ…çrèó0ﬁ0©ô¥µŸ+©ÁÈöDõ‹]À1•z3M)ÓÉmF¶›6Kw,.—£}dÅZSá&+a	È¿…áÈ5âKßPQ¥}.À®í∏™(	0/·Ø¬–‘X—†D0Cê˚%*ãZÂ8◊ÇV£x´Øa‘m%]c◊‰8ô¶V¢ñûÆuÇ	∆Gfw∆~¡^¬Œb™éõ8⁄&.Ûôì÷Èu©®¸òíñ&k^wioÙŒM¨2:Lê¥há¥≠˚Q4“®Å,dP™$Ω·xûåÃ+_ÀØòWi\¯Ê’Wˇ¿Ë)xŒKél˘(Àƒ¢$Ø”≈1ÀàØ‰ÕQmâ+÷È
+ˇ…∂ZŸr51)ﬁUÂkM+‹«ÔVaÕógÍdﬁ $ìﬂì»◊ë§úó‰L‰S¶cTµŒﬂ§√ı~∂ø˜Ç¯°eJïÔ(œswFlÍÉÕ6p;/âxxªA∂`Àåªc´]X{˜KΩ~%™ˆÀÂzYÏµ›ì¿«)@,s¬ÄTd›û∏='ËsZàR∏ Qcu[s·Á$A√Y˜ÊÄHœéVŸÿh”›ˇMC¢Ô∑áﬁ‰‹á∑ŸFgø)Ô»våöŸ§2Z,f¯gkwqáã∏"ÏÁ)K∂s‰≥‹p‚èCË=ˇåâ¿‹≥‹Û/«úëQœÜ6‡æSÑö◊ª=g∫Ù:L¢e#)i*í˚uåT …·†!l°À©ï`4ª⁄«ß÷z∫∑∆;gß˚ÌÆ¡sQè©„•ñXR‘∫`Y¥]Dîu2D7ºÁ∂?l–+π∑l‰HÈæ˝ùûh¢qOYÍÜöo%Ãé°ú0á#[Øå4“<ˇEû≈	eÔ¿∑˜adÆò\Dí/–‹5E”_z˚g„ﬁtÍ€ÙZ02ùÓƒãö©”'©]buë„§1∫L¡‰ƒ:órBêjœÚí≠≤ı5ª«∞ã©Ÿ◊eh}|iy„µuãÛù+8ﬂ" £p‘Gœ∏Ö|G≠π:‹ taNF_,4ÛtËÃÃâ”X 0ì©*U$^¸“ÅuÂ†ôhZÆá∆!q£Âœó≈Ω$9YïÂÏ˚A•Uª€Íª?AÖ§⁄’ù´û;·‰n∑∂⁄lC“b{ÿxø=Ãª= {ﬂ¯“π§úg–§˚Ó’∑skPOÒ~g09b;É6xÿTkoÀæ∞˝ﬁ0àÿ +zÈﬁÒ‚úﬁæ ı`´Xïé}∑ø?læﬂ™Ô]™`Ì»/q*›ﬂ∂B‡CNcæó˜€Ñ…!±[ô#8◊^—ÕjÚ˝Üq˚∆Åˇ¢ö¨WØ™™Ú%¢ÂNu˚€ƒ÷˚m¢˙6ï9â»-WŸ—l‰¬]ÆømÖ#&⁄Èﬁo&áÿ$“£7◊—J6˜~s∏˝Õ·‘EÑ≤≠´GÈåŒ∏Ômë'ﬁ≈ÙˆwáÖùh∫€‡NÉ¬XFÃe!Ü(Yﬂ'CÁKÃıûkü≠˘#>[,A(v.≈4n≈(ˆ—v,ß> ﬂº’B7»éxÎªNå€Ñ™*…»¸®œêë	Ãåª¬óØ:`•∞îs˙√¬õ¸IS˚.S¯ˇã∆∆¨X¯Gm˜4à>-yJO§%€√k®œ◊¯Ÿáﬁ{”kX?µ]ÛIS z2›ÖE	ã•fµÕWET·nÃ©p˜LîMFoﬂ4ÿü˘§»+èœÈb!+zX-R,väØ)+ú√æ«íÆ(¯*”ÏÄÔ”;çsRˆïó˝Å∆~BºñÕ8vïmY(ÊÛ(ó‡ˇ◊gí—u\YôsM0 ‘xæoº;,¸m±›lsÉ=dµo^˝¸˚&Ö¶>>ˆ¶5∂c&ˇo£g[ºg_˝9;u{˛hDEﬂhó÷Ôbóæ˛õø˚◊˘Ö*cu|q·∆]´}˝∑?g`Öy†ﬁ\≥ÓÏÚ“a«≠-[fR)¡òö‹
+∂à2Ëâ}#µ∑nË;õ	~k·1e…%ÖyÍ®:FT≠¿8©Ô>∂”1x˚∆5u"c`†WP0ô`Y&@ºCÖÃæX5ùœ‹N«ÿ‹M†≤.Y¯‹√0{¶6DÏ÷è˘bâih¨ï®ä:ñpêÎ(pGN<l6
+N√H˙/¬7õ&ù_Pı¡,‡ˆ∂Y
+¢™ÂS˛l•&M•**64∂Û˜§Îº\µ•˘©ÙΩﬁ‘"„÷&”6ZsÍé∆ÖV2ùj%±ÊòÉ¸&◊ÜˆˆmŒﬂx!ÉÓ™ÜÒÑX}ˇﬂ’>ﬂlƒ≤nó–ò∏Ö∂õ£“Ø∂ˆàâúoÚs›‰‘˝1Â‚Cølö3œç4Uﬁ≤u∫œã˙àiØ∂Î]éùÈÕ.ÛıjÓ…≥©fáá≈Óõ⁄›˛#C¥W—å≠TÀ¨èÌ¿ë÷_úŸ„ﬂZRæî"	sIﬂMzh‡À[∞Z\zB—ﬂŸzø€s’˚Ωù*ø≠Ÿt‡ﬁO]]OÁ0‹«ºn®^6¥‰›øU5{¢œï
+˛ nM&º∆˜π0™RÒ∑;‹°YﬁçãQπaü®bL§VTÕˆ¶ˆæ?⁄—‘9µı9ç$„`Gy=ˆÿuYk8Ùym≠R…wU£ﬁs∂Ö0^´√ãhUxER9Òºƒº0hZ<Zƒ-ÀˇÆ`‚‚ò9rÖJnU˙óÛΩ:|HPit]Qa¯,¸ÿæØ	¸Œ÷ñí'*
+,ø¯∂UéÑ ‚k|∆§≤=wM`5ﬁâó,xK™ÀÓ,∂,Õ‹á+^«_⁄ß^Ëd◊å<òé∫‰›oÏ€[8>üﬁóû≥$∞úD¢$∞–\˚Mˆô;Ï˘#öEDÎÀ#8◊Bó¯@´‘«7óT~IkÒ·ç√µ$∑/æz˘Œ’¸’Ù“˜Eé˜E©Ëo/‚$z·x¥	À¿ö»´…zø Wä>Qp„œlì¸}_Â7~|'´¸Ç˝µ?æy”h©∂Òù<Êﬂf5Z“™y%⁄9bZ?ΩÇ;,ö‰¨;!·Yı∫ìUK›ﬁ^MI;/åv'À"∫¬ÂU1#_s—ù·˛◊º…t˛∫∫Ÿ∫&”ÖÔ)úÛö-∑ÜlcC'y± Åä0%RÎ•hÛÙË"±qi±7^·ÆJÌ‚ÕÇ⁄≈1Íh`øM≠„hLﬂ\ôcí|Ïå‹o∞“Ò#⁄MÊÌÄ-\•ÆjsœÓ’ïBVÅ:ló÷ôﬂwÆ+WCÆ¥^&ú-=ñ<ë;Î5.´{63øúñ“K,DsÔΩˇf,ómgwö#Êy@ˇ¢„|~∫*<b~g2Y˝¸:[ƒjA€eCTüU±⁄Ù;–`·∫Ç.§"÷‚ä\7c‡°^8m∏t˘Yå~-Ûπ9LÃ4{‚Vñq0E¨t_z!¬7jS5˝`QîA5<GaÉ‘"›2]§,µ∆∞ë€b?¨∫†˝‘ç>’ﬂè‚÷=Âıö¨ }g|ﬂlôr/Æ(⁄'ÿ„Ê/&é
+%~∆úhN}XyÙ±ê=µ∂ªaŒoØòHŒ˚Ã©8Qy¨2Ö~Ã5†•5’v5@ı\Ø(ﬂØôFo+óãÍ›z#
+Œ˛vºê4Ãªı>‚©o˙ùr.ºk/&‚Õx≥Ô$7Ω˘ˆÍR›
+¡±°”Lîe‡µwÔ§ÏC¡<ã*xKeßZVÓ•2ÕR/5nbâHµ"À˜pœx&œœa,:~œä√ÿÙÊÊ8≠’ß!2¶f¿ûthÆ«JÜõmÒÖRÊ<ﬁeÎLyƒß891≈ÏVUæxU·È|®≤y4C∂‰Ë¸b÷dUu ÇkUyn^qÂ~8|x‚‰≈Äf<=^w$úgtÌ.˚ô,UíÌ◊QÑ«z¡ÑX”≤¸HºZâDDEKÊm?Q∑ƒæ6¡[!Ó”>Òõgπ|“Äî·ıŒµÚ,*ŒÍCÏÖ≤rûeïvñàdG≤]~±´uËì}ΩŸ‰ﬁ!>kÕK4¥yÎV5goä∆F·Ÿ◊ø˘GUê ‚∑˙á⁄µM	ßL’%_òúL.ﬂuzÚÒÜK/óü·ﬂº˙≥ø‘´ÜF¢çá)®ûfJ9Ä—≤‚ z}.Wm~çŒ#∏R°⁄Pïi.d-Q ª%q2O©ò»·‘íÜ“ƒähÑOìˇØ°Tyı‡V[SlyM[Ñı-˘åóòb€ /∆©˝ÏCìv_ f∞4ìj»·≈D≠&#»ã;K&ñâqm+Ìi–j∞“mÎBŸ≤ÿ«¬Éõñ¡Áƒ#•¢rµ(zåº"QQ˘ÒıdµÒ’ıÌÑ±ùòõ^%·%∞_ˆÖˆÃ	À®§|Ö∫SÖ—~(ÜXUUò™Be!Bö[rK5ÂSª9ôﬁ¬fµr\-ZÎˆY≠Ü`ïBU∆ÜAÖÁß®vπ=†äç)ıø^XtÃ∆{H˚ôf¡Ûï,§F≥´äE˜Â¥_ Ø M} πåCO	lb0L¯„û3<öçŒ›@EØ´’N„˝™TÎÌµÕfÎKlòÍ¨∑+ˇñGcπöªk$@0zÄ/Ü∞“ÏzL∂öë§Ë¡àÂ$X¶B~
+um
+^aÆ»™o≤É˙?{Êq3@îüf∞3_BTÅÓ‹e“SÇ÷lKﬁ!`∑3lﬁ“õ2‘Ú-…Í]¢≠(ç#Ä0KoÀKçº±»„c|xdë‚ ~Pµùa :ßVπ([ˆùÌ›öZgVøˇv¯5€Å€˜¶mƒ‰97ı™oÅwSÛåXÓRYsVeñ≤˙øwü:„òq{Å?È˚/∆ÏT$¸ŸÏ‹ˆqÍ/®íìì?.fçÇLtdf-®‰◊¨/÷,Íê◊JJ.ÖÃÌœ¯¿8X^îÃF»¡Ï-ÛÚsŒh2≤€\ÍΩ=éƒ¨ê_¿âÁ'0ïË ^"ˆ¨ÌFûå3x]8s„ø8èÚp3ŸÁYo_ˇá∏@yKÅN√>ÏNë™n•≈º%\ﬂè◊yN¢°*Ÿ∑	Ω‹Ü≤;ç]!b∞i” OAˇ\a^ˇjŸŒc†ºpm¶´†å®<•Q&DEWÌbÈŸV%~&Ûª4("ÿxÛËyÓª≠ú{…˚„“†.8#‘#”´¬zq[)évöc•)ûªáëHãÂ,P8·[ògò_ˇÊO•-ø´î ©û˙aÿQ&¸S‘ﬁ{ò$äVB≠uq·]©¿~◊uÜµ^ò⁄L∆Åa•Ôı\n(ƒ˜ﬂs0t0ã-ÅtÅΩ˜¬∫¥•N†sÚgA)”Å?õ≤◊W8HâO˝q≥B–aa'ù6YËJîùäöiq‰ùm≤ÖÛçùJ<+¬	v≤ ˆ@o%7ﬁÌPy
+ÜãûûŒ\ïü3û=/?g€É’?ÇeÑ kD£;·÷¯¨7•ı∏ó|t\`ì¿EY˙~0
+9Cßã©ã!¨WXß‹g [†îE¢Œç7M‘πfF‘©l®©]⁄˜€ÂÏ|”ÎÏdp¢¿ñîtÍ*„—|Åìq Z…§˛ä+¨ïhß "{<úÙäb5¡†ÿıfp˘º5⁄˘‚ò-$#Ä’oÃxË≤fº—G™—G¨ﬁB*é1Øq	Áiæ≠öo≥˙©\Øûp kìåõß˝'îoÒ1®æA»É\#ÊmZêÉf∏Kí°ùø´ãRÑ·Bö¢ﬁÔk"◊3'⁄
+@ÀrÉr-#)v[ÃäQÌPEËoÿWä¢°x^Lá6gÛâ•jõêùg%ØD	∞Iæûës’x±÷È5òå§˚øÂjf£ÜWß91
+w¸˜§◊kÖ]∫cx>Ãó:6√ SÄi6Œ	°iŸD‹∂B:∏Ü3Ò£P‰ã}[Âtl∑Lm©≥†D·¸O÷\‰ñºYa∂c'È/ÏnŸŒ∞∑$)†ÿ√¯6\Úﬁ«e—ÍVî`No»MÇ>z¯'Ãu,%Â¬R%ÎÏjò(ﬁmÕ	g»ﬁ¥|≈Xn%oÁñÍ◊∂/sKä]ˇ="∂ÃÒì÷vg√©◊ —¨Ùd_˚›KºÏI˙A¡vÊÜ‹\@€Ñàœ+dºŒ‘ù4ŒØ¯ˇ
+ñ~±‘œevIIOAô´F«»‚Î<g¨ﬁ€6ÙŒBiñ¥∂ªﬁdßëÈµÁÜœKf˛ÊíÙ´JÑ…/t˙Ö$÷πˆ+Í4†	Hr~bÆ¿Ä…“D$UßÁ˜%·cî…ö∑ÓçÅN‰Ú˜µ—òI÷öLÜûàñ=Ÿ¯z^\{‡C_ò£≈1Ü%Ó˜∞>œù†…810ÎÏıÏòô‰Ç)?@V5ßﬂƒgÚ¨aT⁄üÖQù¯∆Gø[¯ÓºcΩÄ”f3N/PèJƒ,øû◊å$0AüáCxãnÔ˘ﬁ-_¨B∏Xc<l* kx]È#='áøBp /êèµﬁ°w´È{µ›≠&K∏
+èA…ÍïÂ®/ËÕrÖé≥a¬˚Ä◊KU0SñqË
+oìLà—J$oõCÿ„z‹”à…2%‹õ€oE‘k’ﬂm¡è˘[z˛/ÑùiüÌ⁄a'˚'ùÉ˝£;Ì<ŸÔûù~Œ>;>˝§{“jwr4¿‹™¡& *}Jç+£é37AãLŒ§yZlKñ©é&$Ë*?2DbG¯rÈ¶œ†Â<JÙòÚ∏]ú9¿y€Ê8	≈}á$aΩÁnP0CãhÕ3ñi‹ª∂Ω∂≠+µÜ∆ˆ),ÿ∆‘É≠ˆ\Á\Iê¶oì  ò’ Ø˚≥°(hCã4";{Tå∫√ë _ oÛ›í”µuK ìú\ü>hƒΩL™û/«fo+jfl\cÛ»},ªÓÒ'«g«lØu÷z‘ÍvÑƒX§ÑJCTKı™Å>ï‹¬„jÀ_»0]ÜnÜªòÜnË^D’@@òùIËñöïÿË Ùì¬µ:rh	çóe‰ÒRﬂ	üVÎ¡–)]K∞Î†€Q◊ñ€>Zß”Aïvec{‡˚Uõ9@Cá≠2‰¨™‹ó'3–"<h<u∞YïvbDÌª'ﬁÑì=	¸KT—ëQuZπãíê—†	¯=(RJf‹˝Èπﬂø÷ª K
+dD„öâ?î`à∂jøà;e
+ßXö≠;ë VB≥[ÙòÚî>∏√Óƒ?∏π˚2>Æ˜“8mEPaœ>ÚuÁIl˚‡v∂ tö@ŸB√#a(Ñd	¸˛]˘ Êf∫«_˜ôÓ )÷ßÖ§lFò¿„SoäÄX¥F,aÑªÇíYZ)nÍU#DΩŸ‰Ã™ºs‘`”≤Â√V|ü,ÆN¡à70¨™∑®TÛ[jøÊP⁄l‘W>ã
+>Yåœ≤⁄]xY˜_ÂVëñ´X–®/‰Ê≤Ëã1⁄ÁMΩ∑Õ™ÈkÃg¬≈)†é¨“¸J≤£õjùòLõøı7ﬂçMzî"\∆ØÁ≥5ÅÇÃ$ñï`§2I⁄°!◊é£^û‚$r‘‚≤$ÌE±˛I#˙∫ˇ6Ë%√“◊…õsß„î√ÁπõTˆ *yõtÅ'˙ +ƒUÔÑ^†C‹|2&C˚øü
+¸ä,næè#ß2rÀ&,∆7e≥‡Œ∂ÙıWáŸGçSıΩ!ß—kÊ∑¯-À¯ë’O‹1Ö˛¯lπÍMcØïﬂÏw—7tØ®äwt;rÛUæc‰Åª≈Z£[ˇ7Ó3Ù(ŒÆüÿÁˇÅ—MMw†y≈YV1±8úƒq‡¬‹@S¡H)”[]§<93»ñ»whêE]h‰Á˛ê˙%ÛÇt<˚Ü+·gŒ9ü°€õﬁÙ:ßN#Ì’^ˇAÕ&ú£yA-køÀú±á@Ï∆hI/*
+eg!Â∏X˜[áÏÃü∞3o:ƒR]>…9„q.on!»îú∆Ãæ-wâé˙Ÿ.Q¯æ≤K¥»!z∞ëˆ˙≥kÍ}d…sùRCy})¸LT◊—¸\#¨œS^DæÎ…lXRF†¨•ÃP‘4‹"ókôº!s√0Q%Ã§◊C/ƒ°34†¨Û)oeﬂ_l‰æ§rœÏöµgñ–Õó3ÅEã ıó¯"Ü›ú˙óó0È/á˛9F\¯√¿Ë^è~F;Å…µ…úYﬂõäòËàûò¡˝˚Á˛Ω—l»˝We±—\]÷∆©’Ìà-õbïDKTù*ÂáU±ëÇ‹⁄4(-a%´JÅ∫*G˜ ñ ¶ä˙`íLzÆ≥—‚ä44˛qCÆ5èá_cKi©®’ù§ÆñˆK&Á‰)iÖäŸ}|Œÿ¯Î¸˜ﬁd<≥z∞ª§äo4¸⁄‹∑pyráút?ÔûuŸ¡q˚ìŒ€;˛Ïà}˝7˜ØˇÚ∫®8¨sz¬∫◊!ŒÑ¨ŒHG,ÖôaÃ!4H‡%ãÁn¶uôˆfGqøArr|z∂√6◊†uJYb˚cr¿Êã∫≤HCÓ9˚4Ó—G>là“Q˛ôå)œ‚Ç≈À§§eÓÃﬁ∏≥_.=~∆ª‡sp;A+øã´.nªèòXG}ñ†y,Ø|É$ØÙ7b‚ÃˆPsÅ"^±∑Ünêà|ﬁÖU}WÌ¬⁄Ä…˛ù√†ı‹‚]π"ùv”®¸dÔ≠Ìv@N\∫„ﬁµX¡Læ¡^dèn–+¯–∏GQ 	Er‹G$Eÿ¯0hœÂ≈‰¸X“Sì˙pÍb,aJ|é8G>∆I√&;√ô›¬@—Ñu∑J◊ÿ˘“ªƒX¢Y&∞àÉZåLØ
+_àÄ»˘{àY=NãäöTE3ΩXÎÃÈ¬¨@ßﬂo°™r‡_ 
+k]Æü∏}ÑÅÆÄ¥Ô¥üûÓü}æ´πâëæKRƒÜ∫¶<˘Cﬂz‡ı›&^‹}⁄nw∫›•‚·⁄®◊æyıÍw¥¡–Ór÷9=‹?jùuˆvX4Upèô ÀÇ}eÁ(¬MÙ~]3êº–∑ﬂ¨‹∑†Rg0$3XèkR˘Tkˆû-Å«J/*p7à>ÃHÄ¬≥ì®"M)oÊ‰OÈΩËU©5˝Õ´_ˇ*wíÅΩsó@6Ñ∑•CZ§LﬂPToÜ)rÓòZé	EV~ç¡f¢˘?7D¢≈∫È˛}Û√ú±∏tõÚY/1'‰%WÂß•ÈWøg— Å·ΩD—sGrÖ0ˇ˚nÿÉ3ë:Ì"–Fë)?”y;,$ôKºŸ2˘r•∏S.HHˇ⁄u£{eˆÔøcq¢fô1#KLuëG,}¥úï…ªp{◊Ω°´˙:Â†F„éj´5ªèˇı∑†Däº)vù6#òYW™ÉßèZmiOB#Sÿ.B’≠•ΩÎ±3ÚzK•"+-ª+ø˙Or˚ìíïë†DPë7T]i	–ú<iË_2ê~Æ3“ﬁ©¯QJZ„πéIÙô£ııﬂ¸5Vr∑Ÿ±êπ™è—bø√xÑ˘Ì=≤vıAkC1›F-≥S_P»uZHíYñÇC1ÿÈyaQÈJõ£∂vgÁ `Ító◊†nVëLYg∞q5^Äò˝HE	Tì,ô[ΩÙrÎ#˘ˇ®üEÊ¶4cSıï?JE4∞ÎöfQGVL°YKÜmbc√¶∂íü¸ÄC~ΩfsàÔ|$eEˇàpÜúëA‹6ìCö–4ﬂy&È®∫wI.wZîEº¯ÜNÔπ¨¬≠Ä©q\qQîù8($	J•≤mí¥ïœ…îRÏ ¨¢ n±VíÕ¬Rl-wü>:k=bÌ„£≥ŒòÓù√ìÉ„œ;∂øüAÛ≈mÚ¥u‘˛ò‡p^˜¯ L|ìÒ23vhc3:·Œœ7PÂÊé™ÉºO∂P‚Ûe≠ÿ¿A(ãøÚ&àÿ≥ËtÌC¡JïÅ+‘á¬{tc≈>snπ†¡Ú‡&Àå)Ωo¿W∏ÆÄQÒÏn0≥&ö§Ù6≥⁄_Ê≈^âè∂3æöÏiËåú;l≤?Ç?V◊lRiπkÜkb†ﬂ¸´¸Òë∞tœ|ÒÇ`ã/Kåóíº∑»·z†<à)^=ïUƒ£FÒ°ßM9≈˜ø{ﬁ´Ûõ-óî<ßûèÅx.ya1ÁR4»x[}I>O±	JW}Eµ÷–è›aÒU˘/%◊∏ÃqÂT∞¨‚"å≠Éôº¯Ù -f∞¢üÏu—i∑èüùum$ó0xå≈Uä0Ëjò"J≈(sÖZûvO| öŸNd^…‘«Î≤Z…˛Í…Ω,ï˘±Yò˘±≠Ú=4≥‹R◊)dpKî['Ó”<du	ÿµúN4ë
+"@rcü™?•¥ë’m G„ë™Ò)ú——+ÂDb&»Ü‚<:£Bí≤5‰AÀÜ¨ØÇæ  °Çfg£T‘0í“ÄA8Ûƒ∫·u'F9ŸEF¡˙5ëT“,êÿ’0˝PÆ´<PU…õΩI˚1^
+ˇ±r+£è§på4Q„ÂñL≈0HÔ*^Q÷˘Â	%π¸¨º|å…∞°“
+Û≥q‚À Aüjía£=D*'BD≠\`ay:B^õq|ek6¯Å˜SÓ¢zkãjZ‰ïù∫!∆˙	Yø®¶9~fﬁ÷óÆáµÃªXº*M÷‡=3OÿH≈ÉÃ°∆1ëÇæ®YòÒØF∏¢˛øπñvÕõxK`s’KA⁄ÎçÇ}Z  éÃÿ≤ãÂ¶ ·⁄x#◊®ç]5°¬}†âUe‹ñ†€.ú„ﬂUπ ò∏P‹ Æç^^ŒÉÿçKˆ·PG∆Úífˆ. rR!4S‹tÚ~"ûª·˘p€ÒctC˙4«≈¶Ê(Ñ∫4hé˚v1™)–tAüFW&¥¬™˜ÊwüÇæ«1Ú6wåe$s
+©fU-j(ﬁ»Á5ïÊ…?ãŸj€Ω,PˆZ9çÑ<Ë±ıR>≠·ê^Ú7Ø~˛üYÎ‡Äµ[á'OªùÆ®xßŒ)~2™]˜v	Kå	g~J0&Q`v¢0ñ@PIF?R%Õ˙ù™ëb—¸NL+˘´5¡%D/πË5¯ı_˝ÇOH>zoﬂJ¥©_QËˆA*Hn™Ì2¨QÚ0Ø&,RÚ@Ø∂>–÷Aô”7ypl–≥ØˇˆÁËÀÏtª¨˚¥{“9⁄C\ßBw%Î)ÑÖáÌ AcN»jÍS™÷d'C’ù@¡bŒ›‹U%D{|Ÿ|V‚*NÅ;ùcõkl |#ßwF¯°.∑,´Œ 7#Ñ˛RË€æÕ7œµ/ΩUô¶Æ≠˙e3 :~M⁄05„ﬁÔ˝„£•ˆL·rÜËsÇsXâÆ}È9 O«K4éÏ˚PÈ+Ç>E~)vøg¶ÿ∂TÁ˘|˛Ê’Øøb™«lˇhˇl_Ä›t$w4ˆÂÏƒI˜9ÚßC™1’…¢´—;ê_—É‘¨¶u8.yd˘•>“˘R/uí-5J˙Œ≤UdM;aÁï!ÁîD7‡ÊÛÿGG∫©Ã3¿,B}qá&Íæ2ﬁl™˙ÒùŸ4âÅÓ\πVÆﬂ;∞ÏABS”`f'˚†Ö#˜^ãåãu;ÅáÀjáE‚∆ÍZÚ}ãÈOª´Ir€]À•øöˇmw=ﬂ7w4•÷ÓzrøÀπ+ÉÂfö#?^⁄	WmgX!Ó qÕ·éœ‰$‰z√˛ûêÎË"D)™âÊQ:E%˛˛—„cq_Yä*õ>í¢˘V}Ü,ùGí.^Z‚™}/ãTÃzºÿ
+hªîY≈⁄ß†¥[Ï¥ÛÈqõÖ?ˇÒ∏⁄Íµ?c·L¸Ò¬Si#ƒ⁄:c^a>pøÙüß"î"ÖQü‰8È5Õ··≥Â*∫†r”◊ëüˇﬂº∞˛Çƒ”x}“8˘z[∂‘≤M˜Ij˙©á≈uø£?2ÆÏœZßG˚GOÏtπHõ”Ç[—mıÑKã¬\jT0“˛èƒK∂G6-Z÷ÁW“(”x·Bfœ≈î°[3
+îá‡ +Àï∞àSÚô¯	≈±tÑ‹Ë3ª´íòœºIaÕ∆åƒ¿Ño7Ó‚E–Òˆv*Q09‰g£´™
+ô{fÄåóÃ≥î≈Ó…˜ÙÕ´_˛÷±BßhÉÿÍâ•ÏP&!5>»Np≤u"^4d´Qó≤á¢‘∫Ÿ‘z?≈t<&3™TgHŸ≠"Ø≈6Ì{hıG’3L$UPl«HØ05}Çıú)6zq¡F.v})æ]!G∏0û∞…ŒÇﬂ.Ù˙.ÊQ>œï˚¥ÌçÂ„Pb!bA‹T†„ÃΩÇ'Ãÿ oáÁ∫xÌ· ;Eo„Lí˛*ÍOƒœ˘W@∑E@€ÿ†q·y=KP´"Ã –Fûn¢◊úÜI*‹±Cy…Yƒ¿˙”Z!ÀNæÃ0Æ[ãgø>€ì 5∫,N
+ö⁄¥ayFu¢'Å˜•7t/±*eﬁÉ 1Á¥Õˇ”hãiÃYú¢íi≈⁄§ã‘AXnsœΩpf√iΩDUBE˘É±≤„IákNoJ7òó±ﬂ»‹?ñ´µ"U∏à/Ppxƒ°Ã+à◊\aJ)?L‹¡≈ª;>c|zﬂπ√BÕ{R˛,EJ9i"ç£Tz€<	ÂÜ5õÕŸ
+˛´({	jVÆπõËÍÌî•-8Ø•Çû|…/Y=˛%˘5ó≠\±)/Ry∫¥M›y5ÜM±|¯t˙˙7ˇ»DˇvÙ\ \”‰Éê¢x≤«XnqŸd{…\Ë~Èd‡ˇ1&ÑÍ#¬;h,±Ô±zFÊÈ˜ÿzÈìÒˆ&Œı–w∞¡r{S˘˝ÀHÒ)W~>ﬂ≥€<ßq≠‰Ùó&Ø:c·¸zÖØ»«˛b!ã@ÒÈ/˜Ê',÷€ZYÛ∑»ƒæ”ã∑Qwaóæ0ú§ÖøZzeπvi©lZük˘â‹ΩA\ Nó’•'G•ÁJÔ©å}ñù/º•%“bóh°G ≥,V)Y\nÉe©9ıgÀ¨™¢ä≥˘Ä√(ñ4R9n ûD8˝«˚¿õUùΩÔç'≥iôëª±weNé¿˝…ÃÉµT6-ÙÇÃnÛ≤…ˆÇ&˚|Œ.ÿ~?Jk
+ã˙∑)RrYVÌ[}©^óÖã±0„•paÆñV√ùØ.4ºÆQEf·ı*)f[Xvƒæ‰Ë€4Û%Ô(◊e>ÈIËﬁ⁄¨ø∆⁄)Ã¯?ùQÿº7{~.'ä<2f?#/t˙ã˝Ê€1ˇsò\ﬂ’UqËüc·≥äP÷è© 2k{{Bz⁄ocsã›[€d€€€Ï.&<á¡/t¬eÂ˝Ñœ;„-û≤ZyDs#íßLÊ;wÿOAtµ›‰ö˚Ç& wîVõ}© Œ?Kªùå§ÕW÷9Q1>Ée†∂˚Õ´ØæbøòVëO‹„$'ÅÁ™¶’[‘ì6Ùnˇ‚w,Îß ˝ºÓÿÙ_¸JÒºWlOe~`Éø¸üL}!
+AVÌi,∑ˇ’?∞ÿw€Ü-Ω∂ˇÒıü¸9å?CØE•VÒk’—%Ü~j˙ü$]ˇ°?ˆåﬂ◊˝U.Næª¢VdíFí∂€Û'Ü÷fUI{^B¬;Y+›Ô•mkH≤Ûc‡Y¯ÎuCV¬I¬yFÓr≈ı‰®∂´Un¨?9Zf ﬁŸ)l\±Â”nm7V+≤~⁄≈∂?√YÀü‚˝íÂKV¶¨Û¿µÃ◊æÕkñÒb∑b•ÛÒ˝äÂﬁW\¥Ø~'˘(Íí<¿ÌW]´›Y8qÒ©±Â_ˇo}Ü∆9ä‡Ä∏ã€øùu5ô668∫≈$«Ë&t,≠≤W¬˛(;<ee≈¿û∏‘>∏'.¥îõ0¯a∆‡áe0É6!~ÿ6¯aﬁ‡á	Ó€ ¸ò»¿„E‰3Eö˙2˚Hë:#ü31;ìÉ¶íxSı‹‚•‰y °ÖmxìÓ∞lÕÅÀ àFü/˚ê eOó˘Æ¢*9q†Í˜◊“…DÒ∑ÑŸD∑ıûíT9•Ù‹¸(%;I!ö∫é¢N:·ucxππy√ôÃﬁzœÁ*b*„œœn∑±√⁄Oªg«áÏy·ª]Lö;lùùÓˇ;jªu1¡’ﬂÇ◊Å⁄’¸πjÙú†_õaw7agL˜9'ï‹Vu*π[˘•Xß*≤ Â◊∫¬⁄9€™ÖITs#^§ÿÂÀ(9¥Òà“SDÂ`O=jµãj÷UB&Iì"D°éP’∑RêA˘ë@WˇBñﬂP‰uH‡ƒÀ+Ä˘∏`‘"ÉxìÌyïƒz4 àˇe⁄â'°≥+\c~
+‚{5Ã-Ø¿ãï Ê%◊gÀYÛíW®RÕ&å~@‡√Ìk≤±rÆ{†∆“›ÃTÅµR]ı§ü⁄©üì∞sâ˛ylÒ˙˙,U{»s·eÌLº@B}z„ºäYÿ¨@ 9≤K¥~¢U⁄0y≈àvÿó∞;XøO·tÜ;“œ+NV¯{‚\É÷äÏ˙K4˝]˙ñ
+>”_0=]Dr¯~˜/ŒØxÖ•®:µB»^üº%ÙÖ3t±|˛=ÄÈ<‡_ﬁî%ÿ81ÓcK”)ûZ‘è‡˛œóæ(Wm„ÙCÔŒck$HE≠∫´?≤iﬂL:gEJˆEéÆIK“n¬6Ùóe˘ÜÙß´2≤¢*.ˆBç^‘Ë%ò q'”Vw=Ω‡≠–ç9UÑ8∆qI∂!/Ò´ﬂç'n»?¢#!2N ÀB2RªâFµ£
+AÒ4Ωyêå¶¿ª24O{L¶9•Ì
+X]†‹ºâk_ÖR5‡)h 0ˇêÒb&[v±ΩRº•ﬂ.¨=,„vƒÖá9S≤Ë»⁄v)Wó	=Ï[MõIa˙¢±µU€M`·Qhò≥∏ÊVm“N·u¥Õ@+ıÛ…±‘J5§ÌjZ	®øáÜƒ˜miªãjÎóˇè}| N¸`J%yåS´÷÷ˇb'‚kãñ‘Fßë˙g÷∆ØŸ«≥sõ∂¢ù2™^Ùõ_`V˚¸˛‹˜ü[u,°›®Ó˝˙óåóº∞zï⁄ﬁ≠Mä?e]ÒÉUﬂ‘vØµıg¨-ø∑h+RÜ¢A˚€ﬂ„†}Ãø∑h)S—S˝˚ßøfèÈ´G’’’÷ÔˇkÌ≥oËO≠”‘W’ÿ_¸ä4iÈ§±YBU“ßD%ÑyÆ‘!j]9Ám0Ü)Ü¢∫]îd∆R∫SQÂ…◊¿†ûbŸq!ØL¥ˇh"≤ƒ3Õ®û´=õÂc£_ @)°ˆßF¯)ƒœÄ¸†ô$+Z$i"¨D*6ÈúË¥<Œƒçc–å¸nˇP‰? %S”úàüø¿Tƒ~añHÂÖ4Ùl¢ΩënÙÃÿp’nÏm¯ÃmHµ	ÃWL©ΩΩPJmΩÂ-ETôa0äã{d÷À„ ÊÅ⁄.ls …å˚‰1Wo[®TÚ∏âÕõálâ≤Y"E;™	»©[„”6™œ ß1M`∞U˚FÑÆˆƒõ'®tx,ƒΩíÚñƒ¨y+◊ân˘«<2bC2x(.ÜF~ﬂú5HJéËΩÅ‡HºbåCù6‰ü1ñ¸¿•JÚ ÓP¥˜OiS<Ω~pœ,9úœ˝+s≤&∆˝ÿnˇ¡ç>å DıueCLŸ˜B¥Ú®¡j-§ >vLL|Rà«Ç	aƒWv‰F~"ôk◊-Ÿ1ôﬂ¸ÄgóSc•ﬁ™Ï¶ÜXÚÈÅlQlπ)K7ˆ› ¸ ∑·‰A~y>d∂dXÚÚ∞áÒ%∏LΩnNf·¿bI™√0Ÿ;}Y—øÇ›ÍªW«ïz!ÿ	†1§Új¨ãß
+'CØÁ‚˜+	‰…√fç‡Ô¸©lÔ)dùh Ój;ZBg)l‘§d,Ö™ºpƒÓÅÓ“⁄á(lõSˇ):m⁄NË÷ó_÷€8!/áŒc>˚aﬁHÅ *¬ì”÷—YgèÛ¢t>=˛˛~â‹Ü⁄92Åœ©ƒãf¡J/ ˚¢±≈
+¥◊Ó6c‰dw	úìNÙI∏0çi€˘ë‘®¸â”ÉW 
+ötÜé˝iCÏ≥>Öÿ—ÛóZ—\j]xî©’a xv§…€}Y
+5§6+Ò±ﬁ¶î˜¨Ñı¨úwi|·cŸ6QPú@ú°ÈRºÿIºÊ…ˆZäÂ,¬>k”ŸíMLhKB≥8ﬂyYeD∂˛“∞dÚÆ1˝ :0öAèÍ›≥'3∞F\ sVÀœ≈I$8·
+è¬Cä|ÃÂ˝e¿]cT%¸$∑ÿò[≈hPÑM∂A<úˆ‡ƒBN\2#‚¡·Êyù“:≈…–_ê  %äÁEûãÂçñûS£QƒiñFV‡Ô0˚·ÁÈ n¶6ßO'ê≥ôåƒ)#M´âóµÁé=1OxiÎ∏çº∏hæz∏5‰É/
++7ﬂ"(lsáÏ⁄a›N˚È)÷ln=›€?cgß≠˝TòÉ[≥E¡”Ö™-†Íc"Weè`VöÀ'íÎ˘C6º‹°øˇÖ·£ﬁ )*…Æe[ïeô	 ≈B©:ô-¯v,	⁄Î¬„:£±Ωi2;é“:uùaQT∏jg<z(Cjà¡<P‹ Z—≈WO·;¯üsé1:á˚„%Ià;)∏Wµ≠†©Ê	-ÎñòòÛ¶…Ò±‘¯ÆÎ8K˝ÀP‘0b÷\+∞∏)ëÉCü∑T¨€d•ﬁ¥‘≈ıxíMâ¢T´MêÌxnçÙó¥=vy"Név^4∂7bì¥†œ´≈9'iO˙Ä∑·….˝‡∫‚êÀÀÁÙÇl¶‘àÀ¬rÃÖ≤ëwù&ŸúOΩ$∞üëy»ìi<◊4e/ë∏Ùy˜¨së˛_©âΩÏ√≠nß∂+ˇ™‘ÿºµ]¯á’5ªiæT‚°Ñ è%˛™÷LTíä˛6iJÂo-p©tÛe]¸Ó.˛¸U	wÇà¨AÒ©⁄$?z|L)Çˇá·üï⁄nÍÕoô¯T©%YS@$- èãõ·yAÊ…ÄñâÄ‹—˘„–ÉZá™’ˆı¶úë´¯˝z'ÄÚ`6Ωh‹[y∆æ¶_œÔª 2⁄˛h‚cÒÄ˙vèèö!5*o]⁄“Ö∫ÊÆ∞çr&T®ˆ_å»ﬁ£ºEoÜFqÏ,XOù!ô»ı%ß‹”o´â´}
+]Ö·tÎµA‡^‘V¥!òØ9˘#4˘)∑r($ûﬁÏ!˝˜ÿQ_~ŸƒªñW:à9MgÇI≥ÌÅ7Ï◊„]±Ì9ô©eÏ¡©´w‰Èñ_'Û‘¢Óà.;˝-ç ‘Oô{5ÒÉ)w∆‚ÃÖˇe"2ªt5§Ï,Ò´.döùYü$ÕÉ£VîñI¸ç(£¬áÙõWø˙˚B—%¡§o´Ëä•Çà˙/üÌüd;7
+´¿TrMf∞ÒsWó‡ÌèœŒÅá‡‹kë<¬K¨üËX≈§áf™Q÷à»°NH…∫I<üÉ∑û¡:âìg+îuNù—dá∏qÒ«˙rsÍÔwèπl´/Ø≤ËƒäÏ	a'∂6°µ–πt)ü&ß7Tvı≈p∞¿9»ﬁÿCuî2hŒØıºêKä_!
+ë± 9Éã€∞ ˘%^2¸“kôï_ﬁ¬µˇ_∫nBXÙˇ˝ˇ-˙¸3Ê*—Ä˛£3ÚÂp/íÖÓM„—ﬂ5–9{—ÿ‹®ÌûIëbÇÆÃmEz ™5Ç3$hèú@@ﬂWŸ!óMïªµ”#ŒÊáL'H√U©A∑˙¢±qØ∂ãs˝¿˝“ñ∑¯&PßíøZ%ÌÛÓñBoÍ6∂ØgFñîU ãù°ŒgÑë·Méúio‡Ü¬°˘¿˙whä›ˆ√ˇÖD(¿âÊ⁄åüBE2ÔÅõ´˝ É…±ó´	l∫O´H=∆ÓÙÙ_bÁZﬁ≤+Í≥3Õ…íæùV≈];Ø¸VXØwÓ§ûW}e÷2ÇN¥H9EeAÏˇöâg˛ª_Êó'b9ãaw‚å‹l'0ÇÎiÄºƒÆ1o
+⁄W/Ü¸›0ä«è#_©Ωdéa±ôêŸ¡‡'ªË@,Ó∞	z$Fª†C¡àr¡ÇC≠êN˙…Ã
+´ÎhoZrﬁ 5a “»õÍáx¡—A–©•∞Ç”qÖ•©‰∏T"U}ôd‚gÒ4©¶Ø√π«Aßx„DŒEÜæïÑô"ƒS(Ù‰¸Tµwoƒ∞º4á‹§€7û–IP˘Õ3YÚuMi‡zY∆∏]Ëó–®î]‚±É%ƒH≈ ’&K”∆uYY√vÒRs‹]‰˝£⁄ÇZ≈ªÙ›˘˜sﬂ<≤(≈Õ•ù7ür∞?1¬ë9˚°Í›ãûÄπñ‘Ò1›ÒÉÂH,≈úJq+œf1≈¿Ω|ˆ“"~£èÖ)nŒ*kcéU¨ÃΩ|@¿ç¶¬Õ%5J Q∞•*±évo˚Í˜b,˘ã@—4edﬁ«¥Ã&HJoL¡(N˘˘:§¶¶C*\-_≠Ó»úa?ZÆÚÛΩhΩF_qÄiÂSŸrq◊Û·LI˙†›è>œy≥»∆ÔÁõåÓ(>j˜ﬂXﬁ5[jÕF^-æM*O™ﬂ[MflÆÚ∏¡¥(Ö≤™[`]´üå¡É[;¨sÿ9}“9jŒ∏:”e«üvNO˜˜:6Ë¡(Ã@xx}Üˇ†?.l¨≥QG}‹ —|w¡êKw‹ª&4.Üæ@gÁ>r≠¥Òü◊[M÷òΩaï†ÕÚ±ÿqÌåìkNW3zπÚÃd—ÀŸ»ïV/#€C‰ñYÚÍ=Õ?ñœπßLÍhñGDbıÙZæø:ÿ*È°	`r+ø<Ó~ÑÃˆBü HSÎ"GlÜúñ¶!€!Îó`.Ì¿ëräoV™?^¿Ògeg¨3æt.Ô0îÔO!€ëÈ(z”ê30πó≥°H“?^S∏ÆÚÊ√ïx—	¯,¿Ëó‡RXØA ·ôÓSÈozE¢ÓvìQ˝Lˆb øMaO¢‚⁄Á#ƒl#6Ò64ˇyà¡ˆ2≈ó¢l^8ız!õ†∑≥’NÏ®±)±<x1®C$ﬂ¯F9%•5]ßX©Â·çÃÏı‰⁄øã!£6O6S‚üªwÃ¥#Oè4ôá4hπÕ ^˙}W∑∂◊≥£ïë§l,M≈éŒ◊tÏ2˝œHÔª…Î)•Ztéû¥ûtˆÿ*€ÔÉ©.ÚÓ‡∑_±Ω˝Æ¸πNÖŒr	ÅØô™XNot∞£l∑&lWâqB¢?ÒÉ¨°,wj¿˝¬z‘¥ÅÛ— ;SÉ®N?î~0vp‹˛dÔ¯≥#|≠'≠≥ˆ«Z}ŒéO:ß≠≥„”ËΩ"ÁHF˜à¨€Ìˇ v¥`ÑË⁄¬"n∫fÚf¨«[3-Û+ÈÒTSƒC&A(è∂C¯ÑëK⁄>]Ú≥≤VS™NÆmD\ 'xN˚,ß:-¡ÔÛcá’ùuQd¥Rˇ®K0û•à^Af†b©®˜Qx‡%öÉ¿jÉ˚óõOÊÖ60ıUâ—2æy#ÖNÚ˚Rû´ƒ§™ÚŸhVÈR9FÎ.øÃbvÁ"›hBD[D)g|Le◊ÓSæ-ûQ [ó∑cÏy°ãjú´ˆj‹(h≠w¯÷_§ØÉ˙}.§Ã!˙€Z'˚Ï˜öù¯∞W¿{7–¸ÿàµäÉó6>ø≈Ê&Œà}⁄Kíæwú—‰òù÷@(
+ﬂæµy|Nt„ 0^>Z\§0Cœ°ÁÓòHnB2Tz∏IÒº7oj∑drû˘»=>Ö±Ä¡¢=∆OrÀá†ï°%©∂`ûGÌ†é‡bˆ∫Ïø —;Ç$<l∆ΩI¢¢ßRÇXù√N–÷§ ¸ﬂøD∂Pï*ÀdU‹a_4ÿ¿|m∏'z∆¯⁄¶é7Ü˚∏„/Ω¿„º
+oMÍ§§OYìeKﬂ»‚€íTez£\K ‰¨9¥Ô°qît§ó¶È„aekUﬁ≤k¨îõæ∂FµA∞à∂ût˜èˆ3ÔGüt>7ı gºÈ å¯˙Ø~‚çfggÁ1ŒŒ˙«^Ê˘≤°E^&Õowê∫›Éué⁄ßüü¥∏€§è[ççÌªÏÏ†+
+∂}+FC≠˝£ŒÈèNéOœÊMOHŒ#¯âmÆ¡˚„Kÿ§åñ©—ÿî´
+Û+âV?es2O÷Oºø:Q	Ô¯>ã hcûCªÒ·”3Ç_∞√„ΩÃ‘z˜ÏÈÜñVŸYßÜÚ)küvZgˆ¯¯Ù∞´◊Üô´§2kœ≥éÄµæ§°FFGg®©’7!®5pÇ¸=•J-"(˜∆∞Å7÷‘vˆ—⁄⁄Í›5Rá˙Å?¡@q@ò€îé,í¯à?mh¿ó¨`V©¢O,9\Ö/ÿLGŒU„Ec‘óIÓ∆~@6±åÛUıªqC-â¸Á#%#≤µÍEb?'¢
+åjLŸë˚"z£ƒyêÕQQ¢ﬁIƒœΩ∂µ]U®Ôé¸À¿ôº¸
+“ê+πD¥@î=Q)†]7s!
+◊bZ-Hx—mõñ¢^c⁄L>)‹¥◊tüıt J8bÍ•Ç ]%Ó%=KexôtÛ§¯Îﬂ¸eÍ¡≥ÃÈ,}˛>÷KÉGÔRº7›°€¶îOÒ‹	H¨^!,lW˙~îûó9ÁL9U
+ÀËÍä¢Æ@Êû ∆˛¿Ω©C¥ÿ\nΩ‹|Bêbê¿˝…Ãã „ß/QÅxŒàµê„(Ãˆ]´º‚5P^,ÕôÂå»)º´]ö®ΩÀk|öUﬁÕ¨∂[ÜR3›—TI–ﬂqÉDäµÙH•<ŸVk	æÅ≤ Æv,@ãû≥]›BccóEµŸãÿ≤g‘3f≤˝[∆TØxçƒ´…)ÂÑli<¿‚Ω^b?cKì 6YÒwË¬Ö}¸îÁßé’˙"
+2d“ƒ˚ ¨%j˜![˙dù’[»Ö∂ŸÿZFèdtVt«áÇ≈åmí«íˇΩæñ{Û≤%D#G7ZaD€ºÔÈÀº<ìØ˚"óYñD…—l„‰bLkªG¸Ü/&_H¥!Fº∂{¬ˇ®“F47»ÙÁ¥ì_¢:œôıf◊7/[r"µôÇïùπnSÎ ‹U»Èí-hFÁ˘Ω≠∑±>Ã+Ωﬂ‚ûì7À5
+„ÛÚÃY.ìπ∏Ÿhl.„DO[∆Wíh8&¿jª±è∂Mmàk∑€ÿî˛±dTx_fî‰û35)˚~ﬁÚ;WmW¸a9=¯UÚÚçJóo À7+]æ%/ﬂ™t˘∂º|{æ˘¸~™æñ©˙ë|]Uz€Îk—T_´÷ÄZ+’Àz¥Z÷KñK·åKøΩl≈w…ÇâLóSﬂaË«Æ»Ç)†„,£·LõŸ≠Ï≥◊0=≥Ë°°ET∂êı&Õ◊ÛÎ2∏≥'#Rˇv™Œè‹ÅÛ•Á—ËLj°ÜÒπhˇî ƒöÒFS3¬		•¸&&Feã±s’sáCx‹⁄nÙßï©˜ƒ˜˚ ^·_´Àé\∑≤˝—$ø$„	l÷‰Wsôäô_&æ≈‡∆1›¶·>Ê»sX€GÉd›ê/¸ QÓ“a±¥ª’ÕÌƒ[ç¬‰)ﬁåÛ!¸çóU¡â/¿èö€—
+å…€Q—±å¡˝Ê’œˇ:èœ—cµ+rŸ◊£;	–ª?ZŒxyŒŸ‹uúΩä=ﬁ≤≥˜˚qù∆õúÀâZ¿^Z≤nßH◊}/QH@'’dHı&s9ƒWWm∑—@^
+Ìµ≠-9¶f*†—(Z]7¢¶YÊJñ44=◊ûnFä±ÂâjÙöÁº¶‚œ~∆¢øÒ<>	‹>/π∏úû?t$èË îœL\=bj≥à>Ïä	ºO√=Ô≈*Î≈Hôå∞X™Íﬁ∂=MΩÀ¡CdŸ€+QºÉÀD—9_<Òõë»[Òá˛•á<{‚˝4ŸŸ¿ıÇc…k™€ ∆¸AS'‡≈xÅ	8≠ÁèŒ=ÃÇÈ¡võ'Â«‡2‰Ê©{)–’–¸Ñùx–Ø6ÇMy –@nÍËE<€‘b6∑√⁄⁄ÍΩ≤4ô“Úãq§RJb&√õ˜÷∂•∏åj«∆G %ç3ÂœO4ãóy®	#K@πÇ3WªemÉÙÓëW&r-ã6MË.Ø!P†´U≥¿EmÇœ]'7ŸﬂZ‘kmŒmçWóıJy/ê∞Yœe»oÄ∆Ω±∂±ù›Xguö•k∂û…çuje[Ÿê≠¨[∑≤A≠l`+õ≤ïÎV6©ïMleK∂bÌ∂›ÿ¢V∂∞ïmŸäµ«vcõZŸ∆VÓ V úµÈVÓR+w±ïÔÀVÓŒ·ÚÕE=ΩvÒÒtÏ˝dÊä=¢XtñÛ‡ÑÒyvÚÚgt/¬Õ≥÷lÍÔ∞od◊f‡ˆg=∑^9W  Hå:”hW¸ª#jΩÇD¬ﬁÚèƒi∑∂º¬`˜Y[fﬂcÎ˘iyÚMµ∂@ß˝ˆJ8ÇÁΩq™c^(t·_BlãGßä¥=™˘y9Ùœ·”uvKô9ƒ‘aíËäèUS†ª
+3s%¯,øœ€j3Î?ﬂK*0±•ô¥9¶[Ÿ"Ri%/Sû∆√ßÅ.&RaD≥µ1Õñ$N¢í–Õxﬂ$∂,gö‹<É%≥*p¡÷û’^~X†i–I w·$X7ﬁó.ôÖmûﬂôé,√âÇrÆ`y≥á…H[Ï◊V_∏4Z^nNú~÷ˇ¥æπ¬jkµÂ<ïˇ¢å˜mé≈Òo†óOÆ ó`=R/\M2≠tVfGypK'Äg¯z¨yÊóÜﬁXŸ6ôÇ4“rõÑåCãRlåMñ ˛’'30Ò<hQÂÙi%pÚ&¡ºN‚liîë)•˜ê√˘rgÂÖL_V∏·©9™RÌÀ€·y5ˆ£à_Ö›]5¯ùè=G√*(ØïÊdg‰x√¬=Õ@Qu±ë<Õ¶pn&fÁ•Ë÷∏W÷^hˆ¸‹rjEììûja⁄ß÷Ê[Ï÷ˆô≤…jßﬁÚ¥S2˙d ˝ùwﬁÂDªi˜ΩuVﬂﬁﬁ^fkÎ`¥WòoÙ4ûo‘Êw}æÕ°ùÄB≤780øòO◊´Ã<–‹îäräñ IV≈Ñ‚Y		ﬁQ"Ø ãÏ“ ∞°¯AXZ$ÎÂ¥â?Öµ∏çÈe⁄‰îjH)YÉökbFC£ÂÓ%©,Ùq!5|cIagé ã„eœíYCßnVçÒòdÊØ¨bK,U+>Ûcó„YiÁMˆh6|ıgDEõxzZÛõ0ı?p(øì=˙/8-Àô{(“‘‹aüÇUu·ÒóªúLi√∆EõÒî6qCı;›R{/<û∏„âVÙUÄ«›ƒ¬QÁf,˜
+y ∆ó‚Ó·É»©•ü%ËÖ∏¸ isÑBº#¸ÜmQ‘	zD¢ºf‰`7≈=Îì !˙ªÏá úÒÔî“‚“d¢˛#ûuãn)8á&ÌRk6¯UDäjü=zz…èˆ1·>>ÎÍå?.EÕ‡la‰˜CQì‡eBhíÜfπO§uﬁt&¬◊≤0SÛŸä†∞çu[√˘Øfœ¿ç&;s™K¡aóõ)#πëÔs!ss!Â˚{ÏÙf√È5;t—¡≤®L»Vzócÿ|›û¨Ùbˇ«.ë%b]Ra$W‚k»Ö”ùÀÖœΩ»\HC'—ÎHçîì˜-Ié$7 :cóÌ˘ô∫∞2ƒ{©í©]˙∂$GæœÜ4ö¶‰1`˚{s¡à|+Ê^ø˜}˜∏Ùm∫˝Yô∑Oü≠næ+≈z¬∫v.îÖŒŸl∂“Ï-Ú ¶æ~≥y{»÷‘õroãà±ºP{‰P˘˛›<áJˆlõ‰;R¨g€ƒŒÅÚÌümﬂ)!⁄ù:,*Ò∂ ê?vn‰º>◊ê≤{ASõz≥(yÀiñç¬-@`a›ß8@p£⁄Óô¯ã—k¥Ã#)ΩjË>Õ—ÿ(‚>¨Ì*ƒÚÜ,Q˜oz±¥¡nÙGD˙ÜBÆ/ø∂¶Œ·Icccm›Fÿc¡£l∞{Ö%»{/Óø•‚æ≈+†¬¬T»]†¥Á%D˚ös±6ﬂÀˇâ’U1^r_ï>C+¡MnQ…ää≈≥:},Cä∆Â7§¯†?{`4ÒíŒ6È_37úb‡qd´¨s√ÜŒUÚ˜∑ı-€Lˆ«!Oø?CÔ5R
+ÛL¿π∂ì"8+º÷µúÕc‰\¡oyﬁÈ≠Ëﬁˆø±29‹ jÎˆ¸`a÷G¢Ÿ	qãKâÂwoá “√yZïT˚≤È9ÚV≈Ví16NÖ©6 À;öÊPœè!Ø∞ı∫Ø<Á3?x>Ù¨56aıCÁä=ÖeÆ~Ê∫œã¥ºE Õ3Áˇ  ˇˇ ·]>Pxú‰\Oo«øÁSLà¿¢/II¶,+íE˛∂,à2zHx∏;$'^ÓlgwE—änΩ(⁄KQ AoΩ˜–=ı£‰¥°ÔÕÏ.˜œÃítî8IyêπÀŸôyˇÔÕ[í~Bü∫l"|è…√Îå;dªﬂ˙à?W‘Oÿ·M¿fóå∫&ü
+9ÌLÈı´Ä«—≠Â)úLh0Ü€lìëà≈g•)⁄#º›æ!ùNgtüdÓì≥d:d≤Õ:1ïcw‘6…ÌÊ¶m1◊ßQtFßÏ∞5sFâÔì·ÿôMxÃ»PH 2˝«â|3gªﬂ#R$Å«<«ì–Ÿ&1ªéùÎàåD;C`IÏÛÄ9Å‹vìh_Ú`Ïl/x‡Ò±p˙Ωûô{›#√ÌÉÆ«Øé>2˝?ââBì3w∂[¶y`ºOáÃ/>±ÿ,©˚˜8„#I2È“àiJø‹ÍÖ◊ØıwÕì>dË˜mÎË8ä¯8`yÃØxƒEt’BñMT6=ÚŸ5—;øvXvN»ÕóA"#&Á˜…F(˘îÍØsE‡·≈k–≤∞Ì≥+•(ñyr.ºeÛ√|[€Ë¡4r\ƒ†	ŸŒ∂:}-ÌàMπÊÿÇA†∂ç´%y&1iAH<a†ÌÓ€°∏∂Yó˛®QÃ´Yê√¸\?ÒXÑ¨∞⁄Ä˛‘ÃÓ¶q8¨‚ç≥ı…!…≠.ΩıŸíÁ-fΩlŸ|aŒa’/—hj_/[ë>"Ìt{õjÜNòD≈ùÂ3å@≤8ë…|èZx_O5‚>®I€G*|ÚÒ·!˛
+ﬁg˘ÃˆIó?}ªdÁ∑Õb/h|Íÿ oß◊”Íù:¨]∏^√çÈè—ôeü∞´†∏óÜ<¶>«ZG ,∫8ƒ>G£ì!ƒÊ˝Soj˝a7ªıì∏Ÿ÷— ~Õ‹8"ÉêπxsÅJãÈîÇAÖT¬Po≥ŸÎ6z Ì{p]õ@Î‡.|1ûﬂ''àQ,·Î˘dq7ZD)yÉïÎŒ By⁄}R∆w	zVxs?ï∂û‡D†ü9,¯–äzÆ±Ÿ"œ‡ˆ}ÚLR fM¸Íj™ÓXGK≥˛JUt•€õdﬂÄÿ™™4Rƒ˙Çœô˙6êŸÖüBg'ßˆ⁄œîu+WV=xx“l°—*ZGˇ˝ˆˇ"g"pîdÅA›4†c6»H^èt√Âˆ¯±ª∂s9·	• P¡»å£XÁ!<@®:;Â.ô	˘÷‘#>üBˆCh V™îÜx)¸&TYn&∫Ø•[Â$!ùKì“ƒ„¯çc–9p†oÃ$ﬁÉ	asÜ`Ë,Ï2X–Ww£éë2≥Ho´ﬁ©*Œ0vÖ∏øN¢òèÊÏ&‹€ôl„≤.o±ˆ¡0âc —¿uÌ3ÙÔ&ı´ıπ˚å6≥Ÿ¡DÃé=/µ€ˆà4öbY7Û˝ëâ∏br?øµù¡©<[®§!d>$Ñƒ≠§∑íƒz–3B≠)@$§
+é©IùìŒù†x}É»4CﬁÉìXAıLú,≥£Äs~§˜f—.´∆å~ç—ÑzbÊLΩ˜b¬À`(®Ù»SÍ&~<_ô¶({–Å#/é¨®Èra7›O…NáúÄ™ã)ƒt4"OÆyLÓ·EúD‰DzÍìOªô∆›D†èÍØΩwè∞Ï"’Sº∑°µ4õ_É9Û ‘€Èë\5ÅÁŸÖkàÛû°3Ù©
+µD8≥—Ù2ç}áéò^a¶x(êo…6\K<ìÏŒB¥Õ∫¶Ù⁄ôa‡Jcj”»ág&‹ÛXPqei’w E6ÿ/i`*g'y»‚crm‡Å√ØN,IFRL”˘P£Ö˛ægPÊX8Ÿ± /‹z`√Æ
+	sÿL8ÛΩcü…∏˙d‚Ù[ñh≠≤≠sà" ¶:yèN√œ¥û¶ÍiÀÀ∫ì√›z»+Üb≈/ÙòS–J=:∂B∫<VYâÙŒ¿
+ÎY‰ÇÉ®_ë§ìUKÈ0ÿö`Bú1¿Ye%†òjiê)uhLô=åR!¢Ä)Rˇ™¥Œkß\àK[Y\™®`f3{º¬ZXNŒú=P¨ΩÂ>£Ñ5õ˝x],ﬂˇÂO5©òº∂—gWëá≥õcø9.ÖË∫.\IöˆT—h ŒBŸxºzÃ¶
+mÉ2vˆ†ó^S\˚m©êô36	ŸX"%¢“ãÃz≥òr?≤*Ö»±‰¡?àA"à…cZ»Ã˛«R`1P∏ÑÆ÷—”Wœüì≥„Oö™A´1NyÂ5]ASπË©ºx˘¸	Èí„¡‡ÙŸŸã'gó?µàÏ…7ﬂêç	m|h“ó«Oüí”«ÎS<Å(Rº[Ù^&⁄π˜°â=yuq“%@ÙÂ´¡:$ﬂºYHô âÍÈCLî ,˜.πTùYxÜ‘E}b+µ∑kK-™À±Û+∂ÒÏ0ø≤üg|N6¿;B>,©Ô9‘ Æ+•û2ªµ›Ô5L∑øŒÊ.ôúÚ MKˆßÇZ∂π≈•;S◊xÚß#$U‹œ‡nò@¨∂Ø∞ØVÀA˘ÈÂ√~?[%ΩÉ‰ß∫}sk=[Å%∂¯öV`Ü?∆
+§≠˙∏ÛﬁoØbJ
+=Ç„`>scr©k)ZE≤Eû±mG«6sL”H√»ŒeıÖï !~L OU
+´íæüb‡˝Ö)⁄Ñ,AEœÇÂ≤‘9nÊ2ß’ÂE4-†Ùn°zA!e+£ΩªÙBÔÈÑˆÍN®èURƒN€˙ü‹9ı,÷âmËED]ƒÖï¯T…l˚V£7‹_'!l«2Â∑˝!HBáê÷ëftì◊»p¯/…r√†Kä_ç˘ÿ¨GLë‚%VìÆ~)pÌÂôŒ"≤ïM&ãgø\ã˘Ó.,f¡È_õ’–’ˇá—¨'˚8π∑ z)÷,[ã∆òøX[˘„ﬂÔ¬VrØb*ı_VF¶7m+∂®y«MÑÕ√z±πY.ΩÁ˚∞ùƒ€
+∑µì¯⁄9{û•ÿ*>)T.$¬F·\0â@’Po¨t“Ïu≥ãW∏‡	,ÿﬁºµËE¶„≠£Oõdi=¸?¿Y®d‘∏e)f—·ÕéŸ∑îN˝UõÃhNƒhƒ±_ÜHMm[µ\	?	blê,ÊR⁄ﬁ'Câ¥√#Ñz W¨ïQD=xÃp`v¢	ü{xÀM≥N˚,Ã’ç©€Zr5SK¡zNª∏í°≈`ôØ.Ù4V;ÎM≤ù~π≤™‘„QøgÌ2»}d•'¡±ÎoSÊÒdjfπdøM@¢û·G√ô«{ûZØ–ÑÄÖ9ûq-LøÿÉ∆˙åzäzÊS<¢[–;çÕubs[Ç°¸é˘¨•µAôÁ˜ø˚Á˛Ò˚‘VMÂ=¨pVyäÔŒ…≥|ä»^G6ˆ	4-˙2äí6mø‡´U√¬¬£“√f”ä(m¢Púîc7Rƒ 0Nx@«/ƒçqc˛ÄJw&Øèñ&‡Ñ‰.M€%2ÂRmjQ˝ ÒX( t§0¸ÉÀ}Æ›9á≠— KY_pé·oÑG0=¨Ô¨qµDCK-ŸŸeI1TÁÖπΩbª©Ω¬ ä5ª+ÃLuËä`ƒÂ¥˝Ê˚?ZIN.N/OOéüì„ìÀ”óg‰7«gßgœæ
+æ
+é%#sëê(IøÃ(7$ÃòÚUlÜ8QlvÅFu\´Ñ˛9Qù6∫πÜaò£ÿB2ÕÂ—ãÁãﬁó7Ëmú¨Á≥«jÕÃ-*–÷∂›u”gV=ƒè…”°zŸŸ)PRuäîC–zÈ¥T~«≤Ùñ•+'Ö%<”÷MöÛÿá-=“ey_ÿaò@@+ä~µûêsıÿ˘‚1ÉZ3¥∆ó>l	ÒGW£•à·Á–
+eÀh,ÌPM9∆O$:ÙÅ?räÚÒ
+`ÙÛ§iª¡’B±µ§›:Ë)Ñ|ÖÌ¡ÒÑeHh∫WÕ›i5º∞†_Ñ∞˝^dŸß€%«aû^/°ùADØÿ«ñÙ+$IË)†pHå∞Ÿ˛Ó⁄ñ:t`yg`:óï6˚Œ∞O’uÖaÎÒ∂-#9ÈbZHQaÕÁ2xì∑d‡&„nî®∆QLÊ˚ŸÒ¨Ç‰~rìéJ’Ô"Î5kˆÆ“cxw˛Êï¢t—~°9Ò„‘8Í˜VÔL|Êã!@›”¿õ"«`«B2çÜj]â`ÂÌàÖÀè^ÜÄ9◊hH|á∞†˜zµæ√ÊÓ≈hZÌI\‰TÎw'™V°È~Ë<L€A=“î8’ómKÁ‚V°¡ºüo)ÇåÇ9IX¡F@°˘ F"„\‘RÎÕM;ƒ
+—äIÂMg≠x»–h	˘[ß°-Ô‡R“h≤].Ïíâ≥kË/4k∞Åbc∂⁄¿öJG§xïõ,≠ï¶„ÊG9"¡</Æ≈|<â[GE•Ô(@zkÓ{,€GgH!94W	’çı4›€Uhi¥’¸M y—¶©…°‹Î–kùñu;u&K≥Aô≈™XÖ<±1œPS»ﬁÀ∂º©KÌC†ﬁ[§W3Vn”ñb«MUÚﬁK5∫T}πë¨J¡ﬂ^:*VÎ ≈®oUâRèEÆ‰!∆Ç€ ˆ√%Ìñvß^|·cÀu∂ÅÔf‡]©„ÒÇm˚di»RïZ èJ◊J%ıŸ*∏ﬂrNc8¨ZD¨ .Î*fLi¨o4¸0n“h∏ƒû»hà=
+ ]uû◊P¬“€\ìçiùQés∑◊nz^†Ω˙ˇ€PÄáô∑,!…‹eÅ¢ñ^cÅ£Q®©YÂ?XIÚ∆ å∆>¡ø∆F]—M•ë‚<≥◊nÏÆ∂ﬁhÄòOÖ@ZÛH'Í(*‡…Éë˛›»¨oÇ°T†”ﬁ-õﬂO}Pr˛Â”f¿xÍª≥Ê⁄iµ®~˝˚odª∑ΩKé≥∑Ùû\úw»â/oÅ¸œÖå˜…NQ°Ná∆&/øQìù¬*c|Q6"œEî(æMãU òòº‚nZ•ƒâáÖ9|≈ˇı$≈DÄóûÚw∫]ò_]BßÓ:ó‘ÌGˇ  ˇˇ ¬?À

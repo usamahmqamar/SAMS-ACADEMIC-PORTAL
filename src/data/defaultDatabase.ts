@@ -1744,6 +1744,20 @@ export const DEFAULT_ACADEMIC_DB = {
       "startDate": "2026-09-01",
       "endDate": "2027-07-23",
       "status": "active"
+    },
+    {
+      "id": "ses-2025-2026",
+      "name": "2025/2026 Academic Session",
+      "startDate": "2025-09-01",
+      "endDate": "2026-07-24",
+      "status": "completed"
+    },
+    {
+      "id": "ses-2027-2028",
+      "name": "2027/2028 Academic Session",
+      "startDate": "2027-09-01",
+      "endDate": "2028-07-22",
+      "status": "planning"
     }
   ],
   "terms": [

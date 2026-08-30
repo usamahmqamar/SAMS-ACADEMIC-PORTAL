@@ -69,112 +69,94 @@ export const ROLE_VISIBILITY: Record<string, {
   'Proprietor': {
     submenus: [
       'dashboard_exec', 'dashboard_health',
-      'students_directory', 'students_coverage',
-      'admissions_hub',
+      'students_directory', 'admissions_hub',
       'staff_directory', 'staff_payroll',
       'academics_curriculum', 'academics_timetable',
-      'attendance_student', 'attendance_staff',
-      'results_entry', 'results_cards', 'results_analysis',
-      'financial_structures', 'financial_billing_hub', 'financial_expenses_reports',
-      'inventory_stores', 'inventory_issuance', 'inventory_reports',
-      'ops_dashboard', 'ops_calendar',
-      'reports_academic', 'reports_financial', 'reports_executive',
-      'comm_notices', 'comm_parent_notif',
-      'admin_users', 'admin_roles', 'admin_audit', 'admin_backup',
-      'admin_branches', 'admin_sessions', 'admin_csv', 'admin_settings'
+      'attendance_student',
+      'results_entry',
+      'financial_billing_hub', 'financial_structures', 'reports_financial',
+      'inventory_stores', 'ops_calendar', 'ops_dashboard',
+      'comm_notices', 'admin_branches', 'admin_users'
     ]
   },
   'Branch Administrator': {
     submenus: [
       'dashboard_exec', 'dashboard_health',
-      'students_directory', 'students_coverage',
-      'admissions_hub',
+      'students_directory', 'admissions_hub',
       'staff_directory', 'staff_payroll',
       'academics_curriculum', 'academics_timetable',
-      'attendance_student', 'attendance_staff',
-      'results_entry', 'results_cards', 'results_analysis',
-      'financial_structures', 'financial_billing_hub', 'financial_expenses_reports',
-      'inventory_stores', 'inventory_issuance', 'inventory_reports',
-      'ops_dashboard', 'ops_calendar',
-      'reports_academic', 'reports_financial', 'reports_executive',
-      'comm_notices', 'comm_parent_notif',
-      'admin_branches', 'admin_sessions', 'admin_csv'
+      'attendance_student',
+      'results_entry',
+      'financial_billing_hub', 'financial_structures', 'reports_financial',
+      'inventory_stores', 'ops_calendar', 'ops_dashboard',
+      'comm_notices', 'admin_branches'
     ]
   },
   'Branch Admin': {
     submenus: [
       'dashboard_exec', 'dashboard_health',
-      'students_directory', 'students_coverage',
-      'admissions_hub',
+      'students_directory', 'admissions_hub',
       'staff_directory', 'staff_payroll',
       'academics_curriculum', 'academics_timetable',
-      'attendance_student', 'attendance_staff',
-      'results_entry', 'results_cards', 'results_analysis',
-      'financial_structures', 'financial_billing_hub', 'financial_expenses_reports',
-      'inventory_stores', 'inventory_issuance', 'inventory_reports',
-      'ops_dashboard', 'ops_calendar',
-      'reports_academic', 'reports_financial', 'reports_executive',
-      'comm_notices', 'comm_parent_notif',
-      'admin_branches', 'admin_sessions', 'admin_csv'
+      'attendance_student',
+      'results_entry',
+      'financial_billing_hub', 'financial_structures', 'reports_financial',
+      'inventory_stores', 'ops_calendar', 'ops_dashboard',
+      'comm_notices', 'admin_branches'
     ]
   },
   'Principal': {
-    modules: ['dashboard', 'students', 'admissions', 'staff', 'academics', 'attendance', 'results', 'calendar_ops', 'reports', 'communication'],
+    modules: ['dashboard', 'students_admissions', 'staff_hr', 'academics_scheduling', 'attendance_results', 'inventory_operations', 'admin_security'],
     submenus: [
       'dashboard_exec', 'dashboard_health',
-      'students_directory', 'students_coverage',
-      'admissions_hub',
+      'students_directory', 'admissions_hub',
       'staff_directory', 'staff_payroll',
       'academics_curriculum', 'academics_timetable',
-      'attendance_student', 'attendance_staff',
-      'results_entry', 'results_cards', 'results_analysis',
-      'ops_dashboard', 'ops_calendar',
-      'reports_academic', 'reports_executive',
-      'comm_notices', 'comm_parent_notif'
+      'attendance_student',
+      'results_entry',
+      'ops_calendar', 'ops_dashboard',
+      'comm_notices'
     ]
   },
   'Accountant': {
-    modules: ['dashboard', 'students', 'staff', 'financial', 'reports', 'communication'],
+    modules: ['dashboard', 'students_admissions', 'staff_hr', 'financial', 'admin_security'],
     submenus: [
       'dashboard_exec', 'dashboard_health',
       'students_directory',
       'staff_directory', 'staff_payroll',
-      'financial_structures', 'financial_billing_hub', 'financial_expenses_reports',
-      'reports_financial',
-      'comm_notices', 'comm_parent_notif'
+      'financial_billing_hub', 'financial_structures', 'reports_financial',
+      'comm_notices'
     ]
   },
   'Teacher': {
-    modules: ['dashboard', 'students', 'academics', 'attendance', 'results', 'calendar_ops', 'reports', 'communication'],
+    modules: ['dashboard', 'students_admissions', 'academics_scheduling', 'attendance_results', 'inventory_operations', 'admin_security'],
     submenus: [
       'dashboard_exec',
-      'students_directory', 'students_coverage',
+      'students_directory',
       'academics_curriculum', 'academics_timetable',
-      'attendance_student', 'attendance_staff',
-      'results_entry', 'results_cards', 'results_analysis',
+      'attendance_student',
+      'results_entry',
       'ops_calendar',
-      'reports_academic',
-      'comm_notices', 'comm_parent_notif'
+      'comm_notices'
     ]
   },
   'Store Manager': {
-    modules: ['dashboard', 'inventory', 'calendar_ops', 'reports'],
+    modules: ['dashboard', 'inventory_operations'],
     submenus: [
       'dashboard_exec',
-      'inventory_stores', 'inventory_issuance', 'inventory_reports',
-      'ops_dashboard',
-      'reports_inventory'
+      'inventory_stores',
+      'ops_dashboard'
     ]
   },
   'Parent': {
-    modules: ['dashboard', 'students', 'attendance', 'results', 'calendar_ops', 'communication'],
+    modules: ['dashboard', 'students_admissions', 'attendance_results', 'inventory_operations', 'admin_security'],
     submenus: [
       'dashboard_health',
       'students_directory',
       'attendance_student',
-      'results_cards',
+      'results_entry',
       'ops_calendar',
-      'comm_notices', 'comm_parent_notif'
+      'comm_notices'
     ]
   }
 };
@@ -189,162 +171,92 @@ export const SAMS_MODULES: PrimaryModule[] = [
   {
     id: 'dashboard',
     name: 'Dashboard',
-    description: 'SAMS executive stats, indexes, and real-time summaries',
+    description: 'Executive overview, health score & institutional analytics',
     icon: LayoutDashboard,
     displayOrder: 1,
     submenu: [
-      { id: 'dashboard_exec', name: 'Executive Overview', description: 'Institutional health, statistics, and high-level summaries', mappedTab: 'overview' },
-      { id: 'dashboard_health', name: 'School Health Score', description: 'Core academic, financial, and attendance ratings', mappedTab: 'health' }
+      { id: 'dashboard_exec', name: 'Executive Overview', description: 'Institutional health, KPIs & executive summaries', mappedTab: 'overview' },
+      { id: 'dashboard_health', name: 'School Health Score', description: 'Academic, financial & attendance performance index', mappedTab: 'health' }
     ]
   },
   {
-    id: 'students',
-    name: 'Students',
-    description: 'Centralized directory, student records, and custom profiles',
+    id: 'students_admissions',
+    name: 'Students & Admissions',
+    description: 'Student directory, dossiers, enrollment & onboarding',
     icon: Users,
     displayOrder: 2,
     submenu: [
-      { id: 'students_directory', name: 'Student Directory', description: 'Interactive student search, status sheets, and ledger links', mappedTab: 'students' },
-      { id: 'students_coverage', name: 'Book & Work Coverage', description: 'Audit individual student exercise book completion and remedial support flags', mappedTab: 'students' }
+      { id: 'students_directory', name: 'Student Directory', description: 'Student profiles, records, enrollment ledger & dossiers', mappedTab: 'students' },
+      { id: 'admissions_hub', name: 'Admissions Hub', description: 'Applications, applicant screening & admission clearance', mappedTab: 'admission' }
     ]
   },
   {
-    id: 'admissions',
-    name: 'Admissions',
-    description: 'Prospect registry, applications workflow, and onboarding portals',
-    icon: FileText,
+    id: 'staff_hr',
+    name: 'Staff & HR',
+    description: 'Faculty directory, employee accounts & monthly payroll',
+    icon: Briefcase,
     displayOrder: 3,
     submenu: [
-      { id: 'admissions_hub', name: 'Admissions Hub', description: 'Interactive multi-stage admission clearing and enrollment desk', mappedTab: 'admission' }
+      { id: 'staff_directory', name: 'Staff & Faculty Registry', description: 'Staff profiles, teacher assignments & employee records', mappedTab: 'teachers' },
+      { id: 'staff_payroll', name: 'Payroll & Compensation', description: 'Monthly attendance matrix, salary logs & payslips', mappedTab: 'teachers' }
     ]
   },
   {
-    id: 'staff',
-    name: 'Staff & HR',
-    description: 'Faculty registry, teacher profiles, and monthly payroll registers',
-    icon: Briefcase,
+    id: 'academics_scheduling',
+    name: 'Academics & Timetable',
+    description: 'Curriculum, classes, subjects & master schedules',
+    icon: Layers,
     displayOrder: 4,
     submenu: [
-      { id: 'staff_directory', name: 'Staff & Teachers', description: 'Central staff registry, profiles, and employee accounts', mappedTab: 'teachers' },
-      { id: 'staff_payroll', name: 'Payroll Register', description: 'Monthly attendance matrix, salary logs, loans, and slips', mappedTab: 'teachers' }
+      { id: 'academics_curriculum', name: 'Classes & Curriculum', description: 'Class sections, syllabus coverage, subjects & schemes', mappedTab: 'classes' },
+      { id: 'academics_timetable', name: 'Timetable / Scheduler', description: 'Visual period scheduler, allocations & room planning', mappedTab: 'scheduler' }
     ]
   },
   {
-    id: 'academics',
-    name: 'Academics',
-    description: 'Classrooms, sections mapping, subjects, and curricula',
-    icon: Layers,
+    id: 'attendance_results',
+    name: 'Attendance & Results',
+    description: 'Daily roll call, exam marks, gradebooks & report cards',
+    icon: ClipboardCheck,
     displayOrder: 5,
     submenu: [
-      { id: 'academics_curriculum', name: 'Academics & Curricula', description: 'Sections, classes, subjects, Islamic studies, and lesson schemes', mappedTab: 'classes' },
-      { id: 'academics_timetable', name: 'Timetable / Scheduler', description: 'Interactive visual timetable of class periods & allocations', mappedTab: 'scheduler' }
-    ]
-  },
-  {
-    id: 'attendance',
-    name: 'Attendance',
-    description: 'Daily registry desk and historic logging tools',
-    icon: ClipboardCheck,
-    displayOrder: 6,
-    submenu: [
-      { id: 'attendance_student', name: 'Student Attendance', description: 'Daily classroom attendance register and session audits', mappedTab: 'attendance_desk' },
-      { id: 'attendance_staff', name: 'Staff Monthly Attendance', description: 'Staff & faculty monthly attendance matrix & clock-in grid', mappedTab: 'attendance_desk' }
-    ]
-  },
-  {
-    id: 'results',
-    name: 'Results',
-    description: 'SAMS examination control, score sheets, and marks logging',
-    icon: Pencil,
-    displayOrder: 7,
-    submenu: [
-      { id: 'results_entry', name: 'Result Entry Ledger', description: 'Continuous assessments and terminal exam marks entry', mappedTab: 'grades' },
-      { id: 'results_cards', name: 'Report Cards & Publishing', description: 'Compile individual report cards and release to Parent Portal', mappedTab: 'grades' },
-      { id: 'results_analysis', name: 'Academic Analysis & Ranking', description: 'Class rankings, subject GPAs, and cohort performance', mappedTab: 'grades' }
+      { id: 'attendance_student', name: 'Daily Attendance Desk', description: 'Classroom roll call register & staff attendance matrix', mappedTab: 'attendance_desk' },
+      { id: 'results_entry', name: 'Examinations & Results', description: 'Continuous assessment, term exam marks & report cards', mappedTab: 'grades' }
     ]
   },
   {
     id: 'financial',
     name: 'Financial Management',
-    description: 'Tuition collections, template builders, and expense logs',
+    description: 'Fee collection, invoicing, expense tracking & accounts',
     icon: Coins,
+    displayOrder: 6,
+    submenu: [
+      { id: 'financial_billing_hub', name: 'Billing & Fee Collections', description: 'Invoices, family balances & instant payment intake', mappedTab: 'financial_settings' },
+      { id: 'financial_structures', name: 'Fee Structures & Expenses', description: 'Fee heads, class templates, discounts & expense ledger', mappedTab: 'financial_settings' },
+      { id: 'reports_financial', name: 'Financial Consolidation', description: 'Corporate audits, branch reconciliations & ledger exports', mappedTab: 'consolidation' }
+    ]
+  },
+  {
+    id: 'inventory_operations',
+    name: 'Stores & Operations',
+    description: 'Asset stock, material issuance, timeline & calendar',
+    icon: Package,
+    displayOrder: 7,
+    submenu: [
+      { id: 'inventory_stores', name: 'Store & Inventory POS', description: 'Stock levels, textbook inventory, sales & asset tracking', mappedTab: 'inventory' },
+      { id: 'ops_calendar', name: 'Academic Calendar & Events', description: 'Term dates, examination windows, holidays & schedules', mappedTab: 'calendar' },
+      { id: 'ops_dashboard', name: 'Operations Readiness', description: 'Administrative operations timeline & readiness checklist', mappedTab: 'operations' }
+    ]
+  },
+  {
+    id: 'admin_security',
+    name: 'Administration & System',
+    description: 'Campus setup, user accounts, notices & security audit',
+    icon: ShieldCheck,
     displayOrder: 8,
     submenu: [
-      { id: 'financial_structures', name: 'Fee Structures & Setup', description: 'Fee heads, class templates, overrides, and discounts', mappedTab: 'financial_settings' },
-      { id: 'financial_billing_hub', name: 'Billing & Collections', description: 'Student invoices, family accounts, and payment intake', mappedTab: 'financial_settings' },
-      { id: 'financial_expenses_reports', name: 'Expenses & Reports', description: 'Operational expenses, balance sheets, and audit reports', mappedTab: 'financial_settings' }
-    ]
-  },
-  {
-    id: 'inventory',
-    name: 'Inventory',
-    description: 'School asset tracking, books registries, and supplies logs',
-    icon: Package,
-    displayOrder: 9,
-    submenu: [
-      { id: 'inventory_stores', name: 'Stores & Stock Levels', description: 'Store bins, textbook stocks, and safe threshold alerts', mappedTab: 'inventory' },
-      { id: 'inventory_issuance', name: 'Material Issuance & Orders', description: 'Stock transfers, book orders, and supplies handover', mappedTab: 'inventory' },
-      { id: 'inventory_reports', name: 'Inventory Reports & Audits', description: 'Depletion audit trails, supplier logs, and store valuation', mappedTab: 'inventory' }
-    ]
-  },
-  {
-    id: 'calendar_ops',
-    name: 'Calendar & Operations',
-    description: 'Schedules, class timetables, and operations indexes',
-    icon: Calendar,
-    displayOrder: 10,
-    submenu: [
-      { id: 'ops_dashboard', name: 'Operations Console', description: 'Administrative operations timeline, tasks, and readiness', mappedTab: 'operations' },
-      { id: 'ops_calendar', name: 'Academic Calendar & Events', description: 'Term dates, exams timelines, holidays, and school events', mappedTab: 'calendar' }
-    ]
-  },
-  {
-    id: 'reports',
-    name: 'Reports & Analytics',
-    description: 'Centralized audits, financial boards, and insights',
-    icon: TrendingUp,
-    displayOrder: 11,
-    submenu: [
-      { id: 'reports_academic', name: 'Academic Reports', description: 'Cohort grading statistics, averages, and student performance', mappedTab: 'analytics_reports' },
-      { id: 'reports_financial', name: 'Financial Reports & Consolidation', description: 'Interactive consolidations, corporate audits, and invoices', mappedTab: 'consolidation' },
-      { id: 'reports_executive', name: 'Executive & Compliance Reports', description: 'Consolidated branch KPI overview, indices, and ratings', mappedTab: 'analytics_reports' }
-    ]
-  },
-  {
-    id: 'communication',
-    name: 'Communication',
-    description: 'SMS notification pipelines, parents letters, and broadcasts',
-    icon: MessageSquare,
-    displayOrder: 12,
-    submenu: [
-      { id: 'comm_notices', name: 'Notice Board & Letters', description: 'Draft general notices, letters, and digital board papers', mappedTab: 'parent' },
-      { id: 'comm_parent_notif', name: 'Parent & Staff Broadcasts', description: 'Class updates, fee reminders, and urgent broadcasts', mappedTab: 'parent' }
-    ]
-  },
-  {
-    id: 'security',
-    name: 'System & Security',
-    description: 'IAM user management, roles matrix, audit logs, and backups',
-    icon: ShieldCheck,
-    displayOrder: 13,
-    submenu: [
-      { id: 'admin_users', name: 'User Management', description: 'Onboard administrators, teachers, and assign accounts', mappedTab: 'security' },
-      { id: 'admin_roles', name: 'Roles & Access Control', description: 'Manage role templates and permissions matrix', mappedTab: 'security' },
-      { id: 'admin_audit', name: 'Audit Logs Ledger', description: 'Immutable ledger tracking user actions and updates', mappedTab: 'security' },
-      { id: 'admin_backup', name: 'Backup & Recovery', description: 'Generate and restore offline database snapshots', mappedTab: 'security' }
-    ]
-  },
-  {
-    id: 'school_setup',
-    name: 'School Setup & Config',
-    description: 'Campus branches, academic sessions, CSV tools, and branding',
-    icon: Building2,
-    displayOrder: 14,
-    submenu: [
-      { id: 'admin_branches', name: 'Campus Branches', description: 'Register school branch records, contacts, and meta tags', mappedTab: 'school_setup' },
-      { id: 'admin_sessions', name: 'Academic Sessions & Terms', description: 'Manage active academic years, timelines, and terms', mappedTab: 'school_setup' },
-      { id: 'admin_csv', name: 'Data Import & Export', description: 'Bulk CSV import/export for students and staff data', mappedTab: 'school_setup' },
-      { id: 'admin_settings', name: 'System Branding & Settings', description: 'ERP branding logos, currency, and global settings', mappedTab: 'school_setup' }
+      { id: 'comm_notices', name: 'Notice Board & Broadcasts', description: 'Institutional notices, parent announcements & SMS', mappedTab: 'parent' },
+      { id: 'admin_branches', name: 'School Setup & Campuses', description: 'Branch configuration, academic sessions & CSV import/export', mappedTab: 'school_setup' },
+      { id: 'admin_users', name: 'User Management & Security', description: 'IAM user accounts, RBAC roles, audit logs & backups', mappedTab: 'security' }
     ]
   }
 ].sort((a, b) => a.displayOrder - b.displayOrder);
@@ -649,7 +561,7 @@ export const Navigation: React.FC<NavigationProps> = ({
       // Fallback defaults based on role if no modules have been clicked yet
       if (topList.length === 0) {
         if (effectiveRole.includes('Admin') || effectiveRole === 'Proprietor') {
-          frequentlyUsedList.push('dashboard_exec', 'admin_audit', 'ops_dashboard');
+          frequentlyUsedList.push('dashboard_exec', 'admin_users', 'ops_dashboard');
         } else if (effectiveRole === 'Teacher') {
           frequentlyUsedList.push('results_entry', 'academics_curriculum');
         } else if (effectiveRole === 'Accountant') {
